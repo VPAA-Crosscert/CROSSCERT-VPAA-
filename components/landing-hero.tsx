@@ -26,7 +26,8 @@ type LanyardProps = {
   transparent?: boolean
 }
 
-function Lanyard({ position = [0, 0, 18], gravity = [0, -10, 0], fov = 20, transparent = true }: LanyardProps) {
+function Lanyard({ position = [0, 0, 17], gravity = [0, -10, 0], fov = 20, transparent = true }: LanyardProps) {
+  // Camera moved further back (z=22 instead of z=18)
   return (
     <div className="relative z-0 w-full h-[24rem] sm:h-[28rem] md:h-[32rem] lg:h-[36rem] xl:h-[44rem] flex justify-center items-center">
       <Canvas camera={{ position, fov }} gl={{ alpha: transparent }} onCreated={({ gl }) => gl.setClearColor(new THREE.Color(0xffffff), transparent ? 0 : 1)}>
@@ -137,12 +138,13 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
 
   return (
     <>
-      <group position={[0, 4, 0]}>
-        <RigidBody ref={fixed} {...segmentProps} type={'fixed' as RigidBodyProps['type']} />
-        <RigidBody position={[0.5, 0, 0]} ref={j1} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.1]} /></RigidBody>
-        <RigidBody position={[1, 0, 0]} ref={j2} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.1]} /></RigidBody>
-        <RigidBody position={[1.5, 0, 0]} ref={j3} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.1]} /></RigidBody>
-        <RigidBody position={[2, 0, 0]} ref={card} {...segmentProps} type={dragged ? ('kinematicPosition' as RigidBodyProps['type']) : ('dynamic' as RigidBodyProps['type'])}>
+      <group position={[0, 3.5, 0]}>
+        {/* Move only the lanyard upwards by increasing the Y position of the lanyard joints and fixed point */}
+        <RigidBody ref={fixed} {...segmentProps} type={'fixed' as RigidBodyProps['type']} position={[0, 0.5, 0]} />
+        <RigidBody position={[0.3, 0.5, 0]} ref={j1} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
+        <RigidBody position={[0.6, 0.5, 0]} ref={j2} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
+        <RigidBody position={[0.9, 0.5, 0]} ref={j3} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
+        <RigidBody position={[1.2, 0, 0]} ref={card} {...segmentProps} type={dragged ? ('kinematicPosition' as RigidBodyProps['type']) : ('dynamic' as RigidBodyProps['type'])}>
           <CuboidCollider args={[0.8, 1.125, 0.01]} />
           <group scale={2.6} position={[0, -1.2, -0.05]} onPointerOver={() => hover(true)} onPointerOut={() => hover(false)} onPointerUp={(e: any) => { e.target.releasePointerCapture(e.pointerId); drag(false) }} onPointerDown={(e: any) => { e.target.setPointerCapture(e.pointerId); drag(new THREE.Vector3().copy(e.point).sub(vec.copy(card.current.translation()))) }}>
             {/* White card base */}
@@ -160,7 +162,8 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
       </group>
       <mesh ref={band}>
         <meshLineGeometry />
-        <meshLineMaterial color="white" depthTest={false} resolution={isSmall ? [1000, 2000] : [1000, 1000]} useMap map={texture} repeat={[-4, 1]} lineWidth={1} />
+        {/* Make the lanyard visually wider by increasing lineWidth */}
+        <meshLineMaterial color="white" depthTest={false} resolution={isSmall ? [1000, 2000] : [1000, 1000]} useMap map={texture} repeat={[-4, 1]} lineWidth={2.2} />
       </mesh>
     </>
   )
