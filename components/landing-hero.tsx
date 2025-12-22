@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, Sparkles } from 'lucide-react'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { Canvas, extend, useFrame } from '@react-three/fiber'
 import { useGLTF, useTexture, Environment, Lightformer } from '@react-three/drei'
 import { BallCollider, CuboidCollider, Physics, RigidBody, useRopeJoint, useSphericalJoint, RigidBodyProps } from '@react-three/rapier'
@@ -26,10 +26,10 @@ type LanyardProps = {
   transparent?: boolean
 }
 
-function Lanyard({ position = [0, 0, 18], gravity = [0, -40, 0], fov = 20, transparent = true }: LanyardProps) {
+function Lanyard({ position = [0, 0, 18], gravity = [0, -10, 0], fov = 20, transparent = true }: LanyardProps) {
   return (
     <div className="relative z-0 w-full h-[24rem] sm:h-[28rem] md:h-[32rem] lg:h-[36rem] xl:h-[44rem] flex justify-center items-center">
-      <Canvas camera={{ position, fov }} gl={{ alpha: transparent }} onCreated={({ gl }) => gl.setClearColor(new THREE.Color(0x000000), transparent ? 0 : 1)}>
+      <Canvas camera={{ position, fov }} gl={{ alpha: transparent }} onCreated={({ gl }) => gl.setClearColor(new THREE.Color(0xffffff), transparent ? 0 : 1)}>
         <ambientLight intensity={Math.PI} />
         <Physics gravity={gravity} timeStep={1 / 60}>
           <Band />
@@ -65,6 +65,8 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
   const { nodes, materials } = useGLTF('/lanyardcard/card.glb') as any
   const texture = useTexture('/lanyardcard/lanyard.png')
   const ccLogo = useTexture('/crosscert-logo.png')
+  const [logoSize, setLogoSize] = useState<[number, number]>([0.9, 0.25])
+  const logoPlane = useMemo(() => new THREE.PlaneGeometry(logoSize[0], logoSize[1]), [logoSize])
   const [curve] = useState(() => new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]))
   const [dragged, drag] = useState<false | THREE.Vector3>(false)
   const [hovered, hover] = useState(false)
@@ -76,6 +78,22 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    if (!ccLogo) return
+    ccLogo.wrapS = ccLogo.wrapT = THREE.RepeatWrapping
+    ccLogo.offset.set(0, 0) // center horizontally
+    ccLogo.needsUpdate = true
+
+    // Fit plane to the logo texture aspect ratio to avoid stretching
+    const img: any = ccLogo.image
+    if (img?.width && img?.height) {
+      const aspect = img.width / img.height
+      const targetHeight = 0.45
+      const targetWidth = Math.min(2.5, targetHeight * aspect)
+      setLogoSize([targetWidth, targetHeight])
+    }
+  }, [ccLogo])
 
   useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], 1])
   useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], 1])
@@ -127,8 +145,13 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
         <RigidBody position={[2, 0, 0]} ref={card} {...segmentProps} type={dragged ? ('kinematicPosition' as RigidBodyProps['type']) : ('dynamic' as RigidBodyProps['type'])}>
           <CuboidCollider args={[0.8, 1.125, 0.01]} />
           <group scale={2.6} position={[0, -1.2, -0.05]} onPointerOver={() => hover(true)} onPointerOut={() => hover(false)} onPointerUp={(e: any) => { e.target.releasePointerCapture(e.pointerId); drag(false) }} onPointerDown={(e: any) => { e.target.setPointerCapture(e.pointerId); drag(new THREE.Vector3().copy(e.point).sub(vec.copy(card.current.translation()))) }}>
+            {/* White card base */}
             <mesh geometry={nodes.card.geometry}>
-              <meshPhysicalMaterial map={ccLogo} map-anisotropy={16} clearcoat={1} clearcoatRoughness={0.15} roughness={0.9} metalness={0.8} />
+              <meshPhysicalMaterial color={new THREE.Color('#ffffff')} clearcoat={1} clearcoatRoughness={0.15} roughness={0.6} metalness={0.1} />
+            </mesh>
+            {/* Logo overlay centered, raised, and forward to avoid z-fighting */}
+            <mesh geometry={logoPlane} position={[0, 0.55, 0.006]}>
+              <meshBasicMaterial map={ccLogo} transparent alphaTest={0.05} toneMapped={false} />
             </mesh>
             <mesh geometry={nodes.clip.geometry} material={materials.metal} material-roughness={0.3} />
             <mesh geometry={nodes.clamp.geometry} material={materials.metal} />
@@ -239,3 +262,4 @@ export function LandingHero() {
     </div>
   )
 }
+

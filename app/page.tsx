@@ -48,7 +48,7 @@ export default function Home() {
       <LandingHero />
 
       {/* Marquee */}
-      <div className="py-2 sm:py-3 -mt-4 sm:-mt-6 overflow-hidden flex items-center justify-center marquee-mask">
+      <div className="py-2 sm:py-3 -mt-8 sm:-mt-30 overflow-hidden flex items-center justify-center marquee-mask">
         <div className="marquee whitespace-nowrap select-none">
           {departments.map((d) => (
             <span
