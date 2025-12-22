@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, MapPin, Calendar, Users, Bookmark } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { toast } from '@/hooks/use-toast'
 import { getEventById, getRegistrationStatus, updateRegistrationStatus, fetchUserDepartment } from '@/lib/event-context'
 import { Event } from '@/lib/event-context'
 import { api, apiCall, getAuthenticatedUserEmail } from '@/lib/api-config'
@@ -22,58 +23,16 @@ const DEPARTMENT_ABBR = {
 
 // Add a reverse mapping function
 const getDepartmentAbbr = (fullName: string): string | null => {
-  if (!fullName) return null
-  // Check if it's already an abbreviation
-  if (Object.values(DEPARTMENT_ABBR).includes(fullName as any)) {
-    return fullName
-  }
-  // Map full name to abbreviation
-  return DEPARTMENT_ABBR[fullName as keyof typeof DEPARTMENT_ABBR] || null
-}
-
-export default function ParticipantEventDetail() {
-  const router = useRouter()
-  const params = useParams()
-  const [isBookmarked, setIsBookmarked] = useState(false)
-  const [event, setEvent] = useState<Event | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [registrationStatus, setRegistrationStatus] = useState<'registered' | 'checked-in' | 'evaluated' | 'none'>('none')
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [buttonLabel, setButtonLabel] = useState('Register Now')
-  const [registrationData, setRegistrationData] = useState<{
-    qr_code?: string
-    qr_code_value?: string
-  } | null>(null)
-  const [hasAccess, setHasAccess] = useState(true)
-  const [userDepartment, setUserDepartment] = useState('')
-  const [eventStatus, setEventStatus] = useState<string>('')
-
-  useEffect(() => {
-    const fetchEvent = async () => {
-      const eventId = params.id as string
-      console.log('[Participant Event Detail] Looking for event with ID:', eventId)
-      
-      // First try to fetch from API
-      try {
-        const eventUrl = api.eventById(eventId)
-        console.log('[Participant Event Detail] Fetching from API:', eventUrl)
-        
-        const response = await apiCall.get(eventUrl)
-        console.log('[Participant Event Detail] API response status:', response.status, response.statusText)
-        
-        if (response.ok) {
-          const apiEvent = await response.json()
-          console.log('[Participant Event Detail] ✅ Event found in API!')
-          console.log('[Participant Event Detail] Event title:', apiEvent.title)
-          
-          // Check if event is public
-          if (apiEvent.is_public === false) {
-            console.warn('[Participant Event Detail] Event is not public')
-            setEvent(null)
-            setLoading(false)
-            return
-          }
-          
+          if (isDuplicateError) {
+            toast({
+              title: 'Already Registered',
+              description: 'You have already registered for this event.',
+              status: 'info',
+            });
+            errorMessage = 'You are already registered for this event';
+            // Optionally, you can still fetch and show the QR code as before, or just return here:
+            return;
+          } else {
           setEvent(apiEvent as Event)
           setEventStatus(apiEvent.status || '')
           
@@ -126,39 +85,48 @@ export default function ParticipantEventDetail() {
           
           // Determine registration status from backend (authoritative) using current user email
           let derivedStatus: 'registered' | 'checked-in' | 'evaluated' | 'none' = 'none'
-          try {
-            const userEmail = await getAuthenticatedUserEmail()
-            if (userEmail) {
-              const regsUrl = `${api.registrations()}?event=${eventId}&email=${encodeURIComponent(userEmail)}`
-              const regsRes = await apiCall.get(regsUrl)
-              if (regsRes.ok) {
-                const regsData = await regsRes.json()
-                const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
-                if (regs.length > 0) {
-                  const reg = regs[0]
-                  if (reg.has_evaluated) {
-                    derivedStatus = 'evaluated'
-                  } else if (reg.is_present) {
-                    derivedStatus = 'checked-in'
-                  } else {
-                    derivedStatus = 'registered'
+          async function fetchRegistrationStatus() {
+            try {
+              const userEmail = await getAuthenticatedUserEmail()
+              if (userEmail) {
+                const regsUrl = `${api.registrations()}?event=${eventId}&email=${encodeURIComponent(userEmail)}`
+                const regsRes = await apiCall.get(regsUrl)
+                if (regsRes.ok) {
+                  const regsData = await regsRes.json()
+                  const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
+                  if (regs.length > 0) {
+                    const reg = regs[0]
+                    if (reg.has_evaluated) {
+                      derivedStatus = 'evaluated'
+                    } else if (reg.is_present) {
+                      derivedStatus = 'checked-in'
+                    } else {
+                      derivedStatus = 'registered'
+                    }
                   }
                 }
               }
+            } catch (regErr) {
+              console.warn('[Participant Event Detail] Could not fetch registration for status:', regErr)
             }
-          } catch (regErr) {
-            console.warn('[Participant Event Detail] Could not fetch registration for status:', regErr)
-          }
 
-          // Fallback to local stored status if backend didn't give us anything
-          if (derivedStatus === 'none') {
-            derivedStatus = getRegistrationStatus(eventId)
-          }
+            // Fallback to local stored status if backend didn't give us anything
+            if (derivedStatus === 'none') {
+              derivedStatus = getRegistrationStatus(eventId)
+            }
 
-          setRegistrationStatus(derivedStatus)
-          
-          const normalizedStatus = (apiEvent.status || '').toLowerCase()
-          if (derivedStatus === 'registered') {
+            setRegistrationStatus(derivedStatus)
+
+            const normalizedStatus = (apiEvent.status || '').toLowerCase()
+            if (derivedStatus === 'registered') {
+              setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
+            } else if (derivedStatus === 'evaluated') {
+              setButtonLabel('View Certificate')
+            } else {
+              setButtonLabel(hasAccess ? 'Register Now' : 'Restricted')
+            }
+          }
+          await fetchRegistrationStatus()
             // Participant is registered; evaluation is allowed only after event is completed
             setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
           } else if (derivedStatus === 'checked-in') {
