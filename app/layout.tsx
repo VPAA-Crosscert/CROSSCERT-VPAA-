@@ -18,6 +18,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
         <meta name="theme-color" content="#bf1818" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="icon" href="/crosscert-logo.png" type="image/png" />
       </head>
       <body className={`${geistSans.className} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>

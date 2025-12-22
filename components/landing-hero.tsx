@@ -85,7 +85,6 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
     ccLogo.wrapS = ccLogo.wrapT = THREE.RepeatWrapping
     ccLogo.offset.set(0, 0) // center horizontally
     ccLogo.needsUpdate = true
-
     // Fit plane to the logo texture aspect ratio to avoid stretching
     const img: any = ccLogo.image
     if (img?.width && img?.height) {
@@ -160,7 +159,7 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
           </group>
         </RigidBody>
       </group>
-      <mesh ref={band} position={[0, -0.4, 0]}>
+            <mesh ref={band} position={[0, 0.5 , 0]}>
         <meshLineGeometry />
         {/* Make the lanyard visually wider by increasing lineWidth */}
         <meshLineMaterial color="white" depthTest={false} resolution={isSmall ? [1000, 2000] : [1000, 1000]} useMap map={texture} repeat={[-4, 1]} lineWidth={2.2} />
