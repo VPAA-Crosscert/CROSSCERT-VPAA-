@@ -138,12 +138,12 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
 
   return (
     <>
-      <group position={[0, 3.5, 0]}>
-        {/* Move only the lanyard upwards by increasing the Y position of the lanyard joints and fixed point */}
-        <RigidBody ref={fixed} {...segmentProps} type={'fixed' as RigidBodyProps['type']} position={[0, 0.5, 0]} />
-        <RigidBody position={[0.3, 0.5, 0]} ref={j1} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
-        <RigidBody position={[0.6, 0.5, 0]} ref={j2} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
-        <RigidBody position={[0.9, 0.5, 0]} ref={j3} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
+      <group position={[0, 3.2, 0]}>
+        {/* Bring the lanyard and ID card a bit down to make them visible */}
+        <RigidBody ref={fixed} {...segmentProps} type={'fixed' as RigidBodyProps['type']} position={[0, 1, 0]} />
+        <RigidBody position={[0.3, 1, 0]} ref={j1} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
+        <RigidBody position={[0.6, 1, 0]} ref={j2} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
+        <RigidBody position={[0.9, 1, 0]} ref={j3} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
         <RigidBody position={[1.2, 0, 0]} ref={card} {...segmentProps} type={dragged ? ('kinematicPosition' as RigidBodyProps['type']) : ('dynamic' as RigidBodyProps['type'])}>
           <CuboidCollider args={[0.8, 1.125, 0.01]} />
           <group scale={2.6} position={[0, -1.2, -0.05]} onPointerOver={() => hover(true)} onPointerOut={() => hover(false)} onPointerUp={(e: any) => { e.target.releasePointerCapture(e.pointerId); drag(false) }} onPointerDown={(e: any) => { e.target.setPointerCapture(e.pointerId); drag(new THREE.Vector3().copy(e.point).sub(vec.copy(card.current.translation()))) }}>
@@ -160,7 +160,7 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
           </group>
         </RigidBody>
       </group>
-      <mesh ref={band}>
+      <mesh ref={band} position={[0, -0.4, 0]}>
         <meshLineGeometry />
         {/* Make the lanyard visually wider by increasing lineWidth */}
         <meshLineMaterial color="white" depthTest={false} resolution={isSmall ? [1000, 2000] : [1000, 1000]} useMap map={texture} repeat={[-4, 1]} lineWidth={2.2} />
@@ -193,7 +193,7 @@ export function LandingHero() {
   }
 
   return (
-    <div className="pt-20 sm:pt-24 md:pt-28 lg:pt-32 pb-12 sm:pb-16 md:pb-20 px-4 sm:px-6 lg:px-8">
+    <div className="pt-8 sm:pt-12 md:pt-16 lg:pt-20 pb-12 sm:pb-16 md:pb-20 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center">
           {/* Left Content */}
