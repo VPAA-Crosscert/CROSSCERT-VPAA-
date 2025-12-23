@@ -21,14 +21,14 @@ export function Navigation() {
   const logoSrc = resolvedTheme === 'dark' ? '/crosscert-typo-white.png' : '/crosscert-typo-black.png'
 
   return (
-    <nav className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 px-12 py-1.5 h-14 rounded-full shadow-lg border border-white/30 min-w-[340px] max-w-[80vw] backdrop-blur-lg bg-white/30 dark:bg-zinc-900/30">
-      <div className="flex items-center justify-between gap-5  w-full -mt-9">
+    <nav className="fixed top-8 left-1/2 transform -translate-x-1/2 z-50 w-[96vw] max-w-xl rounded-full border border-zinc-800/60 dark:border-zinc-200/20 bg-white dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-center pt-4 pb-4 px-4 shadow-none">
+      <div className="flex items-center justify-between w-full px-4 py-1 gap-2 sm:gap-4" style={{minHeight: 'unset', height: '2.2rem'}}>
         {/* Logo */}
         <button
           className="flex items-center gap-2 cursor-pointer flex-shrink-0"
           onClick={() => router.push('/')}
           aria-label="CROSSCERT home"
-        > 
+        >
           {mounted && (
             <Image
               src={logoSrc}
@@ -36,15 +36,16 @@ export function Navigation() {
               width={160}
               height={40}
               priority
-              className="w-28 sm:w-40 h-auto object-contain"
+              className="w-24 sm:w-40 h-auto object-contain"
             />
           )}
         </button>
 
-        <div className="hidden md:flex items-center gap-8 flex-1" />
+        {/* Desktop Spacer */}
+        <div className="hidden md:flex flex-1" />
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           <ThemeToggle />
           <Button
             variant="ghost"
@@ -62,30 +63,42 @@ export function Navigation() {
             Sign In
           </Button>
 
-          {/* Mobile Menu */}
+          {/* Mobile Menu Toggle */}
           <button
-            className="md:hidden p-1.5 rounded-md hover:bg-muted transition-colors"
+            className="md:hidden p-2 rounded-md hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
             onClick={() => setIsOpen(!isOpen)}
             aria-label="Toggle menu"
           >
-            {isOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
+            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
       {/* Mobile Menu Content */}
       {isOpen && (
-        <div className="md:hidden pb-4 pt-2 space-y-2 border-t border-border mt-2">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3"
-            onClick={() => {
-              router.push('/auth/signin')
-              setIsOpen(false)
-            }}
-          >
-            <Bell className="w-5 h-5" />
-            Notifications
-          </Button>
+        <div className="md:hidden absolute left-1/2 top-[calc(100%+0.5rem)] transform -translate-x-1/2 w-[95vw] max-w-3xl bg-white dark:bg-zinc-900 shadow-2xl border border-border rounded-3xl animate-fade-in-down z-50">
+          <div className="flex flex-col gap-2 px-4 py-4">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3"
+              onClick={() => {
+                router.push('/auth/signin')
+                setIsOpen(false)
+              }}
+            >
+              <Bell className="w-5 h-5" />
+              Notifications
+            </Button>
+            <Button
+              variant="default"
+              className="w-full justify-start gap-3 bg-primary hover:bg-primary/90 text-primary-foreground"
+              onClick={() => {
+                router.push('/auth/signin')
+                setIsOpen(false)
+              }}
+            >
+              Sign In
+            </Button>
+          </div>
         </div>
       )}
     </nav>
