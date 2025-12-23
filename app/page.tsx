@@ -13,6 +13,15 @@ export default function Home() {
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme } = useTheme()
   const departments = ['STE', 'CET', 'SBME', 'CHATME', 'HUSOCOM', 'COME', 'CCJE']
+  const departmentGlass: Record<string, string> = {
+    STE: 'bg-blue-800/60 text-blue-100 border-blue-400',
+    CET: 'bg-orange-700/60 text-orange-100 border-orange-400',
+    SBME: 'bg-yellow-600/60 text-yellow-50 border-yellow-400',
+    CHATME: 'bg-zinc-700/60 text-zinc-100 border-zinc-400',
+    HUSOCOM: 'bg-[#6d174b]/70 text-fuchsia-100 border-[#a8326e]',
+    COME: 'bg-sky-800/60 text-sky-100 border-sky-400',
+    CCJE: 'bg-red-800/60 text-red-100 border-red-400',
+  }
 
   useEffect(() => {
     const t = setTimeout(() => setShowSplash(false), 1000)
@@ -53,7 +62,8 @@ export default function Home() {
           {departments.map((d) => (
             <span
               key={`vis-${d}`}
-              className="mx-4 sm:mx-6 md:mx-8 text-base sm:text-lg md:text-xl lg:text-2xl font-bold tracking-wide uppercase text-foreground/80 border border-border rounded-full px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 bg-background/60 backdrop-blur-[1px]"
+              className={`mx-4 sm:mx-6 md:mx-8 text-base sm:text-lg md:text-xl lg:text-2xl font-bold tracking-wide uppercase rounded-full px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 border backdrop-blur-md shadow-sm ${departmentGlass[d] || 'bg-background/60 text-foreground/80 border-border'}`}
+              style={{backgroundClip: 'padding-box', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)'}}
             >
               {d}
             </span>
@@ -62,7 +72,8 @@ export default function Home() {
           {departments.map((d) => (
             <span
               key={`dup-${d}`}
-              className="mx-4 sm:mx-6 md:mx-8 text-base sm:text-lg md:text-xl lg:text-2xl font-bold tracking-wide uppercase text-foreground/80 border border-border rounded-full px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 bg-background/60 backdrop-blur-[1px]"
+              className={`mx-4 sm:mx-6 md:mx-8 text-base sm:text-lg md:text-xl lg:text-2xl font-bold tracking-wide uppercase rounded-full px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 border backdrop-blur-md shadow-sm ${departmentGlass[d] || 'bg-background/60 text-foreground/80 border-border'}`}
+              style={{backgroundClip: 'padding-box', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)'}}
               aria-hidden
             >
               {d}
