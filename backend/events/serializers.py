@@ -27,6 +27,8 @@ class EventSerializer(serializers.ModelSerializer):
             'timezone',
             'category',
             'department',
+            'semester',
+            'school_year',
             'theme',
             'cover_image',
             'is_public',
@@ -42,6 +44,7 @@ class EventSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'registration_count',
+            'attended_count',
             'organizer_name',
         ]
         read_only_fields = [
@@ -51,11 +54,15 @@ class EventSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'registration_count',
+            'attended_count',
             'organizer_name',
         ]
 
     def get_registration_count(self, obj):
         return obj.registrations.count()
+
+    def get_attended_count(self, obj):
+        return obj.registrations.filter(is_present=True).count()
 
     def get_organizer_name(self, obj):
         return obj.organizer.get_full_name() or obj.organizer.username

@@ -105,42 +105,42 @@ export default function AdminCheckIn() {
   }, [])
 
   // Fetch stats when event is selected
-  useEffect(() => {
+  const fetchEventStats = useCallback(async () => {
     if (!selectedEvent) {
-      // Reset to default when no event selected
       setCheckedInCount(0)
       setTotalExpected(0)
       return
     }
 
-    const fetchEventStats = async () => {
-      try {
-        // Fetch total registrations for this event
-        const regsUrl = `${api.registrations()}?event=${selectedEvent}`
-        const regsRes = await apiCall.get(regsUrl)
+    try {
+      const regsUrl = `${api.registrations()}?event=${selectedEvent}`
+      const regsRes = await apiCall.get(regsUrl)
 
-        if (regsRes.ok) {
-          const regsData = await regsRes.json()
-          const registrations = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
-          setTotalExpected(registrations.length)
-
-          // Count how many are checked in (is_present = true)
-          const checkedIn = registrations.filter((reg: any) => reg.is_present === true).length
-          setCheckedInCount(checkedIn)
-        } else {
-          // If API fails, set to 0
-          setTotalExpected(0)
-          setCheckedInCount(0)
+      if (regsRes.ok) {
+        let regsData
+        try {
+          regsData = await regsRes.json()
+        } catch (e) {
+          console.error('Failed to parse registrations JSON', e)
+          return
         }
-      } catch (err) {
-        console.error('Failed to fetch event stats:', err)
-        setTotalExpected(0)
-        setCheckedInCount(0)
-      }
-    }
 
-    fetchEventStats()
+        const registrations = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
+        setTotalExpected(registrations.length)
+
+        const checkedIn = registrations.filter((reg: any) => reg.is_present === true).length
+        setCheckedInCount(checkedIn)
+      } else {
+        console.warn('Failed to fetch stats:', regsRes.status)
+      }
+    } catch (err) {
+      console.error('Failed to fetch event stats:', err)
+    }
   }, [selectedEvent])
+
+  useEffect(() => {
+    fetchEventStats()
+  }, [selectedEvent, fetchEventStats])
 
   const showError = (message: string) => {
     setErrorModalMessage(message)
@@ -154,30 +154,40 @@ export default function AdminCheckIn() {
       return
     }
 
-    if (!code.trim()) {
+    if (!scannedCode || !code.trim()) {
       setTimeout(() => setIsProcessingScan(false), 500)
       return
     }
 
+    const event = events.find(e => e.id.toString() === selectedEvent)
+    const isCompleted = event?.status?.toLowerCase() === 'completed'
+
+    // Determine action based on event status
+    const action = isCompleted ? 'check-out' : 'check-in'
+    const endpoint = isCompleted
+      ? `${api.checkIns()}check-out-by-code/`
+      : `${api.checkIns()}check-in-by-code/`
+
     try {
-      const res = await apiCall.post(`${api.checkIns()}check-in-by-code/`, {
+      const res = await apiCall.post(endpoint, {
         code: code.trim(),
       })
       const data = await res.json()
+
       if (!res.ok) {
-        showError(data.error || data.message || 'Unable to check in participant.')
+        showError(data.error || data.message || `Unable to ${action} participant.`)
         setTimeout(() => setIsProcessingScan(false), 2000)
         return
       }
 
       setParticipantName(`${data.participant_name ?? 'Participant'}`)
-      setCheckedInCount(prev => prev + 1)
+      await fetchEventStats()
       setShowSuccess(true)
-      setLastAction('check-in')
+      setLastAction(action)
 
       toast({
-        title: 'Check-in Successful',
-        description: `${data.participant_name ?? 'Participant'} has been checked in.`,
+        title: `${action === 'check-in' ? 'Check-in' : 'Check-out'} Successful`,
+        description: `${data.participant_name ?? 'Participant'} has been ${action === 'check-in' ? 'checked in' : 'checked out'}.`,
       })
 
       // Reset after showing success
@@ -187,10 +197,10 @@ export default function AdminCheckIn() {
         setIsProcessingScan(false)
       }, 2000)
     } catch (err) {
-      showError('Network error while checking in participant.')
+      showError(`Network error while processing ${action}.`)
       setTimeout(() => setIsProcessingScan(false), 2000)
     }
-  }, [selectedEvent])
+  }, [selectedEvent, events, scannedCode, fetchEventStats])
 
   // Apply stream to video element after it's rendered and start QR scanning
   useEffect(() => {
@@ -377,24 +387,33 @@ export default function AdminCheckIn() {
       return
     }
 
+    const event = events.find(e => e.id.toString() === selectedEvent)
+    const isCompleted = event?.status?.toLowerCase() === 'completed'
+
+    // Determine action based on event status
+    const action = isCompleted ? 'check-out' : 'check-in'
+    const endpoint = isCompleted
+      ? `${api.checkIns()}check-out-by-code/`
+      : `${api.checkIns()}check-in-by-code/`
+
     try {
-      const res = await apiCall.post(`${api.checkIns()}check-in-by-code/`, {
+      const res = await apiCall.post(endpoint, {
         code: scannedCode.trim(),
       })
       const data = await res.json()
       if (!res.ok) {
-        showError(data.error || data.message || 'Unable to check in participant.')
+        showError(data.error || data.message || `Unable to ${action} participant.`)
         return
       }
 
       setParticipantName(`${data.participant_name ?? 'Participant'}`)
-      setCheckedInCount(prev => prev + 1)
+      await fetchEventStats()
       setShowSuccess(true)
-      setLastAction('check-in')
+      setLastAction(action)
 
       toast({
-        title: 'Check-in Successful',
-        description: `${data.participant_name ?? 'Participant'} has been checked in.`,
+        title: `${action === 'check-in' ? 'Check-in' : 'Check-out'} Successful`,
+        description: `${data.participant_name ?? 'Participant'} has been ${action === 'check-in' ? 'checked in' : 'checked out'}.`,
       })
 
       setTimeout(() => {
@@ -402,7 +421,7 @@ export default function AdminCheckIn() {
         setShowSuccess(false)
       }, 2000)
     } catch (err) {
-      showError('Network error while checking in participant.')
+      showError(`Network error while processing ${action}.`)
     }
   }
 
@@ -453,7 +472,7 @@ export default function AdminCheckIn() {
     }
   }
 
-  const attendanceRate = totalExpected > 0 ? Math.round((checkedInCount / totalExpected) * 100) : 0
+  const attendanceRate = totalExpected > 0 ? Math.min(100, Math.round((checkedInCount / totalExpected) * 100)) : 0
 
   return (
     <div className="p-6 space-y-6">
@@ -594,6 +613,7 @@ export default function AdminCheckIn() {
                 className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold"
                 size="lg"
                 onClick={handleScan}
+                disabled={events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() === 'completed'}
               >
                 Check In Participant
               </Button>
@@ -602,6 +622,7 @@ export default function AdminCheckIn() {
                 className="w-full font-semibold"
                 size="lg"
                 onClick={handleCheckOut}
+                disabled={events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() === 'completed'}
               >
                 Check Out Participant
               </Button>

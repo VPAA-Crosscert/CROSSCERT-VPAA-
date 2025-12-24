@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
-import { ArrowLeft, TrendingUp, Users, CalendarCheck, Award } from 'lucide-react'
+import { TrendingUp, Users, CalendarCheck, Award } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 export default function AdminInsights() {
@@ -20,16 +20,8 @@ export default function AdminInsights() {
   const totalCertificates = events.reduce((sum, event) => sum + (event.certificates || 0), 0)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 space-y-6">
       {/* Header */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
-
       <div>
         <h1 className="text-3xl font-bold text-foreground">Insights & Analytics</h1>
         <p className="text-muted-foreground mt-1">View platform statistics and event analytics</p>

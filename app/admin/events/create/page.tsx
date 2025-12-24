@@ -11,7 +11,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { adminApi, apiRequest, authApi, apiCall } from '@/lib/api-config'
 
 const COLLEGES = {
-  'College of Criminal Justice Education': [],
+  'College of Criminal Justice Education': [
+    'Bachelor of Science in Criminology',
+  ],
   'College of Engineering and Technology': [
     'Bachelor of Science in Civil Engineering',
     'Bachelor of Science in Electrical Engineering',
@@ -22,7 +24,7 @@ const COLLEGES = {
     'Bachelor of Science in Hotel and Restaurant Management',
     'Bachelor of Science in Tourism Management',
   ],
-  'College of Arts & Sciences': [
+  'College of Humanities, Social Sciences and Communication': [
     'Bachelor of Science in Psychology',
     'Bachelor of Science in Nursing',
     'Bachelor of Arts in English',
@@ -30,7 +32,38 @@ const COLLEGES = {
     'Bachelor of Science in Chemistry',
   ],
   'College of Maritime Education': ['Bachelor of Science in Marine Transportation (BSMT)'],
+  'School of Teacher Education': [
+    'Bachelor of Elementary Education',
+    'Bachelor of Secondary Education',
+    'Bachelor of Physical Education',
+  ],
+  'School of Business & Management': [
+    'Bachelor of Science in Accountancy',
+    'Bachelor of Science in Business Administration',
+    'Bachelor of Science in Management Accounting',
+  ],
 }
+
+const VENUES = [
+  'HCDC Gymnasium',
+  'Student Lounge',
+  'Sedes Sapientiae',
+  'Function Hall',
+  'Cross Theatre',
+]
+
+const SEMESTERS = [
+  'First Semester',
+  'Second Semester',
+  'Summer',
+]
+
+const SCHOOL_YEARS = [
+  '2024-2025',
+  '2025-2026',
+  '2026-2027',
+  '2027-2028',
+]
 
 const THEMES = [
   { id: 1, name: 'Professional Blue', color: 'bg-blue-600', accent: '#2563eb' },
@@ -76,7 +109,7 @@ export default function CreateEventPage() {
         console.error('Failed to initialize CSRF token:', err)
       }
     }
-    
+
     initializeCsrf()
   }, [])
 
@@ -92,6 +125,8 @@ export default function CreateEventPage() {
   const [venue, setVenue] = useState('')
   const [eventCategory, setEventCategory] = useState('HCDC')
   const [departmentCategory, setDepartmentCategory] = useState('')
+  const [semester, setSemester] = useState('')
+  const [schoolYear, setSchoolYear] = useState('')
 
   // Event options
   const [hasCapacityLimit, setHasCapacityLimit] = useState(false)
@@ -275,6 +310,8 @@ export default function CreateEventPage() {
         timezone,
         category: eventCategory === 'outside' ? 'outside' : eventCategory,
         department: departmentCategory,
+        semester,
+        school_year: schoolYear,
         theme: activeTheme.name,
         cover_image: coverImage,
         is_public: isPublic,
@@ -297,11 +334,11 @@ export default function CreateEventPage() {
       // Post to backend API (ensure trailing slash for Django REST Framework)
       const eventsUrl = adminApi.events().endsWith('/') ? adminApi.events() : `${adminApi.events()}/`
       console.log('[Create Event] Posting to:', eventsUrl, payload)
-      
+
       const response = await apiCall.post(eventsUrl, payload)
-      
+
       console.log('[Create Event] Response status:', response.status, response.statusText)
-      
+
       if (!response.ok) {
         let errorMessage = `Failed to create event: ${response.status} ${response.statusText}`
         try {
@@ -329,9 +366,9 @@ export default function CreateEventPage() {
       console.log('[Create Event] Event ID:', createdEvent.id)
       console.log('[Create Event] Event title:', createdEvent.title)
       console.log('[Create Event] Full response:', JSON.stringify(createdEvent, null, 2))
-      
+
       setIsLoading(false)
-      
+
       // Redirect to the event detail page using the ID from the API response
       if (createdEvent.id) {
         console.log('[Create Event] Redirecting to event detail page:', `/admin/events/${createdEvent.id}`)
@@ -358,11 +395,10 @@ export default function CreateEventPage() {
             <button
               onClick={() => setCurrentStep(step)}
               disabled={step > currentStep + 1}
-              className={`w-10 h-10 rounded-full font-semibold flex items-center justify-center transition-colors ${
-                isActive || isCompleted
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed'
-              }`}
+              className={`w-10 h-10 rounded-full font-semibold flex items-center justify-center transition-colors ${isActive || isCompleted
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
             >
               {step}
             </button>
@@ -437,6 +473,30 @@ export default function CreateEventPage() {
                 <Label>Speakers</Label>
                 <Input value={speakers} onChange={(e) => setSpeakers(e.target.value)} placeholder="John Doe, Jane Smith" />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Semester</Label>
+                  <select
+                    value={semester}
+                    onChange={(e) => setSemester(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-md border border-border bg-background text-foreground"
+                  >
+                    <option value="">Select Semester</option>
+                    {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label>School Year</Label>
+                  <select
+                    value={schoolYear}
+                    onChange={(e) => setSchoolYear(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-md border border-border bg-background text-foreground"
+                  >
+                    <option value="">Select School Year</option>
+                    {SCHOOL_YEARS.map(sy => <option key={sy} value={sy}>{sy}</option>)}
+                  </select>
+                </div>
+              </div>
               <div>
                 <Label>Event Category</Label>
                 <select
@@ -449,8 +509,8 @@ export default function CreateEventPage() {
                   }}
                   className="w-full mt-1 px-3 py-2 rounded-md border border-border bg-background text-foreground"
                 >
-                  <option value="HCDC">HCDC Wide Event</option>
-                  <option value="department">Department Event</option>
+                  <option value="HCDC">HCDC-Wide Event</option>
+                  <option value="department">Departmental Event</option>
                   <option value="outside">Outside Event</option>
                 </select>
               </div>
@@ -476,7 +536,15 @@ export default function CreateEventPage() {
               <div>
                 <Label>Venue *</Label>
                 <div className="flex gap-2">
-                  <Input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="HCDC Gymnasium" />
+                  <Input
+                    value={venue}
+                    onChange={(e) => setVenue(e.target.value)}
+                    placeholder="HCDC Gymnasium"
+                    list="venue-suggestions"
+                  />
+                  <datalist id="venue-suggestions">
+                    {VENUES.map(v => <option key={v} value={v} />)}
+                  </datalist>
                   <Button variant="outline" size="icon">
                     <MapPin className="w-4 h-4" />
                   </Button>

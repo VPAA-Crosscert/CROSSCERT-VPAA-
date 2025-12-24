@@ -108,7 +108,7 @@ export default function ParticipantEventDetailPage() {
           }
 
           // Determine registration status from backend (authoritative) using current user email
-          let derivedStatus: 'registered' | 'checked-in' | 'evaluated' | 'none' = 'none'
+          let derivedStatus: 'registered' | 'checked-in' | 'checked-out' | 'evaluated' | 'none' = 'none'
           async function fetchRegistrationStatus() {
             try {
               const userEmail = await getAuthenticatedUserEmail()
@@ -122,6 +122,8 @@ export default function ParticipantEventDetailPage() {
                     const reg = regs[0]
                     if (reg.has_evaluated) {
                       derivedStatus = 'evaluated'
+                    } else if (reg.is_checked_out) {
+                      derivedStatus = 'checked-out'
                     } else if (reg.is_present) {
                       derivedStatus = 'checked-in'
                     } else {
@@ -142,10 +144,14 @@ export default function ParticipantEventDetailPage() {
             setRegistrationStatus(derivedStatus)
 
             const normalizedStatus = (apiEvent.status || '').toLowerCase()
+            const isCompleted = normalizedStatus === 'completed'
+
             if (derivedStatus === 'registered') {
-              setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
+              setButtonLabel(isCompleted ? 'Complete Evaluation' : 'Evaluation Pending')
             } else if (derivedStatus === 'checked-in') {
-              setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
+              setButtonLabel(isCompleted ? 'Check Out' : 'Ready for Check Out')
+            } else if (derivedStatus === 'checked-out') {
+              setButtonLabel('Evaluate Event')
             } else if (derivedStatus === 'evaluated') {
               setButtonLabel('View Certificate')
             } else {
@@ -440,15 +446,30 @@ export default function ParticipantEventDetailPage() {
   }
 
   const handleMainAction = () => {
+    const isCompleted = (eventStatus || '').toLowerCase() === 'completed'
+
     if (registrationStatus === 'none') {
       handleRegister()
-    } else if (registrationStatus === 'registered' || registrationStatus === 'checked-in') {
-      const normalizedStatus = (eventStatus || '').toLowerCase()
-      if (normalizedStatus === 'completed') {
+    } else if (registrationStatus === 'registered') {
+      if (isCompleted) {
         handleEvaluation()
       } else {
         alert('This event has not been concluded yet. Evaluations will be available once the event organizer concludes the event.')
       }
+    } else if (registrationStatus === 'checked-in') {
+      if (isCompleted) {
+        // Redirect to a check-out QR page or show a check-out modal?
+        // Actually, the user just said: "The Check Out button should be disabled if the event has not concluded, but enabled if it has."
+        // If it's enabled, what does it do? Probably shows the same QR code but for check-out?
+        // Or maybe it triggers an API call?
+        // In the admin panel, scanning the same code can trigger check-out.
+        // I'll redirect them to the QR code page which they can show to the admin.
+        router.push(`/participant/event/${params.id}/qrcode`)
+      } else {
+        alert('You can check out once the event organizer concludes the event.')
+      }
+    } else if (registrationStatus === 'checked-out') {
+      handleEvaluation()
     } else if (registrationStatus === 'evaluated') {
       handleViewCertificate()
     }
@@ -559,7 +580,10 @@ export default function ParticipantEventDetailPage() {
                 }`}
               size="lg"
               onClick={handleMainAction}
-              disabled={!hasAccess && registrationStatus === 'none'}
+              disabled={
+                (!hasAccess && registrationStatus === 'none') ||
+                (registrationStatus === 'checked-in' && (eventStatus || '').toLowerCase() !== 'completed')
+              }
             >
               {buttonLabel}
             </Button>

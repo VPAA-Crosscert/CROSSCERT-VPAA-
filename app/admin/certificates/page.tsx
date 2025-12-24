@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Search, Download, Mail, CheckCircle, Filter, FileText } from 'lucide-react'
+import { Search, Download, Mail, CheckCircle, Filter, FileText } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { api, apiCall, adminApi } from '@/lib/api-config'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -59,7 +59,7 @@ export default function AdminCertificates() {
         const eventsList: EventRecord[] = Array.isArray(eventsData)
           ? eventsData
           : (eventsData.results || eventsData.data || [])
-        
+
         const certificatesList: CertificateRecord[] = Array.isArray(certificatesData)
           ? certificatesData
           : (certificatesData.results || certificatesData.data || [])
@@ -104,18 +104,18 @@ export default function AdminCertificates() {
   }, [])
 
   const filteredCertificates = certificates.filter((cert) => {
-    const matchesSearch = 
+    const matchesSearch =
       cert.participant_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cert.participant_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cert.event_title?.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     const matchesEvent = selectedEvent === 'all' || String(cert.event_id) === selectedEvent
     // Status is based on certificate_file and is_emailed
-    const certStatus = cert.certificate_file 
+    const certStatus = cert.certificate_file
       ? (cert.is_emailed ? 'sent' : 'generated')
       : 'pending'
     const matchesStatus = selectedStatus === 'all' || certStatus === selectedStatus
-    
+
     return matchesSearch && matchesEvent && matchesStatus
   })
 
@@ -127,13 +127,13 @@ export default function AdminCertificates() {
       if (!cert) {
         throw new Error('Certificate not found')
       }
-      
+
       const response = await apiCall.post(`${adminApi.certificates()}${cert.registration}/generate_certificate/`, {})
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || 'Failed to generate certificate')
       }
-      
+
       // Refresh certificates
       const certsRes = await apiCall.get(adminApi.certificates())
       if (certsRes.ok) {
@@ -141,7 +141,7 @@ export default function AdminCertificates() {
         const certsList: CertificateRecord[] = Array.isArray(certsData)
           ? certsData
           : (certsData.results || certsData.data || [])
-        
+
         // Enrich with participant info
         const enrichedCerts = await Promise.all(
           certsList.map(async (c) => {
@@ -169,7 +169,7 @@ export default function AdminCertificates() {
         )
         setCertificates(enrichedCerts)
       }
-      
+
       alert('Certificate generated successfully!')
     } catch (err: any) {
       alert(err.message || 'Failed to generate certificate')
@@ -190,7 +190,7 @@ export default function AdminCertificates() {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || 'Failed to send email')
       }
-      
+
       // Refresh certificates
       const certsRes = await apiCall.get(adminApi.certificates())
       if (certsRes.ok) {
@@ -200,7 +200,7 @@ export default function AdminCertificates() {
           : (certsData.results || certsData.data || [])
         setCertificates(certsList)
       }
-      
+
       alert('Certificate email sent successfully!')
     } catch (err: any) {
       alert(err.message || 'Failed to send email')
@@ -218,18 +218,18 @@ export default function AdminCertificates() {
       alert('Certificate file not available. Please generate it first.')
       return
     }
-    
+
     try {
       // Fetch the certificate file from the backend
-      const fileUrl = cert.certificate_file.startsWith('http') 
-        ? cert.certificate_file 
+      const fileUrl = cert.certificate_file.startsWith('http')
+        ? cert.certificate_file
         : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${cert.certificate_file}`
-      
+
       const response = await fetch(fileUrl)
       if (!response.ok) {
         throw new Error('Failed to download certificate')
       }
-      
+
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -266,16 +266,9 @@ export default function AdminCertificates() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 space-y-6">
       {/* Header */}
       <div>
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
         <h1 className="text-3xl font-bold text-foreground">Certificate Management</h1>
         <p className="text-muted-foreground mt-1">Generate, preview, and send certificates to participants</p>
       </div>
@@ -381,7 +374,7 @@ export default function AdminCertificates() {
                       Issued: {new Date(cert.issued_at).toLocaleDateString()}
                     </p>
                   </div>
-                  
+
                   <div className="flex gap-2">
                     {getCertificateStatus(cert) === 'pending' && (
                       <Button

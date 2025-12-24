@@ -42,11 +42,11 @@ export default function ParticipantDashboard() {
         const eventsUrl = api.events().endsWith('/') ? api.events() : `${api.events()}/`
         console.log('[Participant Dashboard] Fetching events from:', eventsUrl)
         const res = await apiCall.get(eventsUrl)
-        
+
         console.log('[Participant Dashboard] Response status:', res.status, res.statusText)
-        
+
         let eventsList: DashboardEvent[] = []
-        
+
         if (!res.ok) {
           console.warn('[Participant Dashboard] Unable to load events from API. Status:', res.status, res.statusText)
           // Fallback to localStorage if API fails
@@ -63,7 +63,7 @@ export default function ParticipantDashboard() {
             const storedEvents = getStoredEvents()
             eventsList = storedEvents as DashboardEvent[]
           }
-          
+
           // Handle paginated response from Django REST Framework
           if (Array.isArray(data)) {
             eventsList = data as DashboardEvent[]
@@ -80,12 +80,12 @@ export default function ParticipantDashboard() {
             eventsList = storedEvents as DashboardEvent[]
           }
         }
-        
+
         // Filter for public events and upcoming events
         const now = new Date()
         console.log('[Participant Dashboard] Current date/time:', now.toISOString())
         console.log('[Participant Dashboard] Total events before filtering:', eventsList.length)
-        
+
         const publicUpcomingEvents = eventsList
           .filter(event => {
             // Check both is_public (backend) and isPublic (frontend) properties
@@ -110,51 +110,51 @@ export default function ParticipantDashboard() {
             const dateB = b.date ? new Date(b.date).getTime() : 0
             return dateA - dateB // Earliest first
           })
-        
+
         console.log('[Participant Dashboard] Upcoming public events after filtering:', publicUpcomingEvents.length)
         console.log('[Participant Dashboard] Event IDs:', publicUpcomingEvents.map(e => ({ id: e.id, title: e.title || e.name, date: e.date })))
-        
+
         const top3Events = publicUpcomingEvents.slice(0, 3)
         console.log('[Participant Dashboard] Top 3 events to display:', top3Events.length)
         setUpcomingEvents(top3Events)
-        
+
         // Fetch user stats
         const userEmail = await getAuthenticatedUserEmail()
         if (userEmail) {
           try {
             // Fetch registrations
-            const baseUrl = api.registrations().endsWith('/') 
-              ? api.registrations().slice(0, -1) 
+            const baseUrl = api.registrations().endsWith('/')
+              ? api.registrations().slice(0, -1)
               : api.registrations()
             const regsUrl = `${baseUrl}/?email=${encodeURIComponent(userEmail)}`
             const regsRes = await apiCall.get(regsUrl)
-            
+
             if (regsRes.ok) {
               const regsData = await regsRes.json()
-              const registrations = Array.isArray(regsData) 
-                ? regsData 
+              const registrations = Array.isArray(regsData)
+                ? regsData
                 : (regsData.results || regsData.data || [])
-              
+
               const eventsJoined = registrations.length
-              const pendingEvaluations = registrations.filter((reg: any) => 
+              const pendingEvaluations = registrations.filter((reg: any) =>
                 reg.is_present && !reg.has_evaluated
               ).length
-              
+
               // Fetch certificates
-              const certsUrl = api.certificates().endsWith('/') 
-                ? api.certificates() 
+              const certsUrl = api.certificates().endsWith('/')
+                ? api.certificates()
                 : `${api.certificates()}/`
               const certsRes = await apiCall.get(`${certsUrl}?email=${encodeURIComponent(userEmail)}`)
-              
+
               let certificatesEarned = 0
               if (certsRes.ok) {
                 const certsData = await certsRes.json()
-                const certificates = Array.isArray(certsData) 
-                  ? certsData 
+                const certificates = Array.isArray(certsData)
+                  ? certsData
                   : (certsData.results || certsData.data || [])
                 certificatesEarned = certificates.length
               }
-              
+
               setStats({
                 eventsJoined,
                 pendingEvaluations,
@@ -174,7 +174,7 @@ export default function ParticipantDashboard() {
         setLoading(false)
       }
     }
-    
+
     fetchEvents()
   }, [])
 
@@ -267,28 +267,46 @@ export default function ParticipantDashboard() {
           <p className="text-sm text-muted-foreground">Loading events...</p>
         ) : upcomingEvents.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingEvents.map((event) => (
-              <div key={event.id} className="border border-border rounded-lg overflow-hidden bg-background hover:shadow-sm transition-shadow cursor-pointer" onClick={() => router.push(`/participant/event/${event.id}`)}>
-                {(event.coverImage || event.cover_image) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={event.coverImage || event.cover_image || ''} alt={event.name || event.title || 'Event cover'} className="w-full h-36 object-cover" />
-                ) : (
-                  <div className="w-full h-36 bg-gradient-to-br from-secondary/20 to-primary/20" />
-                )}
-                <div className="p-4 space-y-2">
-                  <h3 className="text-lg font-semibold text-foreground line-clamp-1">{event.name || event.title || 'Untitled Event'}</h3>
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <div>📅 {event.date || 'TBA'}</div>
-                    {(event.startTime || event.start_time) && (event.endTime || event.end_time) && (
-                      <div>⏰ {event.startTime || event.start_time} - {event.endTime || event.end_time}</div>
-                    )}
-                    {(event.venue || event.location) && (
-                      <div>📍 {event.venue || event.location}</div>
-                    )}
+            {upcomingEvents.map((event) => {
+              const isEventEnded = (event.date && new Date(event.date) < new Date() && new Date(event.date).getDate() !== new Date().getDate()) || (event as any).status === 'completed'
+
+              return (
+                <div key={event.id} className="border border-border rounded-lg overflow-hidden bg-background hover:shadow-sm transition-shadow cursor-pointer relative" onClick={() => router.push(`/participant/event/${event.id}`)}>
+                  {(event.coverImage || event.cover_image) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={event.coverImage || event.cover_image || ''} alt={event.name || event.title || 'Event cover'} className="w-full h-36 object-cover" />
+                  ) : (
+                    <div className="w-full h-36 bg-gradient-to-br from-secondary/20 to-primary/20" />
+                  )}
+                  {isEventEnded && (
+                    <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground text-[10px] font-bold px-2 py-1 rounded-full shadow-sm backdrop-blur-sm">
+                      EVENT ENDED
+                    </div>
+                  )}
+                  <div className="p-4 space-y-2">
+                    <h3 className="text-lg font-semibold text-foreground line-clamp-1">{event.name || event.title || 'Untitled Event'}</h3>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 shrink-0" />
+                        <span>{event.date || 'TBA'}</span>
+                      </div>
+                      {(event.startTime || event.start_time) && (event.endTime || event.end_time) && (
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 shrink-0" />
+                          <span>{event.startTime || event.start_time} - {event.endTime || event.end_time}</span>
+                        </div>
+                      )}
+                      {(event.venue || event.location) && (
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 shrink-0" />
+                          <span>{event.venue || event.location}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No upcoming events yet</p>

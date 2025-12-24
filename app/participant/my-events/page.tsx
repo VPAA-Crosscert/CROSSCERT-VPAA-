@@ -18,6 +18,7 @@ type Registration = {
   qr_code?: string
   qr_code_value?: string
   is_present: boolean
+  is_checked_out: boolean
   has_evaluated: boolean
 }
 
@@ -52,24 +53,24 @@ export default function MyEvents() {
         setLoading(false)
         return
       }
-      
+
       console.log('[My Events] Authenticated user email:', userEmail)
 
       try {
         // Fetch user's registrations
         // api.registrations() already ends with /, so we use ? not /?
-        const baseUrl = api.registrations().endsWith('/') 
-          ? api.registrations().slice(0, -1) 
+        const baseUrl = api.registrations().endsWith('/')
+          ? api.registrations().slice(0, -1)
           : api.registrations()
         const registrationsUrl = `${baseUrl}/?email=${encodeURIComponent(userEmail)}`
         console.log('[My Events] ========================================')
         console.log('[My Events] Fetching user registrations')
         console.log('[My Events] User email:', userEmail)
         console.log('[My Events] Registrations URL:', registrationsUrl)
-        
+
         const regsRes = await apiCall.get(registrationsUrl)
         console.log('[My Events] Response status:', regsRes.status, regsRes.statusText)
-        
+
         if (!regsRes.ok) {
           console.error('[My Events] ❌ Failed to fetch registrations:', regsRes.status, regsRes.statusText)
           let errorText = ''
@@ -82,14 +83,14 @@ export default function MyEvents() {
           }
           throw new Error(errorText)
         }
-        
+
         const regsData = await regsRes.json()
         console.log('[My Events] Raw registrations data:', regsData)
-        
+
         let registrations: Registration[] = Array.isArray(regsData)
           ? regsData
           : (regsData.results || regsData.data || [])
-        
+
         // CLIENT-SIDE FILTER: Ensure we only show registrations for the authenticated user
         // This is a safety measure in case backend filtering fails
         registrations = registrations.filter(reg => {
@@ -99,32 +100,32 @@ export default function MyEvents() {
           }
           return matches
         })
-        
+
         console.log('[My Events] ✅ Found registrations (after filtering):', registrations.length)
-        console.log('[My Events] Registration IDs:', registrations.map(r => ({ 
-          id: r.id, 
-          event: r.event, 
+        console.log('[My Events] Registration IDs:', registrations.map(r => ({
+          id: r.id,
+          event: r.event,
           email: r.email,
-          qr_code_value: r.qr_code_value 
+          qr_code_value: r.qr_code_value
         })))
-        
+
         if (registrations.length === 0) {
           setLoading(false)
           return
         }
-        
+
         // Fetch event details for each registration
         const eventIds = [...new Set(registrations.map(r => r.event))]
         console.log('[My Events] Unique event IDs to fetch:', eventIds)
         const eventsMap = new Map<number, EventWithRegistration>()
-        
+
         for (const eventId of eventIds) {
           try {
             const eventUrl = api.eventById(eventId)
             console.log(`[My Events] Fetching event ${eventId} from:`, eventUrl)
             const eventRes = await apiCall.get(eventUrl)
             console.log(`[My Events] Event ${eventId} response status:`, eventRes.status)
-            
+
             if (eventRes.ok) {
               const eventData = await eventRes.json()
               console.log(`[My Events] ✅ Event ${eventId} data:`, {
@@ -132,22 +133,23 @@ export default function MyEvents() {
                 title: eventData.title,
                 date: eventData.date,
               })
-              
+
               const registration = registrations.find(r => r.event === eventId && r.email.toLowerCase() === userEmail.toLowerCase())
               console.log(`[My Events] Registration for event ${eventId}:`, {
                 id: registration?.id,
                 email: registration?.email,
                 qr_code_value: registration?.qr_code_value,
                 is_present: registration?.is_present,
+                is_checked_out: registration?.is_checked_out,
               })
-              
+
               if (registration) {
                 // Double-check: ensure registration email matches authenticated user
                 if (registration.email.toLowerCase() !== userEmail.toLowerCase()) {
                   console.warn(`[My Events] ⚠️ Registration email mismatch! Registration: ${registration.email}, User: ${userEmail}`)
                   continue // Skip this registration
                 }
-                
+
                 eventsMap.set(eventId, {
                   ...eventData,
                   registration,
@@ -163,43 +165,50 @@ export default function MyEvents() {
             console.error(`[My Events] ❌ Error fetching event ${eventId}:`, err)
           }
         }
-        
+
         console.log('[My Events] Events map size:', eventsMap.size)
-        
+
         const allEvents = Array.from(eventsMap.values())
         console.log('[My Events] Total events with details:', allEvents.length)
-        
+
         // Separate upcoming and past events
         const now = new Date()
         console.log('[My Events] Current date/time:', now.toISOString())
         const upcoming: EventWithRegistration[] = []
         const past: EventWithRegistration[] = []
-        
+
         allEvents.forEach(event => {
           const eventDate = new Date(event.date)
-          console.log(`[My Events] Event ${event.id} date:`, eventDate.toISOString(), 'vs now:', now.toISOString())
-          if (eventDate >= now) {
+          const status = (event.status || '').toLowerCase()
+          const isCompleted = status === 'completed' || status === 'concluded'
+
+          console.log(`[My Events] Event ${event.id} date:`, eventDate.toISOString(), 'vs now:', now.toISOString(), 'status:', status)
+
+          if (isCompleted) {
+            past.push(event)
+            console.log(`[My Events] Event ${event.id} is past (completed status)`)
+          } else if (eventDate >= now) {
             upcoming.push(event)
             console.log(`[My Events] Event ${event.id} is upcoming`)
           } else {
             past.push(event)
-            console.log(`[My Events] Event ${event.id} is past`)
+            console.log(`[My Events] Event ${event.id} is past (date)`)
           }
         })
-        
+
         // Sort upcoming by date (earliest first)
         upcoming.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        
+
         // Sort past by date (most recent first)
         past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        
+
         console.log('[My Events] Upcoming events count:', upcoming.length)
         console.log('[My Events] Past events count:', past.length)
         console.log('[My Events] ========================================')
-        
+
         setUpcomingEvents(upcoming)
         setPastEvents(past)
-        
+
       } catch (err: any) {
         console.error('[My Events] Error:', err)
         setError(err.message || 'Unable to load your events.')
@@ -207,7 +216,7 @@ export default function MyEvents() {
         setLoading(false)
       }
     }
-    
+
     fetchMyEvents()
   }, [])
 
@@ -250,21 +259,28 @@ export default function MyEvents() {
           ) : (
             upcomingEvents.map((event) => {
               const eventDate = new Date(event.date)
-              const formattedDate = eventDate.toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric' 
+              const formattedDate = eventDate.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
               })
               const startTime = event.start_time || event.startTime || ''
               const location = event.location || event.venue || 'TBA'
-              
+
               return (
                 <Card key={event.id} className="p-4 border border-border bg-card">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-foreground mb-2">
-                        {event.title || event.name || 'Untitled Event'}
-                      </h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-foreground">
+                          {event.title || event.name || 'Untitled Event'}
+                        </h3>
+                        {event.registration.is_present && event.registration.is_checked_out && event.registration.has_evaluated && (
+                          <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 dark:border-green-800 animate-pulse">
+                            COMPLETED
+                          </span>
+                        )}
+                      </div>
                       <div className="space-y-1 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4" />
@@ -284,18 +300,22 @@ export default function MyEvents() {
                       >
                         Show QR
                       </Button>
-                      {!event.registration.is_present ? (
-                        <Button
-                          size="sm"
-                          className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-                          onClick={() => router.push(`/participant/event/${event.id}`)}
-                        >
-                          Check In
-                        </Button>
-                      ) : (
+                      {event.registration.is_present && (
                         <div className="flex items-center gap-1 text-xs text-green-600">
                           <CheckCircle className="w-4 h-4" />
                           Checked In
+                        </div>
+                      )}
+                      {event.registration.is_checked_out && (
+                        <div className="flex items-center gap-1 text-xs text-blue-600">
+                          <CheckCircle className="w-4 h-4" />
+                          Checked Out
+                        </div>
+                      )}
+                      {event.registration.has_evaluated && (
+                        <div className="flex items-center gap-1 text-xs text-purple-600">
+                          <CheckCircle className="w-4 h-4" />
+                          Evaluated
                         </div>
                       )}
                     </div>
@@ -323,22 +343,29 @@ export default function MyEvents() {
           ) : (
             pastEvents.map((event) => {
               const eventDate = new Date(event.date)
-              const formattedDate = eventDate.toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric' 
+              const formattedDate = eventDate.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
               })
               const location = event.location || event.venue || 'TBA'
               const attended = event.registration.is_present
               const evaluated = event.registration.has_evaluated
-              
+
               return (
                 <Card key={event.id} className="p-4 border border-border bg-card">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-foreground mb-2">
-                        {event.title || event.name || 'Untitled Event'}
-                      </h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-foreground">
+                          {event.title || event.name || 'Untitled Event'}
+                        </h3>
+                        {event.registration.is_present && event.registration.is_checked_out && event.registration.has_evaluated && (
+                          <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 dark:border-green-800 animate-pulse">
+                            COMPLETED
+                          </span>
+                        )}
+                      </div>
                       <div className="space-y-1 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4" />
@@ -352,11 +379,15 @@ export default function MyEvents() {
                       <div className="flex gap-4 mt-3">
                         <div className="flex items-center gap-1 text-xs">
                           <CheckCircle className={`w-4 h-4 ${attended ? 'text-green-500' : 'text-muted-foreground'}`} />
-                          {attended ? 'Attended' : 'Not Attended'}
+                          <span className={attended ? 'text-green-600 font-medium' : ''}>{attended ? 'Checked In' : 'Not Checked In'}</span>
                         </div>
                         <div className="flex items-center gap-1 text-xs">
-                          <CheckCircle className={`w-4 h-4 ${evaluated ? 'text-green-500' : 'text-orange-500'}`} />
-                          {evaluated ? 'Evaluated' : 'Pending Evaluation'}
+                          <CheckCircle className={`w-4 h-4 ${event.registration.is_checked_out ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                          <span className={event.registration.is_checked_out ? 'text-blue-600 font-medium' : ''}>{event.registration.is_checked_out ? 'Checked Out' : 'Not Checked Out'}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs">
+                          <CheckCircle className={`w-4 h-4 ${evaluated ? 'text-purple-500' : 'text-orange-500'}`} />
+                          <span className={evaluated ? 'text-purple-600 font-medium' : ''}>{evaluated ? 'Evaluated' : 'Pending Evaluation'}</span>
                         </div>
                       </div>
                     </div>

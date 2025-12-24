@@ -62,6 +62,8 @@ class Event(models.Model):
     timezone = models.CharField(max_length=50, default='Asia/Manila')
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='HCDC')
     department = models.CharField(max_length=120, blank=True)
+    semester = models.CharField(max_length=20, blank=True)
+    school_year = models.CharField(max_length=20, blank=True)
     departmental_details = MarkdownxField(blank=True, null=True, help_text="Markdown supported for departmental events")
     theme = models.CharField(max_length=50, default='Professional Blue')
     cover_image = models.TextField(blank=True)

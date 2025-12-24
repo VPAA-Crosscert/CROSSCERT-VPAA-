@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Search, CheckCircle, Star, Filter } from 'lucide-react'
+import { Search, CheckCircle, Star, Filter } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { api, apiCall, adminApi } from '@/lib/api-config'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -61,7 +61,7 @@ export default function AdminEvaluations() {
         const eventsList: EventRecord[] = Array.isArray(eventsData)
           ? eventsData
           : (eventsData.results || eventsData.data || [])
-        
+
         const evaluationsList: EvaluationRecord[] = Array.isArray(evaluationsData)
           ? evaluationsData
           : (evaluationsData.results || evaluationsData.data || [])
@@ -105,14 +105,14 @@ export default function AdminEvaluations() {
   }, [])
 
   const filteredEvaluations = evaluations.filter((evaluation) => {
-    const matchesSearch = 
+    const matchesSearch =
       evaluation.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       evaluation.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       evaluation.event_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       evaluation.participant_name?.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     const matchesEvent = selectedEvent === 'all' || String(evaluation.event_id) === selectedEvent
-    
+
     return matchesSearch && matchesEvent
   })
 
@@ -127,16 +127,9 @@ export default function AdminEvaluations() {
   }, {} as Record<string, EvaluationRecord[]>)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 space-y-6">
       {/* Header */}
       <div>
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
         <h1 className="text-3xl font-bold text-foreground">Event Evaluations</h1>
         <p className="text-muted-foreground mt-1">View and manage participant evaluations</p>
       </div>
@@ -203,7 +196,7 @@ export default function AdminEvaluations() {
                     <p className="text-sm font-medium text-foreground mb-3">
                       Event: {evaluation.event_title || 'Unknown Event'}
                     </p>
-                    
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Content</p>
@@ -267,7 +260,7 @@ export default function AdminEvaluations() {
                             {evaluation.participant_name || evaluation.name}
                           </h4>
                           <p className="text-sm text-muted-foreground mb-3">{evaluation.email}</p>
-                          
+
                           <div className="flex gap-4">
                             <div className="flex items-center gap-1">
                               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />

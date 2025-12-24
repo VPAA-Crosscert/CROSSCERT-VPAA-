@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, MapPin, Calendar, Bookmark, X, Search, ChevronDown } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { getStoredEvents, fetchUserDepartment } from '@/lib/event-context'
@@ -167,14 +168,8 @@ export default function ParticipantEvents() {
     return normalized
   }
 
-  const availableSchoolYears = useMemo(() => {
-    const sys = new Set<string>()
-    events.forEach((evt) => {
-      const sy = getSchoolYear(evt.date || '')
-      if (sy && sy !== 'UNKNOWN') sys.add(sy)
-    })
-    return ['ALL', ...Array.from(sys).sort().reverse()]
-  }, [events])
+  // Fixed school years from 2021-2022 to 2025-2026
+  const availableSchoolYears = ['ALL', '2025-2026', '2024-2025', '2023-2024', '2022-2023', '2021-2022']
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
@@ -214,10 +209,41 @@ export default function ParticipantEvents() {
     })
   }, [events, searchTerm, selectedCategory, selectedSemester, selectedMonth, selectedSchoolYear])
 
-  // Group events by month
-  const eventsByMonth = useMemo(() => {
-    const grouped: Record<string, Event[]> = {}
+  // Split events into upcoming and past
+  const { upcomingEvents, pastEvents } = useMemo(() => {
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+
+    const upcoming: Event[] = []
+    const past: Event[] = []
+
     filteredEvents.forEach(event => {
+      const status = (event.status || '').toLowerCase()
+      const isCompleted = status === 'completed' || status === 'concluded'
+
+      if (isCompleted) {
+        past.push(event)
+      } else if (event.date) {
+        const eventDate = new Date(event.date)
+        eventDate.setHours(0, 0, 0, 0)
+
+        if (eventDate >= now) {
+          upcoming.push(event)
+        } else {
+          past.push(event)
+        }
+      } else {
+        upcoming.push(event)
+      }
+    })
+
+    return { upcomingEvents: upcoming, pastEvents: past }
+  }, [filteredEvents])
+
+  // Group upcoming events by month
+  const upcomingEventsByMonth = useMemo(() => {
+    const grouped: Record<string, Event[]> = {}
+    upcomingEvents.forEach(event => {
       const month = getMonth(event.date || '')
       if (!grouped[month]) {
         grouped[month] = []
@@ -225,7 +251,6 @@ export default function ParticipantEvents() {
       grouped[month].push(event)
     })
 
-    // Sort months chronologically
     const monthOrder = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
       'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
     const sorted: Record<string, Event[]> = {}
@@ -245,7 +270,39 @@ export default function ParticipantEvents() {
     })
 
     return sorted
-  }, [filteredEvents])
+  }, [upcomingEvents])
+
+  // Group past events by month (reverse chronological)
+  const pastEventsByMonth = useMemo(() => {
+    const grouped: Record<string, Event[]> = {}
+    pastEvents.forEach(event => {
+      const month = getMonth(event.date || '')
+      if (!grouped[month]) {
+        grouped[month] = []
+      }
+      grouped[month].push(event)
+    })
+
+    const monthOrder = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+      'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+    const sorted: Record<string, Event[]> = {}
+    Object.keys(grouped).sort((a, b) => {
+      const aIdx = monthOrder.indexOf(a)
+      const bIdx = monthOrder.indexOf(b)
+      if (aIdx === -1 && bIdx === -1) return 0
+      if (aIdx === -1) return 1
+      if (bIdx === -1) return -1
+      return bIdx - aIdx // Reverse order for past events
+    }).forEach(month => {
+      sorted[month] = grouped[month].sort((a, b) => {
+        const dateA = new Date(a.date || '').getTime()
+        const dateB = new Date(b.date || '').getTime()
+        return dateB - dateA // Reverse order
+      })
+    })
+
+    return sorted
+  }, [pastEvents])
 
   const canAccessEvent = (eventCategory: string, eventDept?: string): boolean => {
     if (eventCategory === 'HCDC') return true
@@ -464,8 +521,6 @@ export default function ParticipantEvents() {
         </div>
       </div>
 
-
-
       {/* Main Layout: Semesters (Left) | Events (Center) | Months (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
         {/* Semesters Filter - Left Column */}
@@ -491,125 +546,233 @@ export default function ParticipantEvents() {
           </div>
         </div>
 
-        {/* Events List - Center Column */}
+        {/* Events Tabs - Center Column */}
         <div className="lg:col-span-8 space-y-6 order-1 lg:order-2">
-          {Object.keys(eventsByMonth).length === 0 ? (
-            <Card className="p-12 border border-border bg-card text-center">
-              <p className="text-muted-foreground">No events found matching your filters</p>
-            </Card>
-          ) : (
-            Object.entries(eventsByMonth).map(([month, monthEvents]) => (
-              <div key={month} className="space-y-4">
-                <h2 className="text-xl font-bold text-foreground border-b border-border pb-2">
-                  {month}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {monthEvents.map((event) => {
-                    const eventCategory = getCategoryFromEvent(event)
-                    const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
-                    const hasAccess = canAccessEvent(event.category || 'HCDC', event.department)
-                    const eventDate = event.date ? new Date(event.date) : null
-                    const formattedDate = eventDate
-                      ? eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : 'TBA'
+          <Tabs defaultValue="upcoming" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="upcoming">Upcoming Events ({upcomingEvents.length})</TabsTrigger>
+              <TabsTrigger value="past">Past Events ({pastEvents.length})</TabsTrigger>
+            </TabsList>
 
-                    const yearOfCourse = getYearOfCourse(event)
+            <TabsContent value="upcoming" className="space-y-6">
+              {Object.keys(upcomingEventsByMonth).length === 0 ? (
+                <Card className="p-12 border border-border bg-card text-center">
+                  <p className="text-muted-foreground">No upcoming events found matching your filters</p>
+                </Card>
+              ) : (
+                Object.entries(upcomingEventsByMonth).map(([month, monthEvents]) => (
+                  <div key={month} className="space-y-4">
+                    <h3 className="text-xl font-bold text-foreground border-b border-border pb-2">
+                      {month}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {monthEvents.map((event) => {
+                        const eventCategory = getCategoryFromEvent(event)
+                        const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
+                        const hasAccess = canAccessEvent(event.category || 'HCDC', event.department)
+                        const eventDate = event.date ? new Date(event.date) : null
+                        const formattedDate = eventDate
+                          ? eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : 'TBA'
 
-                    return (
-                      <Card
-                        key={event.id}
-                        className="overflow-hidden border border-border bg-card hover:shadow-lg transition-all cursor-pointer group"
-                        onClick={() => router.push(`/participant/event/${event.id}`)}
-                      >
-                        <div className="p-4 space-y-3">
-                          {/* Category Tag and Year */}
-                          <div className="flex items-center justify-between">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text}`}>
-                              {eventCategory}
-                            </span>
-                            <span className="text-xs text-muted-foreground font-medium">
-                              {yearOfCourse}
-                            </span>
-                          </div>
+                        const yearOfCourse = getYearOfCourse(event)
 
-                          {/* Event Title */}
-                          <h3 className="font-bold text-lg text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                            {event.name || event.title || 'Untitled Event'}
-                          </h3>
-
-                          {/* Date & Time */}
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Calendar className="w-4 h-4 shrink-0" />
-                            <span>{formattedDate}</span>
-                            {(event.startTime || event.start_time) && (
-                              <>
-                                <span>•</span>
-                                <span>{event.startTime || event.start_time}</span>
-                                {(event.endTime || event.end_time) && (
-                                  <span>- {event.endTime || event.end_time}</span>
-                                )}
-                              </>
-                            )}
-                          </div>
-
-                          {/* Venue */}
-                          {(event.venue || event.location) && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <MapPin className="w-4 h-4 shrink-0" />
-                              <span className="line-clamp-1">{event.venue || event.location}</span>
-                            </div>
-                          )}
-
-                          {/* Actions */}
-                          <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
-                            {registeredEvents.has(String(event.id)) ? (
-                              <>
-                                <Button
-                                  className="flex-1 bg-muted text-foreground"
-                                  disabled
-                                  size="sm"
-                                >
-                                  Registered
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleUnregisterEvent(event)}
-                                >
-                                  Unregister
-                                </Button>
-                              </>
-                            ) : (
-                              <Button
-                                className={`flex-1 ${hasAccess ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                                onClick={() => handleJoinEvent(event)}
-                                disabled={!hasAccess}
-                                size="sm"
-                              >
-                                {hasAccess ? 'Join Event' : 'Restricted'}
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => toggleBookmark(event.id)}
-                              title={bookmarked.has(String(event.id)) ? 'Remove bookmark' : 'Bookmark event'}
-                              className="shrink-0"
-                            >
-                              <Bookmark
-                                className={`w-5 h-5 ${bookmarked.has(String(event.id)) ? 'fill-primary text-primary' : ''}`}
+                        return (
+                          <Card
+                            key={event.id}
+                            className="overflow-hidden border border-border bg-card hover:shadow-lg transition-all cursor-pointer group"
+                            onClick={() => router.push(`/participant/event/${event.id}`)}
+                          >
+                            {/* Banner Image */}
+                            {(event.coverImage || event.cover_image) ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={event.coverImage || event.cover_image || ''}
+                                alt={event.name || event.title || 'Event cover'}
+                                className="w-full aspect-video object-cover"
                               />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-                    )
-                  })}
-                </div>
-              </div>
-            ))
-          )}
+                            ) : (
+                              <div className="w-full aspect-video bg-gradient-to-br from-secondary/20 to-primary/20" />
+                            )}
+
+                            <div className="p-4 space-y-3">
+                              {/* Category Tag and Year */}
+                              <div className="flex items-center justify-between">
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text}`}>
+                                  {eventCategory}
+                                </span>
+                                <span className="text-xs text-muted-foreground font-medium">
+                                  {yearOfCourse}
+                                </span>
+                              </div>
+
+                              {/* Event Title */}
+                              <h3 className="font-bold text-lg text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+                                {event.name || event.title || 'Untitled Event'}
+                              </h3>
+
+                              {/* Date & Time */}
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Calendar className="w-4 h-4 shrink-0" />
+                                <span>{formattedDate}</span>
+                                {(event.startTime || event.start_time) && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{event.startTime || event.start_time}</span>
+                                    {(event.endTime || event.end_time) && (
+                                      <span>- {event.endTime || event.end_time}</span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+
+                              {/* Venue */}
+                              {(event.venue || event.location) && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <MapPin className="w-4 h-4 shrink-0" />
+                                  <span className="line-clamp-1">{event.venue || event.location}</span>
+                                </div>
+                              )}
+
+                              {/* Actions */}
+                              <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                                {registeredEvents.has(String(event.id)) ? (
+                                  <>
+                                    <Button
+                                      className="flex-1 bg-muted text-foreground"
+                                      disabled
+                                      size="sm"
+                                    >
+                                      Registered
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleUnregisterEvent(event)}
+                                    >
+                                      Unregister
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    className={`flex-1 ${hasAccess ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                    onClick={() => handleJoinEvent(event)}
+                                    disabled={!hasAccess}
+                                    size="sm"
+                                  >
+                                    {hasAccess ? 'Join Event' : 'Restricted'}
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => toggleBookmark(event.id)}
+                                  title={bookmarked.has(String(event.id)) ? 'Remove bookmark' : 'Bookmark event'}
+                                  className="shrink-0"
+                                >
+                                  <Bookmark
+                                    className={`w-5 h-5 ${bookmarked.has(String(event.id)) ? 'fill-primary text-primary' : ''}`}
+                                  />
+                                </Button>
+                              </div>
+                            </div>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="past" className="space-y-6">
+              {pastEvents.length === 0 ? (
+                <Card className="p-12 border border-border bg-card text-center">
+                  <p className="text-muted-foreground">No past events found</p>
+                </Card>
+              ) : (
+                Object.entries(pastEventsByMonth).map(([month, monthEvents]) => (
+                  <div key={month} className="space-y-4">
+                    <h3 className="text-xl font-bold text-muted-foreground border-b border-border pb-2">
+                      {month}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {monthEvents.map((event) => {
+                        const eventCategory = getCategoryFromEvent(event)
+                        const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
+                        const eventDate = event.date ? new Date(event.date) : null
+                        const formattedDate = eventDate
+                          ? eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : 'TBA'
+
+                        const yearOfCourse = getYearOfCourse(event)
+
+                        return (
+                          <Card
+                            key={event.id}
+                            className="overflow-hidden border border-border bg-card opacity-75 hover:opacity-100 hover:shadow-lg transition-all cursor-pointer group relative"
+                            onClick={() => router.push(`/participant/event/${event.id}`)}
+                          >
+                            {/* Banner Image with Event Ended Badge */}
+                            <div className="relative">
+                              {(event.coverImage || event.cover_image) ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={event.coverImage || event.cover_image || ''}
+                                  alt={event.name || event.title || 'Event cover'}
+                                  className="w-full aspect-video object-cover grayscale group-hover:grayscale-0 transition-all"
+                                />
+                              ) : (
+                                <div className="w-full aspect-video bg-gradient-to-br from-muted/20 to-muted/40" />
+                              )}
+                              {/* Event Ended Badge */}
+                              <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm">
+                                EVENT ENDED
+                              </div>
+                            </div>
+
+                            <div className="p-4 space-y-3">
+                              {/* Category Tag and Year */}
+                              <div className="flex items-center justify-between">
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text} opacity-80`}>
+                                  {eventCategory}
+                                </span>
+                                <span className="text-xs text-muted-foreground font-medium">
+                                  {yearOfCourse}
+                                </span>
+                              </div>
+
+                              {/* Event Title */}
+                              <h3 className="font-bold text-lg text-muted-foreground line-clamp-2 group-hover:text-foreground transition-colors">
+                                {event.name || event.title || 'Untitled Event'}
+                              </h3>
+
+                              {/* Date & Time */}
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Calendar className="w-4 h-4 shrink-0" />
+                                <span>{formattedDate}</span>
+                              </div>
+
+                              {/* Venue */}
+                              {(event.venue || event.location) && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <MapPin className="w-4 h-4 shrink-0" />
+                                  <span className="line-clamp-1">{event.venue || event.location}</span>
+                                </div>
+                              )}
+                            </div>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
+
+        {/* Months Filter - Right Column */}
         <div className="lg:col-span-2 space-y-4 order-3 hidden lg:block">
           <div className="space-y-2">
             <label className="text-sm font-semibold text-foreground block">School Year</label>
@@ -655,68 +818,56 @@ export default function ParticipantEvents() {
         </div>
       </div>
 
-      {showJoinSuccess && joiningEventId && (
+      {/* Success Modal - Join Event */}
+      {showJoinSuccess && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 border border-border bg-card w-full max-w-xl mx-4">
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-foreground">Successfully joined the event</h2>
-              <p className="text-muted-foreground">
-                You have successfully joined this event. You can view your registration details and QR code in the event page.
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setShowJoinSuccess(false)}
-                >
-                  Close
-                </Button>
-                <Button
-                  className="flex-1 bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-                  onClick={() => {
-                    setShowJoinSuccess(false)
+          <Card className="p-6 border border-border bg-card w-full max-w-md mx-4">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Registration Successful!</h2>
+            <p className="text-muted-foreground mb-6">
+              You have successfully registered for the event. You can check your status in the "My Events" page.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowJoinSuccess(false)}
+              >
+                Close
+              </Button>
+              <Button
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                onClick={() => {
+                  setShowJoinSuccess(false)
+                  if (joiningEventId) {
                     router.push(`/participant/event/${joiningEventId}`)
-                  }}
-                >
-                  Event details
-                </Button>
-              </div>
+                  }
+                }}
+              >
+                View Event Details
+              </Button>
             </div>
           </Card>
         </div>
       )}
 
-      {showUnregisterSuccess && unregisterEventId && (
+      {/* Success Modal - Unregister */}
+      {showUnregisterSuccess && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 border border-border bg-card w-full max-w-xl mx-4">
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-foreground">Successfully unregistered</h2>
-              <p className="text-muted-foreground">
-                Your registration for this event has been revoked.
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setShowUnregisterSuccess(false)}
-                >
-                  Close
-                </Button>
-                <Button
-                  className="flex-1 bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-                  onClick={() => {
-                    setShowUnregisterSuccess(false)
-                    router.push(`/participant/event/${unregisterEventId}`)
-                  }}
-                >
-                  Event details
-                </Button>
-              </div>
+          <Card className="p-6 border border-border bg-card w-full max-w-md mx-4">
+            <h2 className="text-xl font-bold text-foreground mb-4">Unregistered Successfully</h2>
+            <p className="text-muted-foreground mb-6">
+              You have been removed from the event registration list.
+            </p>
+            <div className="flex justify-end">
+              <Button
+                variant="default"
+                onClick={() => setShowUnregisterSuccess(false)}
+              >
+                Okay
+              </Button>
             </div>
           </Card>
         </div>
       )}
-
     </div>
   )
 }

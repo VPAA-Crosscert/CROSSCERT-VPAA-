@@ -33,7 +33,7 @@ export interface Event {
 
 export interface RegistrationStatus {
   eventId: string | number
-  status: 'registered' | 'checked-in' | 'evaluated' | 'none'
+  status: 'registered' | 'checked-in' | 'checked-out' | 'evaluated' | 'none'
 }
 
 export const getStoredEvents = (): Event[] => {
@@ -57,12 +57,12 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
 export const getDepartmentFromUser = (): string => {
   if (typeof window === 'undefined') return ''
-  
+
   // Return cached value if still valid
   if (userDepartmentCache && Date.now() - userDepartmentCacheTime < CACHE_DURATION) {
     return userDepartmentCache
   }
-  
+
   // Try to fetch from API (async, but return empty for now)
   // Components should use fetchUserDepartment() instead
   return ''
@@ -70,18 +70,18 @@ export const getDepartmentFromUser = (): string => {
 
 export const fetchUserDepartment = async (): Promise<string> => {
   if (typeof window === 'undefined') return ''
-  
+
   // Return cached value if still valid
   if (userDepartmentCache && Date.now() - userDepartmentCacheTime < CACHE_DURATION) {
     return userDepartmentCache
   }
-  
+
   try {
     const { authApi, apiRequest } = await import('@/lib/api-config')
     const response = await apiRequest(authApi.me(), {
       method: 'GET',
     })
-    
+
     if (response.ok) {
       const data = await response.json()
       if (data.authenticated && data.user && data.user.department) {
@@ -93,7 +93,7 @@ export const fetchUserDepartment = async (): Promise<string> => {
   } catch (err) {
     console.error('[event-context] Error fetching user department:', err)
   }
-  
+
   return ''
 }
 
