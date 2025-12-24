@@ -3,13 +3,25 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { LayoutDashboard, Calendar, Users, BarChart3, Settings, LogOut, QrCode, Search, Menu, X, FileText, Star } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
+import { useTheme } from 'next-themes'
+import Image from 'next/image'
 
 export function AdminSidebar() {
   const router = useRouter()
   const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState('')
+  const { theme, resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const logoSrc = mounted && (resolvedTheme === 'dark' || theme === 'dark')
+    ? '/hcdc white.png'
+    : '/hcdc red.png'
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
@@ -46,13 +58,24 @@ export function AdminSidebar() {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex fixed left-0 top-0 w-64 h-screen bg-card border-r border-border flex-col pt-16 z-30">
         <div className="p-4 space-y-4">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/admin/dashboard')}>
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-primary-foreground font-bold text-sm">C</span>
-            </div>
-            <span className="font-bold text-foreground text-sm sm:text-base">CROSSCERT</span>
+          <div className="flex items-center justify-center cursor-pointer" onClick={() => router.push('/admin/dashboard')}>
+            {mounted && (
+              <Image
+                src={logoSrc}
+                alt="HCDC"
+                width={160}
+                height={40}
+                className="w-full max-w-[140px] h-auto object-contain"
+                priority
+              />
+            )}
+            {!mounted && (
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
+                <span className="text-primary-foreground font-bold text-sm">C</span>
+              </div>
+            )}
           </div>
-          
+
           {/* Search bar */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -74,11 +97,10 @@ export function AdminSidebar() {
                 key={item.href}
                 variant={isActive(item.href) ? 'default' : 'ghost'}
                 size="sm"
-                className={`w-full justify-start gap-3 text-sm ${
-                  isActive(item.href)
+                className={`w-full justify-start gap-3 text-sm ${isActive(item.href)
                     ? 'bg-primary text-primary-foreground'
                     : 'text-foreground hover:bg-muted'
-                }`}
+                  }`}
                 onClick={() => router.push(item.href)}
               >
                 <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -103,18 +125,28 @@ export function AdminSidebar() {
       </aside>
 
       {/* Mobile sidebar */}
-      <aside className={`md:hidden fixed left-0 top-0 w-64 sm:w-72 h-screen bg-card border-r border-border flex-col z-30 overflow-y-auto transform transition-transform duration-300 ease-in-out ${
-        isMobileOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      <aside className={`md:hidden fixed left-0 top-0 w-64 sm:w-72 h-screen bg-card border-r border-border flex-col z-30 overflow-y-auto transform transition-transform duration-300 ease-in-out ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => {
+          <div className="flex items-center justify-center flex-1 cursor-pointer" onClick={() => {
             router.push('/admin/dashboard')
             setIsMobileOpen(false)
           }}>
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">C</span>
-            </div>
-            <span className="font-bold text-foreground text-sm">CROSSCERT</span>
+            {mounted && (
+              <Image
+                src={logoSrc}
+                alt="HCDC"
+                width={140}
+                height={35}
+                className="w-full max-w-[120px] h-auto object-contain"
+                priority
+              />
+            )}
+            {!mounted && (
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-sm">C</span>
+              </div>
+            )}
           </div>
           <button
             onClick={() => setIsMobileOpen(false)}
@@ -146,11 +178,10 @@ export function AdminSidebar() {
                 key={item.href}
                 variant={isActive(item.href) ? 'default' : 'ghost'}
                 size="sm"
-                className={`w-full justify-start gap-3 text-sm ${
-                  isActive(item.href)
+                className={`w-full justify-start gap-3 text-sm ${isActive(item.href)
                     ? 'bg-primary text-primary-foreground'
                     : 'text-foreground hover:bg-muted'
-                }`}
+                  }`}
                 onClick={() => {
                   router.push(item.href)
                   setIsMobileOpen(false)

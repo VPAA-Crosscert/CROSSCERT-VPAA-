@@ -2,12 +2,13 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { ArrowLeft, QrCode, BarChart3, Camera } from 'lucide-react'
+import { ArrowLeft, QrCode, BarChart3, Camera, X } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api, apiCall } from '@/lib/api-config'
+import { toast } from '@/hooks/use-toast'
 import jsQR from 'jsqr'
 
 type EventRecord = {
@@ -22,27 +23,30 @@ export default function AdminCheckIn() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  
+
   const [events, setEvents] = useState<EventRecord[]>([])
   const [selectedEvent, setSelectedEvent] = useState<string>('')
   const [cameraActive, setCameraActive] = useState(false)
   const [scannedCode, setScannedCode] = useState('')
   const [participantName, setParticipantName] = useState('')
   const [checkedInCount, setCheckedInCount] = useState(0)
+  const [totalExpected, setTotalExpected] = useState(0)
   const [showSuccess, setShowSuccess] = useState(false)
   const [lastAction, setLastAction] = useState<'check-in' | 'check-out' | null>(null)
   const [eventsLoading, setEventsLoading] = useState(true)
   const [eventsError, setEventsError] = useState('')
   const [isProcessingScan, setIsProcessingScan] = useState(false)
+  const [showErrorModal, setShowErrorModal] = useState(false)
+  const [errorModalMessage, setErrorModalMessage] = useState('')
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Fetch events on mount
   useEffect(() => {
     const fetchEvents = async () => {
       setEventsLoading(true)
       setEventsError('')
       try {
         // Prefer localStorage events to avoid backend calls during local development
-        // This matches the behavior of the Events page
         const existing = localStorage.getItem('crosscert_local_events')
         if (existing) {
           try {
@@ -73,13 +77,11 @@ export default function AdminCheckIn() {
           return
         }
         const data = await res.json()
-        
-        // Ensure events is an array (handle paginated responses or other formats)
-        const events: EventRecord[] = Array.isArray(data) 
-          ? data 
+
+        const events: EventRecord[] = Array.isArray(data)
+          ? data
           : (data.results || data.data || [])
 
-        // Validate each event - handle both 'title' and 'name' properties, and keep status
         const validEvents = events
           .filter((evt) => evt && evt.id)
           .map((evt) => ({
@@ -87,7 +89,7 @@ export default function AdminCheckIn() {
             title: evt.title || evt.name || `Event #${evt.id}`,
             status: evt.status,
           }))
-        
+
         setEvents(validEvents)
         if (validEvents.length === 0 && events.length > 0) {
           setEventsError('Events loaded but none are valid.')
@@ -102,9 +104,52 @@ export default function AdminCheckIn() {
     fetchEvents()
   }, [])
 
+  // Fetch stats when event is selected
+  useEffect(() => {
+    if (!selectedEvent) {
+      // Reset to default when no event selected
+      setCheckedInCount(0)
+      setTotalExpected(0)
+      return
+    }
+
+    const fetchEventStats = async () => {
+      try {
+        // Fetch total registrations for this event
+        const regsUrl = `${api.registrations()}?event=${selectedEvent}`
+        const regsRes = await apiCall.get(regsUrl)
+
+        if (regsRes.ok) {
+          const regsData = await regsRes.json()
+          const registrations = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
+          setTotalExpected(registrations.length)
+
+          // Count how many are checked in (is_present = true)
+          const checkedIn = registrations.filter((reg: any) => reg.is_present === true).length
+          setCheckedInCount(checkedIn)
+        } else {
+          // If API fails, set to 0
+          setTotalExpected(0)
+          setCheckedInCount(0)
+        }
+      } catch (err) {
+        console.error('Failed to fetch event stats:', err)
+        setTotalExpected(0)
+        setCheckedInCount(0)
+      }
+    }
+
+    fetchEventStats()
+  }, [selectedEvent])
+
+  const showError = (message: string) => {
+    setErrorModalMessage(message)
+    setShowErrorModal(true)
+  }
+
   const handleAutoScan = useCallback(async (code: string) => {
     if (!selectedEvent) {
-      alert('Please select an event first')
+      showError('Please select an event first')
       setTimeout(() => setIsProcessingScan(false), 1000)
       return
     }
@@ -120,7 +165,7 @@ export default function AdminCheckIn() {
       })
       const data = await res.json()
       if (!res.ok) {
-        alert(data.error || data.message || 'Unable to check in participant.')
+        showError(data.error || data.message || 'Unable to check in participant.')
         setTimeout(() => setIsProcessingScan(false), 2000)
         return
       }
@@ -130,6 +175,11 @@ export default function AdminCheckIn() {
       setShowSuccess(true)
       setLastAction('check-in')
 
+      toast({
+        title: 'Check-in Successful',
+        description: `${data.participant_name ?? 'Participant'} has been checked in.`,
+      })
+
       // Reset after showing success
       setTimeout(() => {
         setScannedCode('')
@@ -137,7 +187,7 @@ export default function AdminCheckIn() {
         setIsProcessingScan(false)
       }, 2000)
     } catch (err) {
-      alert('Network error while checking in participant.')
+      showError('Network error while checking in participant.')
       setTimeout(() => setIsProcessingScan(false), 2000)
     }
   }, [selectedEvent])
@@ -147,7 +197,7 @@ export default function AdminCheckIn() {
     if (cameraActive && streamRef.current && videoRef.current) {
       const video = videoRef.current
       const stream = streamRef.current
-      
+
       video.srcObject = stream
 
       // Ensure video plays
@@ -163,7 +213,7 @@ export default function AdminCheckIn() {
       if (canvasRef.current && video) {
         const canvas = canvasRef.current
         const context = canvas.getContext('2d', { willReadFrequently: true })
-        
+
         if (context) {
           // Set canvas size to match video
           const updateCanvasSize = () => {
@@ -190,16 +240,16 @@ export default function AdminCheckIn() {
                 try {
                   // Draw video frame to canvas
                   context.drawImage(video, 0, 0, canvas.width, canvas.height)
-                  
+
                   // Get image data
                   const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-                  
+
                   // Use jsQR to decode QR code
                   try {
                     const code = jsQR(imageData.data, imageData.width, imageData.height, {
                       inversionAttempts: 'dontInvert'
                     })
-                    
+
                     if (code && code.data) {
                       // QR code detected - automatically process it
                       setIsProcessingScan(true)
@@ -236,14 +286,14 @@ export default function AdminCheckIn() {
   const startCamera = async () => {
     // Check if browser supports camera access
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('Your browser does not support camera access. Please use a modern browser like Chrome, Firefox, or Edge.')
+      showError('Your browser does not support camera access. Please use a modern browser like Chrome, Firefox, or Edge.')
       return
     }
 
     // Check if we're on HTTPS or localhost (required for camera access)
     const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     if (!isSecure) {
-      alert('Camera access requires HTTPS. Please access this page over HTTPS or use localhost.')
+      showError('Camera access requires HTTPS. Please access this page over HTTPS or use localhost.')
       return
     }
 
@@ -251,20 +301,20 @@ export default function AdminCheckIn() {
       // Try to get back camera first (for QR scanning)
       let stream: MediaStream | null = null
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
             facingMode: 'environment', // Back camera
             width: { ideal: 1280 },
             height: { ideal: 720 }
-          } 
+          }
         })
       } catch (backCameraError) {
         // If back camera fails, try any available camera
-        stream = await navigator.mediaDevices.getUserMedia({ 
+        stream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 1280 },
             height: { ideal: 720 }
-          } 
+          }
         })
       }
 
@@ -278,7 +328,7 @@ export default function AdminCheckIn() {
       }
     } catch (err: any) {
       let errorMessage = 'Unable to access camera. '
-      
+
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         errorMessage += 'Please allow camera access in your browser settings and try again.'
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
@@ -290,8 +340,8 @@ export default function AdminCheckIn() {
       } else {
         errorMessage += 'Please check your camera permissions and try again.'
       }
-      
-      alert(errorMessage + '\n\nYou can still use manual code entry below.')
+
+      showError(errorMessage + '\n\nYou can still use manual code entry below.')
     }
   }
 
@@ -318,12 +368,12 @@ export default function AdminCheckIn() {
 
   const handleScan = async () => {
     if (!selectedEvent) {
-      alert('Please select an event first')
+      showError('Please select an event first')
       return
     }
 
     if (!scannedCode.trim()) {
-      alert('Please enter a code or scan a QR code')
+      showError('Please enter a code or scan a QR code')
       return
     }
 
@@ -333,7 +383,7 @@ export default function AdminCheckIn() {
       })
       const data = await res.json()
       if (!res.ok) {
-        alert(data.error || data.message || 'Unable to check in participant.')
+        showError(data.error || data.message || 'Unable to check in participant.')
         return
       }
 
@@ -342,18 +392,23 @@ export default function AdminCheckIn() {
       setShowSuccess(true)
       setLastAction('check-in')
 
+      toast({
+        title: 'Check-in Successful',
+        description: `${data.participant_name ?? 'Participant'} has been checked in.`,
+      })
+
       setTimeout(() => {
         setScannedCode('')
         setShowSuccess(false)
       }, 2000)
     } catch (err) {
-      alert('Network error while checking in participant.')
+      showError('Network error while checking in participant.')
     }
   }
 
   const handleCheckOut = async () => {
     if (!selectedEvent) {
-      alert('Please select an event first')
+      showError('Please select an event first')
       return
     }
 
@@ -361,12 +416,12 @@ export default function AdminCheckIn() {
     const event = events.find(e => e.id.toString() === selectedEvent)
     const normalizedStatus = (event?.status || '').toLowerCase()
     if (normalizedStatus !== 'completed') {
-      alert('You can only check out participants after the event has been concluded.')
+      showError('You can only check out participants after the event has been concluded.')
       return
     }
 
     if (!scannedCode.trim()) {
-      alert('Please enter a code or scan a QR code')
+      showError('Please enter a code or scan a QR code')
       return
     }
 
@@ -376,7 +431,7 @@ export default function AdminCheckIn() {
       })
       const data = await res.json()
       if (!res.ok) {
-        alert(data.error || data.message || 'Unable to check out participant.')
+        showError(data.error || data.message || 'Unable to check out participant.')
         return
       }
 
@@ -384,14 +439,21 @@ export default function AdminCheckIn() {
       setShowSuccess(true)
       setLastAction('check-out')
 
+      toast({
+        title: 'Check-out Successful',
+        description: `${data.participant_name ?? 'Participant'} has been checked out.`,
+      })
+
       setTimeout(() => {
         setScannedCode('')
         setShowSuccess(false)
       }, 2000)
     } catch (err) {
-      alert('Network error while checking out participant.')
+      showError('Network error while checking out participant.')
     }
   }
+
+  const attendanceRate = totalExpected > 0 ? Math.round((checkedInCount / totalExpected) * 100) : 0
 
   return (
     <div className="p-6 space-y-6">
@@ -425,11 +487,11 @@ export default function AdminCheckIn() {
                 disabled={eventsLoading}
               >
                 <option value="">
-                  {eventsLoading 
-                    ? 'Loading events...' 
-                    : events.length === 0 
-                    ? 'No events available' 
-                    : '-- Choose an event --'}
+                  {eventsLoading
+                    ? 'Loading events...'
+                    : events.length === 0
+                      ? 'No events available'
+                      : '-- Choose an event --'}
                 </option>
                 {Array.isArray(events) && events.map((event) => (
                   <option key={event.id} value={event.id.toString()}>
@@ -455,7 +517,7 @@ export default function AdminCheckIn() {
                     playsInline
                     muted
                     className="w-full h-full object-contain"
-                    style={{ 
+                    style={{
                       display: 'block',
                       width: '100%',
                       height: 'auto',
@@ -464,8 +526,8 @@ export default function AdminCheckIn() {
                   />
                   {/* Scanning overlay indicator */}
                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div className="border-2 border-green-500 rounded-lg" style={{ 
-                      width: '250px', 
+                    <div className="border-2 border-green-500 rounded-lg" style={{
+                      width: '250px',
                       height: '250px',
                       boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)'
                     }}>
@@ -548,14 +610,14 @@ export default function AdminCheckIn() {
 
           {/* Success Feedback */}
           {showSuccess && (
-            <Card className="p-6 border-2 border-green-500 bg-green-50 space-y-3">
+            <Card className="p-6 border-2 border-green-500 bg-green-50 dark:bg-green-950 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white">
                   ✓
                 </div>
                 <div>
-                  <p className="font-semibold text-green-900">{participantName}</p>
-                  <p className="text-sm text-green-700">
+                  <p className="font-semibold text-green-900 dark:text-green-100">{participantName}</p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
                     {lastAction === 'check-out' ? 'Successfully checked out' : 'Successfully checked in'}
                   </p>
                 </div>
@@ -579,13 +641,13 @@ export default function AdminCheckIn() {
               </div>
 
               <div className="text-center p-4 bg-muted rounded-lg">
-                <p className="text-2xl font-bold text-foreground">12</p>
+                <p className="text-2xl font-bold text-foreground">{totalExpected}</p>
                 <p className="text-sm text-muted-foreground mt-1">Total Expected</p>
               </div>
 
               <div className="text-center p-4 bg-muted rounded-lg">
                 <p className="text-2xl font-bold text-purple-500">
-                  {Math.round((checkedInCount / 12) * 100)}%
+                  {attendanceRate}%
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">Attendance Rate</p>
               </div>
@@ -593,6 +655,37 @@ export default function AdminCheckIn() {
           </Card>
         </div>
       </div>
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="p-6 border border-border bg-card w-full max-w-md mx-4">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-destructive/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-destructive text-xl">⚠</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground mb-2">Error</h3>
+                  <p className="text-sm text-muted-foreground whitespace-pre-line">{errorModalMessage}</p>
+                </div>
+                <button
+                  onClick={() => setShowErrorModal(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => setShowErrorModal(false)}
+              >
+                OK
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
