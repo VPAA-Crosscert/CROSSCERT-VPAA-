@@ -65,17 +65,29 @@ const SCHOOL_YEARS = [
   '2027-2028',
 ]
 
-const THEMES = [
-  { id: 1, name: 'Professional Blue', color: 'bg-blue-600', accent: '#2563eb' },
-  { id: 2, name: 'Tech Purple', color: 'bg-purple-600', accent: '#7c3aed' },
-  { id: 3, name: 'Vibrant Red', color: 'bg-red-600', accent: '#dc2626' },
-  { id: 4, name: 'Forest Green', color: 'bg-green-600', accent: '#15803d' },
-  { id: 5, name: 'Ocean Teal', color: 'bg-teal-600', accent: '#0d9488' },
-  { id: 6, name: 'Sunset Orange', color: 'bg-orange-600', accent: '#ea580c' },
-  { id: 7, name: 'Midnight Navy', color: 'bg-slate-800', accent: '#1e293b' },
-  { id: 8, name: 'Rose Pink', color: 'bg-pink-600', accent: '#db2777' },
-  { id: 9, name: 'Gold Yellow', color: 'bg-yellow-500', accent: '#eab308' },
-  { id: 10, name: 'Indigo', color: 'bg-indigo-600', accent: '#4f46e5' },
+
+
+interface Theme {
+  id: number
+  name: string
+  color: string
+  accent: string
+  textColor?: string
+  border?: string
+  gradientFrom: string
+}
+
+const THEMES: Theme[] = [
+  { id: 1, name: 'HCDC', color: 'bg-blue-900', accent: '#1e3a8a', textColor: 'text-blue-900', border: 'border-blue-900', gradientFrom: 'from-blue-900' },
+  { id: 2, name: 'CCJE', color: 'bg-red-700', accent: '#b91c1c', textColor: 'text-red-700', border: 'border-red-700', gradientFrom: 'from-red-700' },
+  { id: 3, name: 'CET', color: 'bg-orange-500', accent: '#f97316', textColor: 'text-orange-500', border: 'border-orange-500', gradientFrom: 'from-orange-500' },
+  { id: 4, name: 'CHATME', color: 'bg-gray-500', accent: '#6b7280', textColor: 'text-gray-500', border: 'border-gray-500', gradientFrom: 'from-gray-500' },
+  { id: 5, name: 'HUSOCOM', color: 'bg-fuchsia-700', accent: '#a21caf', textColor: 'text-fuchsia-700', border: 'border-fuchsia-700', gradientFrom: 'from-fuchsia-700' },
+  { id: 6, name: 'COME', color: 'bg-sky-500', accent: '#0ea5e9', textColor: 'text-sky-500', border: 'border-sky-500', gradientFrom: 'from-sky-500' },
+  { id: 7, name: 'SBME', color: 'bg-yellow-500', accent: '#eab308', textColor: 'text-yellow-600', border: 'border-yellow-500', gradientFrom: 'from-yellow-500' },
+  { id: 8, name: 'STE', color: 'bg-blue-600', accent: '#2563eb', textColor: 'text-blue-600', border: 'border-blue-600', gradientFrom: 'from-blue-600' },
+  { id: 9, name: 'Black', color: 'bg-black', accent: '#000000', textColor: 'text-black', border: 'border-black', gradientFrom: 'from-black' },
+  { id: 11, name: 'White', color: 'bg-white', accent: '#ffffff', textColor: 'text-slate-900', border: 'border-slate-200', gradientFrom: 'from-slate-100' },
 ]
 
 const COORDINATE_DEFAULTS = {
@@ -136,6 +148,11 @@ export default function CreateEventPage() {
   const [ticketPrice, setTicketPrice] = useState('0')
   const [isPublic, setIsPublic] = useState(true)
   const [selectedTheme, setSelectedTheme] = useState(1)
+  const [cardStyle, setCardStyle] = useState<'standard' | 'poster'>('standard') // Helpful Feature: Card Layout
+  const [usePattern, setUsePattern] = useState(false) // Surprise: Dot Pattern
+  const [useFloat, setUseFloat] = useState(false) // Surprise: Float Animation
+  const [useGlass, setUseGlass] = useState(false) // Surprise: Glassmorphism
+  const [useNeon, setUseNeon] = useState(false) // Surprise: Neon Glow
 
   // Certificate data
   const [certificateTemplate, setCertificateTemplate] = useState('')
@@ -631,7 +648,8 @@ export default function CreateEventPage() {
             {isPaidEvent && (
               <div>
                 <Label>Ticket Price (PHP)</Label>
-                <Input type="number" min={0} value={ticketPrice} onChange={(e) => setTicketPrice(e.target.value)} />
+                <Input type="number" min={0} max={1000} value={ticketPrice} onChange={(e) => setTicketPrice(e.target.value)} />
+                <p className="text-xs text-muted-foreground mt-1">Maximum price allowed is ₱1,000</p>
               </div>
             )}
             <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
@@ -660,8 +678,214 @@ export default function CreateEventPage() {
       )}
 
       {currentStep === 3 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1 space-y-6">
+            <Card className="p-6 border border-border bg-card">
+              <h2 className="text-2xl font-bold text-foreground mb-2">Step 3 · Choose Theme</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Select a color theme and style for your event card.
+              </p>
+
+              <div className="grid grid-cols-5 gap-3 mb-6">
+                {THEMES.map((theme) => (
+                  <button
+                    key={theme.id}
+                    onClick={() => setSelectedTheme(theme.id)}
+                    className={`relative w-full aspect-square rounded-full transition-all flex items-center justify-center group outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${selectedTheme === theme.id
+                      ? 'ring-2 ring-offset-2 ring-primary scale-110'
+                      : 'hover:scale-105 opacity-80 hover:opacity-100'
+                      }`}
+                    title={theme.name}
+                  >
+                    <div className={`w-full h-full rounded-full shadow-sm ${theme.color} ${theme.id === 11 ? 'border border-slate-300 dark:border-slate-600' : ''}`} />
+                    {selectedTheme === theme.id && (
+                      <div className={`absolute inset-0 flex items-center justify-center drop-shadow-md ${theme.id === 11 ? 'text-slate-900' : 'text-white'}`}>
+                        <Eye className="w-4 h-4" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Helpful Feature: Card Style Switcher */}
+              <div className="space-y-4">
+                <div className="bg-muted p-1 rounded-lg grid grid-cols-2 gap-1">
+                  <button
+                    onClick={() => setCardStyle('standard')}
+                    className={`py-1.5 text-sm font-medium rounded-md transition-all ${cardStyle === 'standard' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Standard Card
+                  </button>
+                  <button
+                    onClick={() => setCardStyle('poster')}
+                    className={`py-1.5 text-sm font-medium rounded-md transition-all ${cardStyle === 'poster' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Poster Mode
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    onClick={() => setUsePattern(!usePattern)}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${usePattern ? 'bg-primary/5 border-primary text-primary' : 'bg-card border-border hover:bg-muted/50'}`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                      <div className="w-4 h-4 bg-current rounded-full opacity-20" style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '4px 4px' }} />
+                    </div>
+                    <span className="text-xs font-medium">Texture</span>
+                  </button>
+
+                  <button
+                    onClick={() => setUseFloat(!useFloat)}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${useFloat ? 'bg-primary/5 border-primary text-primary' : 'bg-card border-border hover:bg-muted/50'}`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-current rounded-md animate-pulse" />
+                    </div>
+                    <span className="text-xs font-medium">Float</span>
+                  </button>
+
+                  <button
+                    onClick={() => setUseGlass(!useGlass)}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${useGlass ? 'bg-primary/5 border-primary text-primary' : 'bg-card border-border hover:bg-muted/50'}`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center relative overflow-hidden">
+                      <div className="absolute inset-0 bg-current opacity-10 backdrop-blur-sm" />
+                      <div className="w-full h-full border border-current opacity-20 rounded-full" />
+                    </div>
+                    <span className="text-xs font-medium">Glass</span>
+                  </button>
+
+                  <button
+                    onClick={() => setUseNeon(!useNeon)}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${useNeon ? 'bg-primary/5 border-primary text-primary' : 'bg-card border-border hover:bg-muted/50'}`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shadow-lg shadow-current">
+                      <div className="w-3 h-3 bg-current rounded-full" />
+                    </div>
+                    <span className="text-xs font-medium">Neon</span>
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground mt-4 text-center">
+                Selected: <span className="font-semibold text-foreground">{activeTheme.name}</span>
+              </p>
+
+              <div className="flex justify-between gap-3 mt-8">
+                <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                  Back
+                </Button>
+                <Button onClick={() => setCurrentStep(4)}>
+                  Continue
+                </Button>
+              </div>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-2">
+            <div className="sticky top-6">
+              <h3 className="text-lg font-semibold mb-4 text-muted-foreground">Live Preview</h3>
+
+              {/* Event Card Preview */}
+              <Card
+                className={`overflow-hidden bg-card shadow-lg mx-auto transition-all duration-1000 border-t-8 ${activeTheme.border || 'border-transparent'} ${useFloat ? 'animate-pulse' : ''} ${cardStyle === 'poster' ? 'max-w-[320px] h-[500px] flex flex-col relative' : 'max-w-md'}`}
+                style={{
+                  boxShadow: useNeon ? `0 0 25px ${activeTheme.accent}60` : undefined,
+                  transform: useFloat ? 'translateY(-5px)' : 'none'
+                }}
+              >
+                {/* Banner Image */}
+                <div className={`relative group overflow-hidden ${cardStyle === 'poster' ? 'absolute inset-0 h-full' : 'h-48 bg-muted'}`}>
+                  {/* Pattern Overlay Surprise */}
+                  {usePattern && (
+                    <div className="absolute inset-0 z-10 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '16px 16px', color: activeTheme.id === 11 ? '#000' : '#fff' }} />
+                  )}
+
+                  {coverImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={coverImage}
+                      alt="Event Cover"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className={`w-full h-full flex items-center justify-center bg-muted relative`}>
+                      <Upload className={`w-12 h-12 ${activeTheme.textColor || 'text-muted-foreground'} opacity-50 relative z-20`} />
+                    </div>
+                  )}
+
+                  {/* Poster Mode Overlay */}
+                  {cardStyle === 'poster' && (
+                    <div className={`absolute inset-0 bg-gradient-to-t ${activeTheme.id === 11 ? 'from-white via-white/50' : 'from-black/95 via-black/50'} to-transparent pointer-events-none`} />
+                  )}
+
+                  {/* Date Badge - Themed */}
+                  <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-md shadow-md text-center min-w-[60px] z-20 ${activeTheme.color} ${activeTheme.id === 11 ? 'text-slate-900 border border-slate-200' : 'text-white'}`}>
+                    <span className="block text-xs uppercase font-bold opacity-90">
+                      {eventDate ? new Date(eventDate).toLocaleString('default', { month: 'short' }).toUpperCase() : 'DEC'}
+                    </span>
+                    <span className="block text-xl font-bold leading-none">
+                      {eventDate ? new Date(eventDate).getDate() : '25'}
+                    </span>
+                  </div>
+
+                  {/* Category Badge - Themed */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium shadow-sm bg-background/90 backdrop-blur-md ${activeTheme.textColor || 'text-foreground'}`}>
+                      {eventCategory === 'HCDC' ? 'HCDC Wide' : eventCategory === 'department' ? 'Department' : 'Public'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className={`p-6 relative transition-all ${cardStyle === 'poster' ? 'mt-auto z-20' : ''} ${useGlass ? 'bg-white/30 backdrop-blur-xl border border-white/20 shadow-lg' : activeTheme.id === 11 && cardStyle !== 'poster' ? 'bg-white' : ''}`}>
+                  <h3 className={`text-xl font-bold line-clamp-2 mb-3 ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-900' : 'text-white') : activeTheme.textColor || 'text-foreground'}`}>
+                    {eventName || 'Annual Cross Blazers Cup 2024'}
+                  </h3>
+
+                  <div className="space-y-3 mb-6">
+                    <div className={`flex items-center gap-3 text-sm ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-700' : 'text-white/80') : 'text-muted-foreground'}`}>
+                      <Clock className={`w-4 h-4 ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-900' : 'text-white/80') : activeTheme.textColor || 'text-primary'}`} />
+                      <span>
+                        {startTime && endTime ? `${startTime} - ${endTime}` : '8:00 AM - 5:00 PM'}
+                      </span>
+                    </div>
+                    <div className={`flex items-center gap-3 text-sm ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-700' : 'text-white/80') : 'text-muted-foreground'}`}>
+                      <MapPin className={`w-4 h-4 ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-900' : 'text-white/80') : activeTheme.textColor || 'text-primary'}`} />
+                      <span>{venue || 'HCDC Gymnasium'}</span>
+                    </div>
+                  </div>
+
+                  {/* Action Area */}
+                  <div className={`flex items-center justify-between pt-4 border-t ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'border-slate-200' : 'border-white/20') : activeTheme.border ? activeTheme.border.replace('border-', 'border-').replace('500', '200').replace('600', '200').replace('700', '200').replace('900', '200') : 'border-border'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-600' : 'text-white/70') : 'text-muted-foreground'}`}>Tickets starting at</span>
+                      <span className={`font-bold ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-900' : 'text-white') : activeTheme.textColor || 'text-foreground'}`}>
+                        {isPaidEvent ? `₱${Number(ticketPrice).toLocaleString()}` : 'Free'}
+                      </span>
+                    </div>
+                    <Button
+                      className={`${activeTheme.color} ${activeTheme.id === 11 ? 'text-slate-900 border border-slate-200 hover:bg-slate-50' : 'text-white hover:opacity-90'} transition-opacity shadow-sm pointer-events-none`}
+                    >
+                      Register
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
+              <div className="mt-8 flex justify-center gap-8">
+                {/* Mobile Preview Mockup */}
+                <div className="w-16 h-2 rounded-full bg-border mx-auto mb-2" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {currentStep === 4 && (
         <Card className="p-8 border border-border bg-card space-y-6">
-          <h2 className="text-2xl font-bold text-foreground">Step 3 · Upload Certificate Template</h2>
+          <h2 className="text-2xl font-bold text-foreground">Step 4 · Upload Certificate Template</h2>
           <p className="text-sm text-muted-foreground">
             Upload a landscape-oriented certificate template (PNG or JPG). Any size is supported as long as it's wider than it is tall.
           </p>
@@ -682,17 +906,17 @@ export default function CreateEventPage() {
             <img src={certificateTemplate} alt="Certificate template" className="w-full rounded-lg border border-border" />
           )}
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setCurrentStep(2)}>
+            <Button variant="outline" onClick={() => setCurrentStep(3)}>
               Back
             </Button>
-            <Button disabled={!isCertificateReady} onClick={() => setCurrentStep(4)}>
+            <Button disabled={!isCertificateReady} onClick={() => setCurrentStep(5)}>
               Continue
             </Button>
           </div>
         </Card>
       )}
 
-      {currentStep === 4 && (
+      {currentStep === 5 && (
         <Card className="p-8 border border-border bg-card space-y-6">
           <h2 className="text-2xl font-bold text-foreground">Step 4 · Coordinate Mapping</h2>
           <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -802,18 +1026,20 @@ export default function CreateEventPage() {
               <Input value={sampleDate} onChange={(e) => setSampleDate(e.target.value)} />
             </div>
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setCurrentStep(3)}>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button variant="outline" onClick={() => setCurrentStep(4)}>
               Back
             </Button>
-            <Button onClick={() => setCurrentStep(5)}>Continue</Button>
+            <Button onClick={() => setCurrentStep(6)}>
+              Review & Publish
+            </Button>
           </div>
         </Card>
       )}
 
-      {currentStep === 5 && (
+      {currentStep === 6 && (
         <Card className="p-8 border border-border bg-card space-y-6">
-          <h2 className="text-2xl font-bold text-foreground">Step 5 · Event Preview</h2>
+          <h2 className="text-2xl font-bold text-foreground">Step 6 · Review & Publish</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
@@ -836,53 +1062,102 @@ export default function CreateEventPage() {
                   {hasCapacityLimit ? `${capacity} seats` : 'Unlimited'}
                 </p>
               </div>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Live Preview</p>
-              <div className={`${activeTheme.color} rounded-lg overflow-hidden text-white shadow-lg`}>
-                {coverImage && <img src={coverImage} alt="Cover" className="w-full h-40 object-cover" />}
-                <div className="p-6 space-y-3">
-                  <h3 className="font-bold text-xl">{eventName || 'Your Event Title'}</h3>
-                  <div className="flex items-center gap-2 text-sm opacity-90">
-                    <CalendarIcon className="w-4 h-4" />
-                    <span>{eventDate || 'Select a date'}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm opacity-90">
-                    <Clock className="w-4 h-4" />
-                    <span>
-                      {startTime || '--:--'} - {endTime || '--:--'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm opacity-90">
-                    <MapPin className="w-4 h-4" />
-                    <span>{venue || 'Venue'}</span>
-                  </div>
-                  {hasCapacityLimit && (
-                    <div className="flex items-center gap-2 text-sm opacity-90">
-                      <Users className="w-4 h-4" />
-                      <span>Max {capacity} participants</span>
-                    </div>
-                  )}
-                </div>
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Event Card Theme</p>
+                <p className="font-semibold text-foreground">{activeTheme.name}</p>
               </div>
             </div>
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setCurrentStep(4)}>
-              Back
-            </Button>
-            <Button onClick={() => setCurrentStep(6)}>Continue</Button>
-          </div>
-        </Card>
-      )}
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Event Card Preview</p>
+              {/* Event Card Preview */}
+              <Card
+                className={`overflow-hidden bg-card shadow-lg mx-auto border-t-8 ${activeTheme.border || 'border-transparent'} ${useFloat ? 'animate-pulse' : ''} ${cardStyle === 'poster' ? 'max-w-[320px] h-[500px] flex flex-col relative' : 'max-w-md'}`}
+                style={{
+                  boxShadow: useNeon ? `0 0 25px ${activeTheme.accent}60` : undefined,
+                  transform: useFloat ? 'translateY(-5px)' : 'none'
+                }}
+              >
+                {/* Banner Image */}
+                <div className={`relative group overflow-hidden ${cardStyle === 'poster' ? 'absolute inset-0 h-full' : 'h-48 bg-muted'}`}>
+                  {/* Pattern Overlay Surprise */}
+                  {usePattern && (
+                    <div className="absolute inset-0 z-10 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '16px 16px', color: activeTheme.id === 11 ? '#000' : '#fff' }} />
+                  )}
 
-      {currentStep === 6 && (
-        <Card className="p-8 border border-border bg-card space-y-6">
-          <h2 className="text-2xl font-bold text-foreground">Step 6 · Certificate Preview & Create</h2>
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Eye className="w-4 h-4" />
-            Make sure the overlays look correct before publishing.
-          </p>
+                  {coverImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={coverImage}
+                      alt="Event Cover"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className={`w-full h-full flex items-center justify-center bg-muted relative`}>
+                      <Upload className={`w-12 h-12 ${activeTheme.textColor || 'text-muted-foreground'} opacity-50 relative z-20`} />
+                    </div>
+                  )}
+
+                  {/* Poster Mode Overlay */}
+                  {cardStyle === 'poster' && (
+                    <div className={`absolute inset-0 bg-gradient-to-t ${activeTheme.id === 11 ? 'from-white via-white/50' : 'from-black/95 via-black/50'} to-transparent pointer-events-none`} />
+                  )}
+
+                  {/* Date Badge - Themed */}
+                  <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-md shadow-md text-center min-w-[60px] z-20 ${activeTheme.color} ${activeTheme.id === 11 ? 'text-slate-900 border border-slate-200' : 'text-white'}`}>
+                    <span className="block text-xs uppercase font-bold opacity-90">
+                      {eventDate ? new Date(eventDate).toLocaleString('default', { month: 'short' }).toUpperCase() : 'DEC'}
+                    </span>
+                    <span className="block text-xl font-bold leading-none">
+                      {eventDate ? new Date(eventDate).getDate() : '25'}
+                    </span>
+                  </div>
+
+                  {/* Category Badge - Themed */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium shadow-sm bg-background/90 backdrop-blur-md ${activeTheme.textColor || 'text-foreground'}`}>
+                      {eventCategory === 'HCDC' ? 'HCDC Wide' : eventCategory === 'department' ? 'Department' : 'Public'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className={`p-6 relative transition-all ${cardStyle === 'poster' ? 'mt-auto z-20' : ''} ${useGlass ? 'bg-white/30 backdrop-blur-xl border border-white/20 shadow-lg' : activeTheme.id === 11 && cardStyle !== 'poster' ? 'bg-white' : ''}`}>
+                  <h3 className={`text-xl font-bold line-clamp-2 mb-3 ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-900' : 'text-white') : activeTheme.textColor || 'text-foreground'}`}>
+                    {eventName || 'Annual Cross Blazers Cup 2024'}
+                  </h3>
+
+                  <div className="space-y-3 mb-6">
+                    <div className={`flex items-center gap-3 text-sm ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-700' : 'text-white/80') : 'text-muted-foreground'}`}>
+                      <Clock className={`w-4 h-4 ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-900' : 'text-white/80') : activeTheme.textColor || 'text-primary'}`} />
+                      <span>
+                        {startTime && endTime ? `${startTime} - ${endTime}` : '8:00 AM - 5:00 PM'}
+                      </span>
+                    </div>
+                    <div className={`flex items-center gap-3 text-sm ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-700' : 'text-white/80') : 'text-muted-foreground'}`}>
+                      <MapPin className={`w-4 h-4 ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-900' : 'text-white/80') : activeTheme.textColor || 'text-primary'}`} />
+                      <span>{venue || 'HCDC Gymnasium'}</span>
+                    </div>
+                  </div>
+
+                  {/* Action Area */}
+                  <div className={`flex items-center justify-between pt-4 border-t ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'border-slate-200' : 'border-white/20') : activeTheme.border ? activeTheme.border.replace('border-', 'border-').replace('500', '200').replace('600', '200').replace('700', '200').replace('900', '200') : 'border-border'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-600' : 'text-white/70') : 'text-muted-foreground'}`}>Tickets starting at</span>
+                      <span className={`font-bold ${cardStyle === 'poster' ? (activeTheme.id === 11 ? 'text-slate-900' : 'text-white') : activeTheme.textColor || 'text-foreground'}`}>
+                        {isPaidEvent ? `₱${Number(ticketPrice).toLocaleString()}` : 'Free'}
+                      </span>
+                    </div>
+                    <Button
+                      className={`${activeTheme.color} ${activeTheme.id === 11 ? 'text-slate-900 border border-slate-200 hover:bg-slate-50' : 'text-white hover:opacity-90'} transition-opacity shadow-sm pointer-events-none`}
+                    >
+                      Register
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Certificate Preview</p>
           <div className="relative border border-border rounded-lg overflow-hidden" style={{ paddingBottom: '70%' }}>
             {certificateTemplate ? (
               <>
@@ -935,8 +1210,8 @@ export default function CreateEventPage() {
             <Button variant="outline" onClick={() => setCurrentStep(5)} disabled={isLoading}>
               Back
             </Button>
-            <Button onClick={handleCreateEvent} disabled={isLoading || !certificateTemplate}>
-              {isLoading ? 'Creating event...' : 'Create Event'}
+            <Button onClick={handleCreateEvent} disabled={isLoading || !certificateTemplate} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              {isLoading ? 'Creating Event...' : 'Create Event'}
             </Button>
           </div>
         </Card>

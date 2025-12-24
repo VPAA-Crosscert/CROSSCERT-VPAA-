@@ -251,13 +251,44 @@ export default function AdminEventDetail() {
             <Card className="p-4 border border-border bg-card">
               <p className="text-sm text-muted-foreground mb-2">Status</p>
               <p className={`font-semibold ${(event.status || '').toLowerCase() === 'completed' ? 'text-green-600' :
-                  (event.status || '').toLowerCase() === 'live' ? 'text-blue-600' :
-                    (event.status || '').toLowerCase() === 'scheduled' ? 'text-yellow-600' :
-                      'text-foreground'
+                (event.status || '').toLowerCase() === 'live' ? 'text-blue-600' :
+                  (event.status || '').toLowerCase() === 'scheduled' ? 'text-yellow-600' :
+                    'text-foreground'
                 }`}>
                 {(event.status || 'draft').charAt(0).toUpperCase() + (event.status || 'draft').slice(1)}
               </p>
             </Card>
+
+            {/* Capacity Card */}
+            {(event.capacity && Number(event.capacity) < 1000) && (
+              <Card className="p-4 border border-border bg-card">
+                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                  <Users className="w-4 h-4" />
+                  <span className="text-sm">Capacity</span>
+                </div>
+                <p className="font-semibold text-foreground">
+                  {event.registration_count || 0} / {event.capacity} Filled
+                </p>
+                <div className="w-full bg-secondary h-2 rounded-full mt-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, ((event.registration_count || 0) / Number(event.capacity)) * 100)}%`
+                    }}
+                  />
+                </div>
+              </Card>
+            )}
+
+            {/* Ticket Price Card */}
+            {(event.isPaidEvent || event.is_paid_event) && (
+              <Card className="p-4 border border-border bg-card">
+                <p className="text-sm text-muted-foreground mb-2">Ticket Price</p>
+                <p className="font-semibold text-foreground">
+                  ₱{Number(event.ticketPrice || event.ticket_price || 0).toLocaleString()}
+                </p>
+              </Card>
+            )}
           </div>
 
           {/* Description */}

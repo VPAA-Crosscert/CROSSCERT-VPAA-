@@ -18,6 +18,8 @@ export interface Event {
   requireApproval?: boolean
   isPaidEvent?: boolean
   ticketPrice?: number
+  is_paid_event?: boolean // Backend property
+  ticket_price?: number // Backend property
   isPublic?: boolean
   theme?: number
   participants?: number
@@ -29,6 +31,10 @@ export interface Event {
   department?: string
   status?: 'Upcoming' | 'Ongoing' | 'Completed' | 'draft' | 'scheduled' | 'live' | 'completed'
   code_prefix?: string // Backend property for event code prefix
+  registration_count?: number
+  attended_count?: number
+  semester?: string
+  school_year?: string
 }
 
 export interface RegistrationStatus {
