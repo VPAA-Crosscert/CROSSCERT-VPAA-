@@ -51,7 +51,7 @@ export default function ParticipantEvents() {
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [selectedSemester, setSelectedSemester] = useState('ALL')
   const [selectedMonth, setSelectedMonth] = useState('ALL')
-  const [selectedYear, setSelectedYear] = useState('ALL')
+  const [selectedSchoolYear, setSelectedSchoolYear] = useState('ALL')
   const [bookmarked, setBookmarked] = useState<Set<number | string>>(new Set())
   const [events, setEvents] = useState<Event[]>([])
   const [userDepartment, setUserDepartment] = useState('')
@@ -125,6 +125,14 @@ export default function ParticipantEvents() {
     return date.toLocaleDateString('en-US', { month: 'long' }).toUpperCase()
   }
 
+  const getSchoolYear = (dateStr: string): string => {
+    if (!dateStr) return 'UNKNOWN'
+    const d = new Date(dateStr)
+    const m = d.getMonth() + 1
+    const y = d.getFullYear()
+    return m >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`
+  }
+
   const getYearOfCourse = (event: Event): string => {
     const value =
       (event as any).year_of_course ||
@@ -136,13 +144,13 @@ export default function ParticipantEvents() {
     return normalized
   }
 
-  const availableYears = useMemo(() => {
-    const years = new Set<string>()
+  const availableSchoolYears = useMemo(() => {
+    const sys = new Set<string>()
     events.forEach((evt) => {
-      const y = getYearOfCourse(evt)
-      if (y && y.toUpperCase() !== 'ALL YEARS') years.add(y)
+      const sy = getSchoolYear(evt.date || '')
+      if (sy && sy !== 'UNKNOWN') sys.add(sy)
     })
-    return ['ALL', ...Array.from(years)]
+    return ['ALL', ...Array.from(sys).sort().reverse()]
   }, [events])
 
   const filteredEvents = useMemo(() => {
@@ -174,15 +182,14 @@ export default function ParticipantEvents() {
         if (eventMonth !== selectedMonth) return false
       }
 
-      // Year filter
-      if (selectedYear !== 'ALL') {
-        const eventYear = getYearOfCourse(event)
-        if (!eventYear || eventYear !== selectedYear) return false
+      if (selectedSchoolYear !== 'ALL') {
+        const sy = getSchoolYear(event.date || '')
+        if (!sy || sy !== selectedSchoolYear) return false
       }
       
       return true
     })
-  }, [events, searchTerm, selectedCategory, selectedSemester, selectedMonth, selectedYear])
+  }, [events, searchTerm, selectedCategory, selectedSemester, selectedMonth, selectedSchoolYear])
 
   // Group events by month
   const eventsByMonth = useMemo(() => {
@@ -255,19 +262,12 @@ export default function ParticipantEvents() {
                   'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
 
   const hasActiveFilters = selectedCategory !== 'ALL' || selectedSemester !== 'ALL' || 
-                          selectedMonth !== 'ALL' || selectedYear !== 'ALL' || searchTerm !== ''
+                          selectedMonth !== 'ALL' || selectedSchoolYear !== 'ALL' || searchTerm !== ''
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
         <h1 className="text-3xl font-bold text-foreground">Discover Events</h1>
         <p className="text-muted-foreground mt-1">Find and register for upcoming events</p>
       </div>
@@ -327,23 +327,7 @@ export default function ParticipantEvents() {
         </div>
       </div>
 
-      {/* Year Filter */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-foreground">Year of Course</label>
-        <div className="flex gap-2 flex-wrap">
-          {availableYears.map((year) => (
-            <Button
-              key={year}
-              variant={selectedYear === year ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedYear(year)}
-              className={selectedYear === year ? 'bg-secondary text-secondary-foreground' : 'border-border text-foreground'}
-            >
-              {year === 'ALL' ? 'All Years' : year}
-            </Button>
-          ))}
-        </div>
-      </div>
+      
 
       {/* Main Layout: Semesters (Left) | Events (Center) | Months (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
@@ -470,49 +454,58 @@ export default function ParticipantEvents() {
             ))
           )}
         </div>
-
-        {/* Months Filter - Right Column (Desktop) */}
-        <div className="lg:col-span-2 space-y-2 order-3 hidden lg:block">
-          <label className="text-sm font-semibold text-foreground block">Months</label>
-          <div className="space-y-1 max-h-[600px] overflow-y-auto">
-            {months.map((month) => (
-              <button
-                key={month}
-                onClick={() => setSelectedMonth(month)}
-                className={`
-                  w-full text-left px-4 py-2 rounded-full transition-all text-sm
-                  ${selectedMonth === month
-                    ? 'bg-secondary text-secondary-foreground font-semibold'
-                    : 'text-foreground hover:bg-muted'}
-                `}
-              >
-                {month}
-              </button>
-            ))}
+        <div className="lg:col-span-2 space-y-4 order-3 hidden lg:block">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground block">Category</label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
+            >
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat === 'HCDC' ? 'HCDC EVENTS' : cat}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground block">School Year</label>
+            <select
+              value={selectedSchoolYear}
+              onChange={(e) => setSelectedSchoolYear(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
+            >
+              {availableSchoolYears.map((sy) => (
+                <option key={sy} value={sy}>
+                  {sy === 'ALL' ? 'All School Years' : sy}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground block">Months</label>
+            <div className="space-y-1 max-h-[600px] overflow-y-auto">
+              {months.map((month) => (
+                <button
+                  key={month}
+                  onClick={() => setSelectedMonth(month)}
+                  className={`
+                    w-full text-left px-4 py-2 rounded-full transition-all text-sm
+                    ${selectedMonth === month
+                      ? 'bg-secondary text-secondary-foreground font-semibold'
+                      : 'text-foreground hover:bg-muted'}
+                  `}
+                >
+                  {month}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Months Filter - Mobile (Below Events) */}
-      <div className="lg:hidden space-y-2">
-        <label className="text-sm font-semibold text-foreground block">Filter by Month</label>
-        <div className="flex gap-2 flex-wrap">
-          {months.map((month) => (
-            <button
-              key={month}
-              onClick={() => setSelectedMonth(month)}
-              className={`
-                px-4 py-2 rounded-full transition-all text-sm
-                ${selectedMonth === month
-                  ? 'bg-secondary text-secondary-foreground font-semibold'
-                  : 'bg-muted text-foreground hover:bg-muted/80'}
-              `}
-            >
-              {month}
-            </button>
-          ))}
-        </div>
-      </div>
+      
     </div>
   )
 }

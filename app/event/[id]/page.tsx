@@ -6,7 +6,7 @@ import { Navigation } from '@/components/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MapPin, Calendar, Clock, Users, Share2, Heart, ArrowLeft } from 'lucide-react'
+import { MapPin, Calendar, Clock, Users, Share2, Heart } from 'lucide-react'
 
 export default function EventDetailPage() {
   const router = useRouter()
@@ -49,14 +49,7 @@ Max capacity: 50 participants`,
 
       <div className="pt-24 pb-12 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl">
-          {/* Back Button */}
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-accent hover:text-primary transition-colors mb-8"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to events
-          </button>
+          
 
           {/* Hero Image */}
           <div className="relative h-80 rounded-2xl overflow-hidden mb-8 bg-gradient-to-br from-primary/10 to-accent/10 border border-border">

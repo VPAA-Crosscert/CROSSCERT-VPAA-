@@ -5,10 +5,10 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import get_user_model
 from .models import Evaluation, UserProfile
-from .serializers import EvaluationSerializer
+from .serializers import EvaluationSerializer, ParticipantSerializer
 from events.models import CheckIn
 from certificates.generator import CertificateService
 from certificates.models import Certificate
@@ -20,8 +20,57 @@ class ParticipantViewSet(viewsets.ViewSet):
     """ViewSet for Participant management."""
     
     def list(self, request):
-        """List all participants."""
-        return Response([])
+        """
+        List/search participants by email. Auth required.
+        Returns minimal user info merged with profile.
+        """
+        if not request.user.is_authenticated:
+            return Response([], status=status.HTTP_200_OK)
+        email = request.query_params.get("email", "").strip()
+        User = get_user_model()
+        users = []
+        if email:
+            try:
+                user = User.objects.get(email=email)
+                users = [user]
+            except User.DoesNotExist:
+                users = []
+        serializer = ParticipantSerializer(users, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, pk=None):
+        """
+        Get a single participant by user ID. Auth required.
+        Returns minimal user info merged with profile.
+        """
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+        User = get_user_model()
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ParticipantSerializer(user)
+        return Response(serializer.data)
+
+    def partial_update(self, request, pk=None):
+        """
+        PATCH a participant user and profile by user ID.
+        Accepts first_name, last_name, birthday, department, program.
+        """
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+        User = get_user_model()
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not (request.user.is_staff or request.user.is_superuser) and request.user.id != user.id:
+            return Response({"detail": "You can only update your own profile"}, status=status.HTTP_403_FORBIDDEN)
+        serializer = ParticipantSerializer(instance=user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.update(user, serializer.validated_data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], permission_classes=[AllowAny])
     def register(self, request):

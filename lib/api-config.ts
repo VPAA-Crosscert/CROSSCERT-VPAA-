@@ -66,7 +66,10 @@ export const adminApi = {
  * General API helper functions
  */
 export const api = {
-  events: () => getApiUrl(API_ROUTES.events),
+  events: () => {
+    const url = getApiUrl(API_ROUTES.events)
+    return url.endsWith('/') ? url : `${url}/`
+  },
   registrations: () => {
     const url = getApiUrl(API_ROUTES.registrations)
     return url.endsWith('/') ? url : `${url}/`

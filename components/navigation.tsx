@@ -33,10 +33,10 @@ export function Navigation() {
             <Image
               src={logoSrc}
               alt="CROSSCERT"
-              width={160}
-              height={40}
+              width={200}
+              height={48}
               priority
-              className="w-24 sm:w-40 h-auto object-contain"
+              className="w-36 sm:w-48 h-auto object-contain"
             />
           )}
         </button>

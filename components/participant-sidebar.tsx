@@ -20,8 +20,8 @@ export function ParticipantSidebar() {
   }, [])
   
   const logoSrc = mounted && (resolvedTheme === 'dark' || theme === 'dark')
-    ? '/crosscert-typo-white.png'
-    : '/crosscert-typo-black.png'
+    ? '/hcdc white.png'
+    : '/hcdc red.png'
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/participant/dashboard' },
@@ -60,10 +60,10 @@ export function ParticipantSidebar() {
             {mounted && (
               <Image
                 src={logoSrc}
-                alt="CROSSCERT"
-                width={240}
-                height={60}
-                className="w-full max-w-[220px] h-auto object-contain"
+                alt="HCDC"
+                width={160}
+                height={40}
+                className="w-full max-w-[140px] h-auto object-contain"
                 priority
               />
             )}
@@ -74,16 +74,6 @@ export function ParticipantSidebar() {
             )}
           </div>
           
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-9 text-sm bg-background border-border"
-            />
-          </div>
         </div>
 
         {/* Navigation */}
@@ -135,10 +125,10 @@ export function ParticipantSidebar() {
             {mounted && (
               <Image
                 src={logoSrc}
-                alt="CROSSCERT"
-                width={200}
-                height={50}
-                className="w-full max-w-[180px] h-auto object-contain"
+                alt="HCDC"
+                width={140}
+                height={35}
+                className="w-full max-w-[120px] h-auto object-contain"
                 priority
               />
             )}
@@ -157,18 +147,7 @@ export function ParticipantSidebar() {
           </button>
         </div>
 
-        <div className="p-4 space-y-4 border-b border-border">
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-9 text-sm bg-background border-border"
-            />
-          </div>
-        </div>
+        
 
         <nav className="p-4 space-y-2 flex-1">
           {menuItems.map((item) => {

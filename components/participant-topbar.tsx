@@ -2,8 +2,10 @@
 
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
-import { Bell, Search } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import { useState } from 'react'
+import Image from 'next/image'
+import { useTheme } from 'next-themes'
 
 export function ParticipantTopbar() {
   const [userEmail] = useState(() => {
@@ -12,10 +14,20 @@ export function ParticipantTopbar() {
     }
     return 'user'
   })
+  const { resolvedTheme } = useTheme()
 
   return (
     <div className="h-14 sm:h-16 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 flex items-center justify-between px-3 sm:px-4 md:px-6 gap-2 sm:gap-4">
-      <div className="flex-1" />
+      <div className="flex items-center gap-2">
+        <Image
+          src={resolvedTheme === 'dark' ? '/crosscert-typo-white.png' : '/crosscert-typo-black.png'}
+          alt="CROSSCERT"
+          width={200}
+          height={48}
+          className="h-14 sm:h-16 w-auto object-contain"
+          priority
+        />
+      </div>
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <ThemeToggle />
