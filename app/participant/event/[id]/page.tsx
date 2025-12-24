@@ -62,8 +62,11 @@ export default function ParticipantEventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [registrationData, setRegistrationData] = useState<any>(null);
+  const [registrationInfo, setRegistrationInfo] = useState<any>(null);
   const [userDepartment, setUserDepartment] = useState<string | null>(null);
-  const [registrationStatus, setRegistrationStatus] = useState<'none' | 'registered' | 'checked-in' | 'evaluated'>('none');
+  const [registrationStatus, setRegistrationStatus] = useState<'none' | 'registered' | 'checked-in' | 'checked-out' | 'evaluated'>('none');
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showUnregisterSuccessModal, setShowUnregisterSuccessModal] = useState(false);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -100,7 +103,7 @@ export default function ParticipantEventDetailPage() {
             setIsBookmarked(bookmarks.has(eventId));
           }
           // Registration status
-          let derivedStatus: 'registered' | 'checked-in' | 'evaluated' | 'none' = 'none';
+          let derivedStatus: 'registered' | 'checked-in' | 'checked-out' | 'evaluated' | 'none' = 'none';
           try {
             const userEmail = await getAuthenticatedUserEmail();
             if (userEmail) {
@@ -111,9 +114,15 @@ export default function ParticipantEventDetailPage() {
                 const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || []);
                 if (regs.length > 0) {
                   const reg = regs[0];
-                  if (reg.has_evaluated) derivedStatus = 'evaluated';
-                  else if (reg.is_present) derivedStatus = 'checked-in';
-                  else derivedStatus = 'registered';
+                  if (reg.has_evaluated) {
+                    derivedStatus = 'evaluated';
+                  } else if (reg.is_checked_out) {
+                    derivedStatus = 'checked-out';
+                  } else if (reg.is_present) {
+                    derivedStatus = 'checked-in';
+                  } else {
+                    derivedStatus = 'registered';
+                  }
                 }
               }
             }
@@ -123,7 +132,11 @@ export default function ParticipantEventDetailPage() {
           setRegistrationStatus(derivedStatus);
           const normalizedStatus = (apiEvent?.status || '').toLowerCase();
           if (derivedStatus === 'registered') {
-            setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending');
+            setButtonLabel('Check In');
+          } else if (derivedStatus === 'checked-in') {
+            setButtonLabel('Check Out');
+          } else if (derivedStatus === 'checked-out') {
+            setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Waiting for Evaluation');
           } else if (derivedStatus === 'evaluated') {
             setButtonLabel('View Certificate');
           } else {
@@ -138,6 +151,28 @@ export default function ParticipantEventDetailPage() {
     };
     fetchEvent();
   }, [params.id])
+
+  useEffect(() => {
+    const loadRegistrationInfo = async () => {
+      if (!(registrationStatus === 'registered' || registrationStatus === 'checked-in')) {
+        setRegistrationInfo(null)
+        return
+      }
+      try {
+        const userEmail = await getAuthenticatedUserEmail()
+        if (!userEmail) return
+        const baseUrl = api.registrations().endsWith('/') ? api.registrations().slice(0, -1) : api.registrations()
+        const url = `${baseUrl}/?event=${params.id}&email=${encodeURIComponent(userEmail)}`
+        const res = await apiCall.get(url)
+        if (res.ok) {
+          const data = await res.json()
+          const regs = Array.isArray(data) ? data : (data.results || data.data || [])
+          setRegistrationInfo(regs[0] || null)
+        }
+      } catch {}
+    }
+    loadRegistrationInfo()
+  }, [registrationStatus, params.id])
 
   const handleRegister = async () => {
     const eventId = params.id as string;
@@ -373,6 +408,45 @@ export default function ParticipantEventDetailPage() {
       handleViewCertificate()
     }
   }
+  const handleUnregister = async () => {
+    if (registrationStatus !== 'registered') return
+    try {
+      const email = await getAuthenticatedUserEmail()
+      if (!email) {
+        alert('Please sign in to manage registrations.')
+        router.push('/auth/signin')
+        return
+      }
+      const baseUrl = api.registrations().endsWith('/') ? api.registrations().slice(0, -1) : api.registrations()
+      const url = `${baseUrl}/?event=${params.id}&email=${encodeURIComponent(email)}`
+      const res = await apiCall.get(url)
+      let regId: number | null = null
+      if (res.ok) {
+        const data = await res.json()
+        const regs = Array.isArray(data) ? data : (data.results || data.data || [])
+        regId = regs?.[0]?.id ?? null
+      }
+      if (!regId && registrationInfo?.id) {
+        regId = Number(registrationInfo.id)
+      }
+      if (!regId) {
+        alert('Registration record not found.')
+        return
+      }
+      const delRes = await apiCall.delete(api.registrationById(regId))
+      if (!delRes.ok) {
+        alert('Failed to revoke registration.')
+        return
+      }
+      setRegistrationStatus('none')
+      setRegistrationInfo(null)
+      setRegistrationData(null)
+      setButtonLabel('Register Now')
+      setShowUnregisterSuccessModal(true)
+    } catch {
+      alert('Failed to revoke registration.')
+    }
+  }
 
     if (loading) {
     return (
@@ -510,7 +584,20 @@ export default function ParticipantEventDetailPage() {
             </Button>
 
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>Status: <span className="font-semibold text-foreground capitalize">{registrationStatus === 'none' ? 'Not Registered' : registrationStatus}</span></p>
+              <p>
+                Status:{' '}
+                <span className="font-semibold text-foreground">
+                  {registrationStatus === 'none'
+                    ? 'Not Registered'
+                    : registrationStatus === 'registered'
+                      ? 'waiting for check in'
+                      : registrationStatus === 'checked-in'
+                        ? 'waiting for check out'
+                        : registrationStatus === 'checked-out'
+                          ? 'waiting for evaluation'
+                          : 'evaluated'}
+                </span>
+              </p>
               {!hasAccess && (
                 <p className="text-xs text-orange-600 mt-2">
                   ⚠️ Restricted to {event?.department || 'specific department'} members only
@@ -522,6 +609,75 @@ export default function ParticipantEventDetailPage() {
                 </p>
               )}
             </div>
+            {registrationStatus === 'registered' && (
+              <div className="mt-4 space-y-3">
+                <div className="bg-muted p-4 rounded-lg border border-border text-center">
+                  <p className="text-sm text-muted-foreground mb-2">Your Registration QR Code</p>
+                  <div className="flex justify-center bg-white rounded p-2">
+                    {registrationInfo?.qr_code ? (
+                      <img
+                        src={`data:image/png;base64,${registrationInfo.qr_code}`}
+                        alt="QR Code"
+                        className="w-40 h-40 object-contain"
+                      />
+                    ) : registrationInfo?.qr_code_value ? (
+                      <QRCodeSVG
+                        id="sidebar-qr-svg"
+                        value={registrationInfo.qr_code_value}
+                        size={160}
+                        level="H"
+                        includeMargin={true}
+                      />
+                    ) : null}
+                  </div>
+                  <div className="mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (registrationInfo?.qr_code) {
+                          const link = document.createElement('a')
+                          link.href = `data:image/png;base64,${registrationInfo.qr_code}`
+                          link.download = 'qr-code.png'
+                          link.click()
+                          return
+                        }
+                        const svgEl = document.getElementById('sidebar-qr-svg')
+                        if (svgEl) {
+                          const serializer = new XMLSerializer()
+                          const svgStr = serializer.serializeToString(svgEl as any)
+                          const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+                          const url = URL.createObjectURL(blob)
+                          const link = document.createElement('a')
+                          link.href = url
+                          link.download = 'qr-code.svg'
+                          link.click()
+                          URL.revokeObjectURL(url)
+                        }
+                      }}
+                    >
+                      Download QR
+                    </Button>
+                    <Button
+                      className="ml-2"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowQrModal(true)}
+                    >
+                      Show QR
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="ml-2"
+                      size="sm"
+                      onClick={handleUnregister}
+                    >
+                      Unregister
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </div>
@@ -599,6 +755,87 @@ export default function ParticipantEventDetailPage() {
                   }}
                 >
                   View Full Details
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      {showQrModal && registrationInfo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="p-6 border border-border bg-card w-full max-w-2xl mx-4">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground mb-1">
+                    {`${registrationInfo.first_name || ''} ${registrationInfo.last_name || ''}`.trim() || 'Participant'}
+                  </h2>
+                  <p className="text-muted-foreground">{registrationInfo.email}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowQrModal(false)}
+                >
+                  <ArrowLeft className="w-5 h-5 rotate-180" />
+                </Button>
+              </div>
+              <div className="bg-muted p-4 rounded-lg border border-border text-center">
+                <p className="text-sm text-muted-foreground mb-2">QR Code</p>
+                <div className="flex justify-center bg-white rounded p-2">
+                  {registrationInfo.qr_code ? (
+                    <img
+                      src={`data:image/png;base64,${registrationInfo.qr_code}`}
+                      alt="QR Code"
+                      className="w-48 h-48 object-contain"
+                    />
+                  ) : registrationInfo.qr_code_value ? (
+                    <QRCodeSVG
+                      value={registrationInfo.qr_code_value}
+                      size={192}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  ) : null}
+                </div>
+                {registrationInfo.qr_code_value && (
+                  <p className="text-xs text-muted-foreground mt-2 font-mono">
+                    Code: {registrationInfo.qr_code_value}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowQrModal(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="flex-1 bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+                  onClick={() => {
+                    setShowQrModal(false)
+                    router.push(`/participant/event/${params.id}/qrcode`)
+                  }}
+                >
+                  View Full Details
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+      {showUnregisterSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="p-6 border border-border bg-card w-full max-w-xl mx-4">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-foreground">Successfully unregistered</h2>
+              <p className="text-muted-foreground">You have been unregistered from this event.</p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setShowUnregisterSuccessModal(false)}>
+                  Close
                 </Button>
               </div>
             </div>

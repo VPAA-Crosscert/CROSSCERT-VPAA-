@@ -3,12 +3,12 @@
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, MapPin, Calendar, Bookmark, X, Search } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Bookmark, X, Search, ChevronDown } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { getStoredEvents, fetchUserDepartment } from '@/lib/event-context'
 import { Event } from '@/lib/event-context'
-import { api, apiCall } from '@/lib/api-config'
+import { api, apiCall, getAuthenticatedUserEmail, authApi, apiRequest } from '@/lib/api-config'
 
 const DEPARTMENT_ABBR = {
   'College of Criminal Justice Education': 'CCJE',
@@ -52,9 +52,15 @@ export default function ParticipantEvents() {
   const [selectedSemester, setSelectedSemester] = useState('ALL')
   const [selectedMonth, setSelectedMonth] = useState('ALL')
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('ALL')
-  const [bookmarked, setBookmarked] = useState<Set<number | string>>(new Set())
+  const [isMonthsOpen, setIsMonthsOpen] = useState(true)
+  const [bookmarked, setBookmarked] = useState<Set<string>>(new Set())
   const [events, setEvents] = useState<Event[]>([])
   const [userDepartment, setUserDepartment] = useState('')
+  const [showJoinSuccess, setShowJoinSuccess] = useState(false)
+  const [joiningEventId, setJoiningEventId] = useState<string | number | null>(null)
+  const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set())
+  const [showUnregisterSuccess, setShowUnregisterSuccess] = useState(false)
+  const [unregisterEventId, setUnregisterEventId] = useState<string | number | null>(null)
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -93,7 +99,23 @@ export default function ParticipantEvents() {
         
         const storedBookmarks = localStorage.getItem('bookmarkedEvents')
         if (storedBookmarks) {
-          setBookmarked(new Set(JSON.parse(storedBookmarks)))
+          const arr: any[] = JSON.parse(storedBookmarks)
+          setBookmarked(new Set(arr.map((v) => String(v))))
+        }
+        
+        const email = await getAuthenticatedUserEmail()
+        if (email) {
+          try {
+            const baseUrl = api.registrations().endsWith('/') ? api.registrations().slice(0, -1) : api.registrations()
+            const regsUrl = `${baseUrl}/?email=${encodeURIComponent(email)}`
+            const regsRes = await apiCall.get(regsUrl)
+            if (regsRes.ok) {
+              const regsData = await regsRes.json()
+              const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
+              const regEventIds = new Set<string>(regs.map((r: any) => String(r.event)))
+              setRegisteredEvents(regEventIds)
+            }
+          } catch {}
         }
       } catch (err) {
         console.error('[Participant Events] Error fetching events:', err)
@@ -102,7 +124,8 @@ export default function ParticipantEvents() {
         
         const storedBookmarks = localStorage.getItem('bookmarkedEvents')
         if (storedBookmarks) {
-          setBookmarked(new Set(JSON.parse(storedBookmarks)))
+          const arr: any[] = JSON.parse(storedBookmarks)
+          setBookmarked(new Set(arr.map((v) => String(v))))
         }
       }
     }
@@ -238,11 +261,12 @@ export default function ParticipantEvents() {
   }
 
   const toggleBookmark = (id: string | number) => {
+    const sid = String(id)
     const newBookmarked = new Set(bookmarked)
-    if (newBookmarked.has(id)) {
-      newBookmarked.delete(id)
+    if (newBookmarked.has(sid)) {
+      newBookmarked.delete(sid)
     } else {
-      newBookmarked.add(id)
+      newBookmarked.add(sid)
     }
     setBookmarked(newBookmarked)
     localStorage.setItem('bookmarkedEvents', JSON.stringify(Array.from(newBookmarked)))
@@ -263,6 +287,112 @@ export default function ParticipantEvents() {
 
   const hasActiveFilters = selectedCategory !== 'ALL' || selectedSemester !== 'ALL' || 
                           selectedMonth !== 'ALL' || selectedSchoolYear !== 'ALL' || searchTerm !== ''
+
+  const handleJoinEvent = async (event: Event) => {
+    const eventId = String(event.id)
+    const access = canAccessEvent(event.category || 'HCDC', event.department)
+    if (!access) {
+      alert(`This event is restricted to ${event.department || 'a specific department'}.`)
+      return
+    }
+    const userEmail = await getAuthenticatedUserEmail()
+    if (!userEmail) {
+      alert('Please sign in to join events.')
+      router.push('/auth/signin')
+      return
+    }
+    let firstName = 'Participant'
+    let lastName = 'User'
+    let affiliation = 'HCDC'
+    try {
+      const profileResponse = await apiRequest(authApi.me(), { method: 'GET' })
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json()
+        if (profileData.authenticated && profileData.user) {
+          const user = profileData.user
+          if (user.name) {
+            const nameParts = String(user.name).trim().split(' ')
+            firstName = nameParts[0] || user.first_name || 'Participant'
+            lastName = nameParts.slice(1).join(' ') || user.last_name || 'User'
+          } else {
+            firstName = user.first_name || 'Participant'
+            lastName = user.last_name || 'User'
+          }
+          affiliation = user.program || user.department || 'HCDC'
+        }
+      }
+    } catch {}
+    try {
+      const payload = {
+        event: parseInt(eventId, 10),
+        email: userEmail,
+        first_name: firstName,
+        last_name: lastName,
+        affiliation,
+      }
+      const res = await apiCall.post(api.registrations(), payload)
+      if (!res.ok) {
+        // If already registered, still show success
+        setJoiningEventId(event.id)
+        setShowJoinSuccess(true)
+        setRegisteredEvents(prev => {
+          const next = new Set<string>(prev)
+          next.add(String(event.id))
+          return next
+        })
+        return
+      }
+      setJoiningEventId(event.id)
+      setShowJoinSuccess(true)
+      setRegisteredEvents(prev => {
+        const next = new Set<string>(prev)
+        next.add(String(event.id))
+        return next
+      })
+    } catch (err) {
+      alert('Failed to join event. Please try again.')
+    }
+  }
+
+  const handleUnregisterEvent = async (event: Event) => {
+    const eventId = String(event.id)
+    const userEmail = await getAuthenticatedUserEmail()
+    if (!userEmail) {
+      alert('Please sign in to manage registrations.')
+      router.push('/auth/signin')
+      return
+    }
+    try {
+      const baseUrl = api.registrations().endsWith('/') ? api.registrations().slice(0, -1) : api.registrations()
+      const regsUrl = `${baseUrl}/?event=${encodeURIComponent(eventId)}&email=${encodeURIComponent(userEmail)}`
+      const regsRes = await apiCall.get(regsUrl)
+      if (!regsRes.ok) {
+        alert('Unable to load registration record.')
+        return
+      }
+      const regsData = await regsRes.json()
+      const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
+      if (!regs || regs.length === 0) {
+        alert('No registration found to revoke.')
+        return
+      }
+      const regId = regs[0].id
+      const delRes = await apiCall.delete(api.registrationById(regId))
+      if (!delRes.ok) {
+        alert('Failed to revoke registration. Please try again.')
+        return
+      }
+      setRegisteredEvents(prev => {
+        const next = new Set<string>(prev)
+        next.delete(String(event.id))
+        return next
+      })
+      setUnregisterEventId(event.id)
+      setShowUnregisterSuccess(true)
+    } catch {
+      alert('Failed to revoke registration. Please try again.')
+    }
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -425,14 +555,33 @@ export default function ParticipantEvents() {
 
                           {/* Actions */}
                           <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              className={`flex-1 ${hasAccess ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                              onClick={() => router.push(`/participant/event/${event.id}`)}
-                              disabled={!hasAccess}
-                              size="sm"
-                            >
-                              {hasAccess ? 'Join Event' : 'Restricted'}
-                            </Button>
+                            {registeredEvents.has(String(event.id)) ? (
+                              <>
+                                <Button
+                                  className="flex-1 bg-muted text-foreground"
+                                  disabled
+                                  size="sm"
+                                >
+                                  Registered
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleUnregisterEvent(event)}
+                                >
+                                  Unregister
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                className={`flex-1 ${hasAccess ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                onClick={() => handleJoinEvent(event)}
+                                disabled={!hasAccess}
+                                size="sm"
+                              >
+                                {hasAccess ? 'Join Event' : 'Restricted'}
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -441,7 +590,7 @@ export default function ParticipantEvents() {
                               className="shrink-0"
                             >
                               <Bookmark
-                                className={`w-5 h-5 ${bookmarked.has(event.id) ? 'fill-primary text-primary' : ''}`}
+                                className={`w-5 h-5 ${bookmarked.has(String(event.id)) ? 'fill-primary text-primary' : ''}`}
                               />
                             </Button>
                           </div>
@@ -455,20 +604,6 @@ export default function ParticipantEvents() {
           )}
         </div>
         <div className="lg:col-span-2 space-y-4 order-3 hidden lg:block">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground block">Category</label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
-            >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat === 'HCDC' ? 'HCDC EVENTS' : cat}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-foreground block">School Year</label>
             <select
@@ -484,27 +619,96 @@ export default function ParticipantEvents() {
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground block">Months</label>
-            <div className="space-y-1 max-h-[600px] overflow-y-auto">
-              {months.map((month) => (
-                <button
-                  key={month}
-                  onClick={() => setSelectedMonth(month)}
-                  className={`
-                    w-full text-left px-4 py-2 rounded-full transition-all text-sm
-                    ${selectedMonth === month
-                      ? 'bg-secondary text-secondary-foreground font-semibold'
-                      : 'text-foreground hover:bg-muted'}
-                  `}
-                >
-                  {month}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => setIsMonthsOpen(!isMonthsOpen)}
+              className="w-full flex items-center justify-between text-sm font-semibold text-foreground"
+            >
+              <span>Months</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isMonthsOpen ? 'rotate-180' : 'rotate-0'}`} />
+            </button>
+            {isMonthsOpen && (
+              <div className="space-y-1 max-h-[600px] overflow-y-auto">
+                {months.map((month) => (
+                  <button
+                    key={month}
+                    onClick={() => setSelectedMonth(month)}
+                    className={`
+                      w-full text-left px-4 py-2 rounded-full transition-all text-sm
+                      ${selectedMonth === month
+                        ? 'bg-secondary text-secondary-foreground font-semibold'
+                        : 'text-foreground hover:bg-muted'}
+                    `}
+                  >
+                    {month}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
+      {showJoinSuccess && joiningEventId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="p-6 border border-border bg-card w-full max-w-xl mx-4">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-foreground">Successfully joined the event</h2>
+              <p className="text-muted-foreground">
+                You have successfully joined this event. You can view your registration details and QR code in the event page.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowJoinSuccess(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="flex-1 bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+                  onClick={() => {
+                    setShowJoinSuccess(false)
+                    router.push(`/participant/event/${joiningEventId}`)
+                  }}
+                >
+                  Event details
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      {showUnregisterSuccess && unregisterEventId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="p-6 border border-border bg-card w-full max-w-xl mx-4">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-foreground">Successfully unregistered</h2>
+              <p className="text-muted-foreground">
+                Your registration for this event has been revoked.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowUnregisterSuccess(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="flex-1 bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+                  onClick={() => {
+                    setShowUnregisterSuccess(false)
+                    router.push(`/participant/event/${unregisterEventId}`)
+                  }}
+                >
+                  Event details
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
       
     </div>
   )

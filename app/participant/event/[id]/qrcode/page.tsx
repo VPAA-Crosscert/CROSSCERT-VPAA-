@@ -93,7 +93,26 @@ export default function ParticipantQRCode() {
   }
 
   const handleDownload = () => {
-    // For now just close; future: export QR/barcode as image.
+    if (registration?.qr_code) {
+      const link = document.createElement('a')
+      link.href = `data:image/png;base64,${registration.qr_code}`
+      link.download = 'qr-code.png'
+      link.click()
+      return
+    }
+    const svgEl = document.getElementById('qr-svg')
+    if (svgEl) {
+      const serializer = new XMLSerializer()
+      const svgStr = serializer.serializeToString(svgEl as any)
+      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'qr-code.svg'
+      link.click()
+      URL.revokeObjectURL(url)
+      return
+    }
     handleCloseModal()
   }
 
@@ -153,6 +172,7 @@ export default function ParticipantQRCode() {
                   ) : registration?.qr_code_value ? (
                     // Generate QR code on frontend using qr_code_value
                     <QRCodeSVG
+                      id="qr-svg"
                       value={registration.qr_code_value}
                       size={160}
                       level="H"
@@ -161,6 +181,7 @@ export default function ParticipantQRCode() {
                   ) : (
                     // Fallback: generate QR code using registration ID and email
                     <QRCodeSVG
+                      id="qr-svg"
                       value={`REG-${params.id}-${registration?.email || ''}`}
                       size={160}
                       level="H"
