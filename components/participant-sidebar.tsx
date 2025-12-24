@@ -3,13 +3,25 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { LayoutDashboard, Calendar, Bookmark, Award, Settings, LogOut, Search, Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
+import { useTheme } from 'next-themes'
+import Image from 'next/image'
 
 export function ParticipantSidebar() {
   const router = useRouter()
   const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState('')
+  const { theme, resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+  
+  const logoSrc = mounted && (resolvedTheme === 'dark' || theme === 'dark')
+    ? '/crosscert-typo-white.png'
+    : '/crosscert-typo-black.png'
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/participant/dashboard' },
@@ -44,11 +56,22 @@ export function ParticipantSidebar() {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex fixed left-0 top-0 w-64 h-screen bg-card border-r border-border flex-col pt-16 z-30">
         <div className="p-4 space-y-4">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/participant/dashboard')}>
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-primary-foreground font-bold text-sm">C</span>
-            </div>
-            <span className="font-bold text-foreground text-sm sm:text-base">CROSSCERT</span>
+          <div className="flex items-center justify-center cursor-pointer" onClick={() => router.push('/participant/dashboard')}>
+            {mounted && (
+              <Image
+                src={logoSrc}
+                alt="CROSSCERT"
+                width={240}
+                height={60}
+                className="w-full max-w-[220px] h-auto object-contain"
+                priority
+              />
+            )}
+            {!mounted && (
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
+                <span className="text-primary-foreground font-bold text-sm">C</span>
+              </div>
+            )}
           </div>
           
           {/* Search bar */}
@@ -105,14 +128,25 @@ export function ParticipantSidebar() {
         isMobileOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => {
+          <div className="flex items-center justify-center flex-1 cursor-pointer" onClick={() => {
             router.push('/participant/dashboard')
             setIsMobileOpen(false)
           }}>
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">C</span>
-            </div>
-            <span className="font-bold text-foreground text-sm">CROSSCERT</span>
+            {mounted && (
+              <Image
+                src={logoSrc}
+                alt="CROSSCERT"
+                width={200}
+                height={50}
+                className="w-full max-w-[180px] h-auto object-contain"
+                priority
+              />
+            )}
+            {!mounted && (
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-sm">C</span>
+              </div>
+            )}
           </div>
           <button
             onClick={() => setIsMobileOpen(false)}

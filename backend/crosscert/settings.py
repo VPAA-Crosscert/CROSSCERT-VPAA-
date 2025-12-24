@@ -69,11 +69,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'crosscert.wsgi.application'
 
-# Use SQLite as the primary database (no Supabase/Postgres required)
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'neondb',
+        'USER': 'neondb_owner',
+        'PASSWORD': 'npg_eTZK5ghob4zC',
+        'HOST': 'ep-round-surf-a1af8ypj-pooler.ap-southeast-1.aws.neon.tech',
+        'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'require',
+            'channel_binding': 'require',
+        },
     }
 }
 

@@ -49,9 +49,29 @@ export default function SignIn() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Login failed')
-        setIsLoading(false)
-        return
+        // Custom error messages based on backend response
+        const errorText = (data?.error || data?.detail || '').toLowerCase();
+        if (
+          errorText.includes('not found') ||
+          errorText.includes('no active account') ||
+          errorText.includes('does not exist') ||
+          errorText.includes('user not found') ||
+          errorText.includes('account not found')
+        ) {
+          setError('Account does not exist');
+        } else if (
+          errorText.includes('password') ||
+          errorText.includes('invalid') ||
+          errorText.includes('incorrect') ||
+          errorText.includes('authentication') ||
+          errorText.includes('credentials')
+        ) {
+          setError('Incorrect password or username');
+        } else {
+          setError(data.error || data.detail || 'Login failed');
+        }
+        setIsLoading(false);
+        return;
       }
 
       // Store minimal user info in localStorage (only for session management)
@@ -79,42 +99,42 @@ export default function SignIn() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-8">
         {/* Header */}
-        <div className="space-y-2">
+        <div className="space-y-2 text-center">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 mx-auto"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
           </button>
-          <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
-          <p className="text-muted-foreground">Sign in to your CROSSCERT account</p>
+          <h1 className="text-4xl font-extrabold text-foreground tracking-tight">Welcome back</h1>
+          <p className="text-muted-foreground text-base">Sign in to your CROSSCERT account</p>
         </div>
 
         {/* Form */}
-        <Card className="p-6 border border-border bg-card">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <Card className="p-8 border border-border bg-card shadow-xl rounded-2xl">
+          <form onSubmit={handleSubmit} className="space-y-7">
             {error && (
-              <div className="p-3 bg-destructive/10 border border-destructive text-destructive rounded-md text-sm">
+              <div className="p-3 bg-destructive/10 border border-destructive text-destructive rounded-md text-sm text-center">
                 {error}
               </div>
             )}
 
             {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground">Email Address</Label>
+              <Label htmlFor="email" className="text-foreground font-semibold">Email Address</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="firstname.lastname@hcdc.edu.ph"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground"
+                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground py-3 text-base rounded-lg"
                   required
                 />
               </div>
@@ -122,7 +142,7 @@ export default function SignIn() {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">Password</Label>
+              <Label htmlFor="password" className="text-foreground font-semibold">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
                 <Input
@@ -131,7 +151,7 @@ export default function SignIn() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground"
+                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground py-3 text-base rounded-lg"
                   required
                 />
               </div>
@@ -140,16 +160,15 @@ export default function SignIn() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed py-3 text-lg rounded-lg shadow-md"
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
-
         </Card>
 
         {/* Sign Up Link */}
-        <div className="text-center text-sm text-muted-foreground">
+        <div className="text-center text-base text-muted-foreground mt-4">
           Don't have an account?{' '}
           <button
             onClick={() => router.push('/auth/signup')}

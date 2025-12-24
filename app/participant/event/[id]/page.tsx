@@ -1,15 +1,35 @@
-'use client'
+"use client";
+import { useRouter, useParams } from 'next/navigation';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, MapPin, Calendar, Users, Bookmark } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { toast } from '@/hooks/use-toast';
+import { getEventById, getRegistrationStatus, updateRegistrationStatus, fetchUserDepartment } from '@/lib/event-context';
+import { api, apiCall, getAuthenticatedUserEmail } from '@/lib/api-config';
+import { QRCodeSVG } from 'qrcode.react';
 
-import { useRouter, useParams } from 'next/navigation'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { ArrowLeft, MapPin, Calendar, Users, Bookmark } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { toast } from '@/hooks/use-toast'
-import { getEventById, getRegistrationStatus, updateRegistrationStatus, fetchUserDepartment } from '@/lib/event-context'
-import { Event } from '@/lib/event-context'
-import { api, apiCall, getAuthenticatedUserEmail } from '@/lib/api-config'
-import { QRCodeSVG } from 'qrcode.react'
+// Fallback Event type if not present
+type Event = {
+  id: number | string;
+  name?: string;
+  title?: string;
+  status?: string;
+  category?: string;
+  department?: string;
+  coverImage?: string;
+  cover_image?: string;
+  date?: string;
+  startTime?: string;
+  start_time?: string;
+  endTime?: string;
+  end_time?: string;
+  venue?: string;
+  location?: string;
+  speakers?: string;
+  description?: string;
+  code_prefix?: string;
+};
 
 const DEPARTMENT_ABBR = {
   'College of Criminal Justice Education': 'CCJE',
@@ -19,194 +39,110 @@ const DEPARTMENT_ABBR = {
   'College of Maritime Education': 'COME',
   'School of Business & Management': 'SBME',
   'School of Teacher Education': 'STE',
-}
+};
 
-// Add a reverse mapping function
 const getDepartmentAbbr = (fullName: string): string | null => {
-          if (isDuplicateError) {
-            toast({
-              title: 'Already Registered',
-              description: 'You have already registered for this event.',
-              status: 'info',
-            });
-            errorMessage = 'You are already registered for this event';
-            // Optionally, you can still fetch and show the QR code as before, or just return here:
-            return;
-          } else {
-          setEvent(apiEvent as Event)
-          setEventStatus(apiEvent.status || '')
-          
-          // Check access control - fetch user department from API
-          const userDept = await fetchUserDepartment()
-          setUserDepartment(userDept)
-          
-          const canAccess = (() => {
-            const eventCategory = apiEvent.category || 'HCDC'
-            const eventDept = apiEvent.department
-            
-            // HCDC events are accessible to everyone
-            if (eventCategory === 'HCDC') return true
-            
-            // If no department restriction, allow access
-            if (!eventDept) return true
-            
-            // Get user's department
-            if (!userDept) {
-              console.log('[Event Detail] User department not set, access denied')
-              return false
-            }
-            
-            // Convert both to abbreviations for comparison
-            const userDeptAbbr = getDepartmentAbbr(userDept)
-            const eventDeptAbbr = getDepartmentAbbr(eventDept)
-            
-            console.log('[Event Detail] Access check:', {
-              eventCategory,
-              eventDept,
-              eventDeptAbbr,
-              userDept,
-              userDeptAbbr,
-              match: userDeptAbbr === eventDeptAbbr
-            })
-            
-            // Match if abbreviations match
-            return userDeptAbbr !== null && eventDeptAbbr !== null && userDeptAbbr === eventDeptAbbr
-          })()
-          
-          setHasAccess(canAccess)
-          console.log('[Event Detail] Has access:', canAccess)
-          
-          // Load bookmark status from localStorage
-          const storedBookmarks = localStorage.getItem('bookmarkedEvents')
+  if (!fullName) return null;
+  // Check if it's already an abbreviation
+  if (Object.values(DEPARTMENT_ABBR).includes(fullName as any)) {
+    return fullName;
+  }
+  // Map full name to abbreviation
+  return DEPARTMENT_ABBR[fullName as keyof typeof DEPARTMENT_ABBR] || null;
+};
+
+export default function ParticipantEventDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [eventStatus, setEventStatus] = useState('');
+  const [hasAccess, setHasAccess] = useState(true);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [buttonLabel, setButtonLabel] = useState('Register Now');
+  const [loading, setLoading] = useState(true);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [registrationData, setRegistrationData] = useState<any>(null);
+  const [userDepartment, setUserDepartment] = useState<string | null>(null);
+  const [registrationStatus, setRegistrationStatus] = useState<'none' | 'registered' | 'checked-in' | 'evaluated'>('none');
+
+  useEffect(() => {
+    const fetchEvent = async () => {
+      setLoading(true);
+      const eventId = params.id as string;
+      let apiEvent: Event | null = null;
+      let userDept: string | null = null;
+      let canAccess = true;
+      try {
+        // Try to fetch event from API (if available)
+        const response = await apiCall.get(api.eventById(eventId));
+        if (response.ok) {
+          apiEvent = await response.json();
+          setEvent(apiEvent as Event);
+          setEventStatus(apiEvent?.status || '');
+          userDept = await fetchUserDepartment();
+          setUserDepartment(userDept);
+          canAccess = (() => {
+            if (!apiEvent) return false;
+            const eventCategory = apiEvent.category || 'HCDC';
+            const eventDept = apiEvent.department;
+            if (eventCategory === 'HCDC') return true;
+            if (!eventDept) return true;
+            if (!userDept) return false;
+            const userDeptAbbr = getDepartmentAbbr(userDept);
+            const eventDeptAbbr = getDepartmentAbbr(eventDept);
+            return userDeptAbbr !== null && eventDeptAbbr !== null && userDeptAbbr === eventDeptAbbr;
+          })();
+          setHasAccess(canAccess);
+          // Bookmarks
+          const storedBookmarks = localStorage.getItem('bookmarkedEvents');
           if (storedBookmarks) {
-            const bookmarks = new Set(JSON.parse(storedBookmarks))
-            setIsBookmarked(bookmarks.has(eventId))
+            const bookmarks = new Set(JSON.parse(storedBookmarks));
+            setIsBookmarked(bookmarks.has(eventId));
           }
-          
-          // Determine registration status from backend (authoritative) using current user email
-          let derivedStatus: 'registered' | 'checked-in' | 'evaluated' | 'none' = 'none'
-          async function fetchRegistrationStatus() {
-            try {
-              const userEmail = await getAuthenticatedUserEmail()
-              if (userEmail) {
-                const regsUrl = `${api.registrations()}?event=${eventId}&email=${encodeURIComponent(userEmail)}`
-                const regsRes = await apiCall.get(regsUrl)
-                if (regsRes.ok) {
-                  const regsData = await regsRes.json()
-                  const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
-                  if (regs.length > 0) {
-                    const reg = regs[0]
-                    if (reg.has_evaluated) {
-                      derivedStatus = 'evaluated'
-                    } else if (reg.is_present) {
-                      derivedStatus = 'checked-in'
-                    } else {
-                      derivedStatus = 'registered'
-                    }
-                  }
+          // Registration status
+          let derivedStatus: 'registered' | 'checked-in' | 'evaluated' | 'none' = 'none';
+          try {
+            const userEmail = await getAuthenticatedUserEmail();
+            if (userEmail) {
+              const regsUrl = `${api.registrations()}?event=${eventId}&email=${encodeURIComponent(userEmail)}`;
+              const regsRes = await apiCall.get(regsUrl);
+              if (regsRes.ok) {
+                const regsData = await regsRes.json();
+                const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || []);
+                if (regs.length > 0) {
+                  const reg = regs[0];
+                  if (reg.has_evaluated) derivedStatus = 'evaluated';
+                  else if (reg.is_present) derivedStatus = 'checked-in';
+                  else derivedStatus = 'registered';
                 }
               }
-            } catch (regErr) {
-              console.warn('[Participant Event Detail] Could not fetch registration for status:', regErr)
             }
-
-            // Fallback to local stored status if backend didn't give us anything
-            if (derivedStatus === 'none') {
-              derivedStatus = getRegistrationStatus(eventId)
-            }
-
-            setRegistrationStatus(derivedStatus)
-
-            const normalizedStatus = (apiEvent.status || '').toLowerCase()
-            if (derivedStatus === 'registered') {
-              setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
-            } else if (derivedStatus === 'evaluated') {
-              setButtonLabel('View Certificate')
-            } else {
-              setButtonLabel(hasAccess ? 'Register Now' : 'Restricted')
-            }
+          } catch (err) {
+            console.warn('[Event Detail] Could not fetch registration status:', err);
           }
-          await fetchRegistrationStatus()
-            // Participant is registered; evaluation is allowed only after event is completed
-            setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
-          } else if (derivedStatus === 'checked-in') {
-            // Checked-in by admin – evaluation still gated by event completion
-            setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
+          setRegistrationStatus(derivedStatus);
+          const normalizedStatus = (apiEvent?.status || '').toLowerCase();
+          if (derivedStatus === 'registered') {
+            setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending');
           } else if (derivedStatus === 'evaluated') {
-            setButtonLabel('View Certificate')
+            setButtonLabel('View Certificate');
           } else {
-            setButtonLabel(canAccess ? 'Register Now' : 'Restricted')
+            setButtonLabel(canAccess ? 'Register Now' : 'Restricted');
           }
-
-          setLoading(false)
-          return
-        } else {
-          console.warn('[Participant Event Detail] ❌ API request failed, status:', response.status)
         }
-      } catch (apiErr) {
-        console.error('[Participant Event Detail] ❌ API fetch error:', apiErr)
+      } catch (err) {
+        console.error('[Event Detail] Failed to fetch event:', err);
+      } finally {
+        setLoading(false);
       }
-      
-      // Fallback to localStorage
-      console.log('[Participant Event Detail] Falling back to localStorage search')
-      const foundEvent = getEventById(eventId)
-      setEvent(foundEvent)
-      setEventStatus(foundEvent?.status || '')
-      
-      // Check access control for localStorage events too
-      const userDept = await fetchUserDepartment()
-      setUserDepartment(userDept)
-      
-      if (foundEvent) {
-        const canAccess = (() => {
-          const eventCategory = foundEvent.category || 'HCDC'
-          const eventDept = foundEvent.department
-          
-          if (eventCategory === 'HCDC') return true
-          if (!eventDept) return true
-          if (!userDept) return false
-          
-          const userDeptAbbr = getDepartmentAbbr(userDept)
-          const eventDeptAbbr = getDepartmentAbbr(eventDept)
-          
-          return userDeptAbbr !== null && eventDeptAbbr !== null && userDeptAbbr === eventDeptAbbr
-        })()
-        
-        setHasAccess(canAccess)
-      }
-      
-      // Load bookmark status from localStorage
-      const storedBookmarks = localStorage.getItem('bookmarkedEvents')
-      if (storedBookmarks) {
-        const bookmarks = new Set(JSON.parse(storedBookmarks))
-        setIsBookmarked(bookmarks.has(eventId))
-      }
-      
-      const status = getRegistrationStatus(eventId)
-      setRegistrationStatus(status)
-      
-      const normalizedStatus = (foundEvent?.status || '').toLowerCase()
-      if (status === 'registered') {
-        setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
-      } else if (status === 'evaluated') {
-        setButtonLabel('View Certificate')
-      } else {
-        setButtonLabel(hasAccess ? 'Register Now' : 'Restricted')
-      }
-      
-      setLoading(false)
-    }
-    
-    fetchEvent()
+    };
+    fetchEvent();
   }, [params.id])
 
   const handleRegister = async () => {
-    const eventId = params.id as string
-    console.log('[Registration] ========================================')
-    console.log('[Registration] Starting registration process')
-    console.log('[Registration] Event ID:', eventId, 'Type:', typeof eventId)
+    const eventId = params.id as string;
     
-    // Check access before allowing registration
+    // Check access
     if (!hasAccess) {
       console.warn('[Registration] ❌ Access denied - user does not have permission for this event')
       alert(`You don't have access to register for this event. This event is restricted to ${event?.department || 'a specific department'}.`)

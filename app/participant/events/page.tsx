@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, MapPin, Calendar, Bookmark, X } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { ArrowLeft, MapPin, Calendar, Bookmark, X, Search } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { getStoredEvents, fetchUserDepartment } from '@/lib/event-context'
 import { Event } from '@/lib/event-context'
@@ -14,100 +14,92 @@ const DEPARTMENT_ABBR = {
   'College of Criminal Justice Education': 'CCJE',
   'College of Engineering and Technology': 'CET',
   'College of Hospitality & Tourism Management': 'CHATME',
-  'College of Arts & Sciences': 'HUSOCOM',
+  'College of Humanities, Social Sciences and Communication': 'HUSOCOM',
   'College of Maritime Education': 'COME',
   'School of Business & Management': 'SBME',
   'School of Teacher Education': 'STE',
 }
 
-// Add a reverse mapping function
+const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  'CCJE': { bg: 'bg-red-500', border: 'border-red-500', text: 'text-white' },
+  'CET': { bg: 'bg-orange-500', border: 'border-orange-500', text: 'text-white' },
+  'CHATME': { bg: 'bg-gray-500', border: 'border-gray-500', text: 'text-white' },
+  'HUSOCOM': { bg: 'bg-fuchsia-500', border: 'border-fuchsia-500', text: 'text-white' },
+  'COME': { bg: 'bg-sky-500', border: 'border-sky-500', text: 'text-white' },
+  'SBME': { bg: 'bg-yellow-500', border: 'border-yellow-500', text: 'text-black' },
+  'STE': { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-white' },
+  'HCDC': { bg: 'bg-primary', border: 'border-primary', text: 'text-primary-foreground' },
+}
+
 const getDepartmentAbbr = (fullName: string): string | null => {
   if (!fullName) return null
-  // Check if it's already an abbreviation
   if (Object.values(DEPARTMENT_ABBR).includes(fullName as any)) {
     return fullName
   }
-  // Map full name to abbreviation
   return DEPARTMENT_ABBR[fullName as keyof typeof DEPARTMENT_ABBR] || null
+}
+
+const getCategoryFromEvent = (event: Event): string => {
+  if (event.category === 'HCDC') return 'HCDC'
+  const deptAbbr = getDepartmentAbbr(event.department || '')
+  return deptAbbr || 'HCDC'
 }
 
 export default function ParticipantEvents() {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('ALL')
+  const [selectedSemester, setSelectedSemester] = useState('ALL')
+  const [selectedMonth, setSelectedMonth] = useState('ALL')
+  const [selectedYear, setSelectedYear] = useState('ALL')
   const [bookmarked, setBookmarked] = useState<Set<number | string>>(new Set())
   const [events, setEvents] = useState<Event[]>([])
   const [userDepartment, setUserDepartment] = useState('')
-  const [deniedEventId, setDeniedEventId] = useState<string | number | null>(null)
-  const [deniedDepartment, setDeniedDepartment] = useState('')
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        // Fetch user department from API
         const dept = await fetchUserDepartment()
         setUserDepartment(dept)
         
-        // Fetch from API first (prioritize backend data)
         const eventsUrl = api.events().endsWith('/') ? api.events() : `${api.events()}/`
-        console.log('[Participant Events] Fetching events from:', eventsUrl)
         const res = await apiCall.get(eventsUrl)
-        
-        console.log('[Participant Events] Response status:', res.status, res.statusText)
         
         let eventsList: Event[] = []
         
         if (!res.ok) {
-          console.warn('[Participant Events] Unable to load events from API. Status:', res.status, res.statusText)
-          // Fallback to localStorage if API fails
-          const storedEvents = getStoredEvents()
-          eventsList = storedEvents
-          console.log('[Participant Events] Using localStorage fallback, events count:', eventsList.length)
+          eventsList = getStoredEvents()
         } else {
           let data: unknown = []
           try {
             data = await res.json()
-            console.log('[Participant Events] Raw API response:', data)
           } catch {
-            console.error('[Participant Events] Events API did not return JSON.')
-            const storedEvents = getStoredEvents()
-            eventsList = storedEvents
+            eventsList = getStoredEvents()
           }
           
-          // Handle paginated response from Django REST Framework
           if (Array.isArray(data)) {
             eventsList = data as Event[]
-            console.log('[Participant Events] Direct array response, events count:', eventsList.length)
           } else if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
             eventsList = data.results as Event[]
-            console.log('[Participant Events] Paginated response (results), events count:', eventsList.length)
           } else if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
             eventsList = data.data as Event[]
-            console.log('[Participant Events] Paginated response (data), events count:', eventsList.length)
           } else {
-            console.warn('[Participant Events] Unknown response format, falling back to localStorage')
-            const storedEvents = getStoredEvents()
-            eventsList = storedEvents
+            eventsList = getStoredEvents()
           }
         }
         
-        // Filter for public events
         const publicEvents = eventsList.filter(event => event.isPublic !== false)
-        console.log('[Participant Events] Public events count:', publicEvents.length)
         setEvents(publicEvents)
         
-        // Load bookmarked events from localStorage
         const storedBookmarks = localStorage.getItem('bookmarkedEvents')
         if (storedBookmarks) {
           setBookmarked(new Set(JSON.parse(storedBookmarks)))
         }
       } catch (err) {
         console.error('[Participant Events] Error fetching events:', err)
-        // Fallback to localStorage on error
         const storedEvents = getStoredEvents()
         setEvents(storedEvents)
         
-        // Load bookmarked events from localStorage
         const storedBookmarks = localStorage.getItem('bookmarkedEvents')
         if (storedBookmarks) {
           setBookmarked(new Set(JSON.parse(storedBookmarks)))
@@ -118,60 +110,124 @@ export default function ParticipantEvents() {
     fetchEvents()
   }, [])
 
-  const filteredEvents = events.filter((event) => {
-    // Safety check: handle both 'name' (frontend) and 'title' (backend) properties
-    const eventName = (event.name || event.title || '').toString()
-    const matchesSearch = eventName.toLowerCase().includes(searchTerm.toLowerCase())
+  const getSemester = (dateStr: string): string => {
+    if (!dateStr) return 'UNKNOWN'
+    const date = new Date(dateStr)
+    const month = date.getMonth() + 1
+    if (month >= 1 && month <= 4) return '1ST'
+    if (month >= 5 && month <= 8) return '2ND'
+    return 'SUMMER'
+  }
+  
+  const getMonth = (dateStr: string): string => {
+    if (!dateStr) return 'UNKNOWN'
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { month: 'long' }).toUpperCase()
+  }
+
+  const getYearOfCourse = (event: Event): string => {
+    const value =
+      (event as any).year_of_course ||
+      (event as any).course_year ||
+      (event as any).year
+    if (!value) return 'ALL YEARS'
+    const normalized = String(value).trim()
+    if (!normalized) return 'ALL YEARS'
+    return normalized
+  }
+
+  const availableYears = useMemo(() => {
+    const years = new Set<string>()
+    events.forEach((evt) => {
+      const y = getYearOfCourse(evt)
+      if (y && y.toUpperCase() !== 'ALL YEARS') years.add(y)
+    })
+    return ['ALL', ...Array.from(years)]
+  }, [events])
+
+  const filteredEvents = useMemo(() => {
+    return events.filter((event) => {
+      const eventName = (event.name || event.title || '').toString()
+      const matchesSearch = eventName.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      if (!matchesSearch) return false
+      
+      // Category filter
+      if (selectedCategory !== 'ALL') {
+        const eventCategory = getCategoryFromEvent(event)
+        if (selectedCategory === 'HCDC') {
+          if (eventCategory !== 'HCDC') return false
+        } else {
+          if (eventCategory !== selectedCategory) return false
+        }
+      }
+      
+      // Semester filter
+      if (selectedSemester !== 'ALL') {
+        const eventSemester = getSemester(event.date || '')
+        if (eventSemester !== selectedSemester) return false
+      }
+      
+      // Month filter
+      if (selectedMonth !== 'ALL') {
+        const eventMonth = getMonth(event.date || '')
+        if (eventMonth !== selectedMonth) return false
+      }
+
+      // Year filter
+      if (selectedYear !== 'ALL') {
+        const eventYear = getYearOfCourse(event)
+        if (!eventYear || eventYear !== selectedYear) return false
+      }
+      
+      return true
+    })
+  }, [events, searchTerm, selectedCategory, selectedSemester, selectedMonth, selectedYear])
+
+  // Group events by month
+  const eventsByMonth = useMemo(() => {
+    const grouped: Record<string, Event[]> = {}
+    filteredEvents.forEach(event => {
+      const month = getMonth(event.date || '')
+      if (!grouped[month]) {
+        grouped[month] = []
+      }
+      grouped[month].push(event)
+    })
     
-    if (selectedCategory === 'ALL') {
-      return matchesSearch
-    }
+    // Sort months chronologically
+    const monthOrder = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 
+                       'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+    const sorted: Record<string, Event[]> = {}
+    Object.keys(grouped).sort((a, b) => {
+      const aIdx = monthOrder.indexOf(a)
+      const bIdx = monthOrder.indexOf(b)
+      if (aIdx === -1 && bIdx === -1) return 0
+      if (aIdx === -1) return 1
+      if (bIdx === -1) return -1
+      return aIdx - bIdx
+    }).forEach(month => {
+      sorted[month] = grouped[month].sort((a, b) => {
+        const dateA = new Date(a.date || '').getTime()
+        const dateB = new Date(b.date || '').getTime()
+        return dateA - dateB
+      })
+    })
     
-    if (selectedCategory === 'HCDC') {
-      return matchesSearch && event.category === 'HCDC'
-    }
-    
-    return matchesSearch && event.category === selectedCategory
-  })
+    return sorted
+  }, [filteredEvents])
 
   const canAccessEvent = (eventCategory: string, eventDept?: string): boolean => {
-    // HCDC events are accessible to everyone
     if (eventCategory === 'HCDC') return true
-    
-    // If no department restriction, allow access
     if (!eventDept) return true
     
-    // Use the userDepartment state which is fetched from API
     const userDeptFull = userDepartment
-    if (!userDeptFull) {
-      console.log('[Access Check] User department not set')
-      return false // User has no department set, can't access department events
-    }
+    if (!userDeptFull) return false
     
-    // Convert both to abbreviations for comparison
     const userDeptAbbr = getDepartmentAbbr(userDeptFull)
     const eventDeptAbbr = getDepartmentAbbr(eventDept)
     
-    console.log('[Access Check]', {
-      eventCategory,
-      eventDept,
-      eventDeptAbbr,
-      userDeptFull,
-      userDeptAbbr,
-      match: userDeptAbbr === eventDeptAbbr
-    })
-    
-    // Match if abbreviations match
     return userDeptAbbr !== null && eventDeptAbbr !== null && userDeptAbbr === eventDeptAbbr
-  }
-
-  const handleRegister = (event: Event) => {
-    if (!canAccessEvent(event.category || 'HCDC', event.department)) {
-      setDeniedEventId(event.id)
-      setDeniedDepartment(event.department || 'this department')
-      return
-    }
-    router.push(`/participant/event/${event.id}`)
   }
 
   const toggleBookmark = (id: string | number) => {
@@ -182,11 +238,24 @@ export default function ParticipantEvents() {
       newBookmarked.add(id)
     }
     setBookmarked(newBookmarked)
-    // Persist to localStorage
     localStorage.setItem('bookmarkedEvents', JSON.stringify(Array.from(newBookmarked)))
   }
 
-  const categories = ['ALL', 'HCDC', 'CET', 'STE', 'SBME', 'HUSOCOM', 'CHATME', 'COME', 'CCJE']
+  const clearFilters = () => {
+    setSelectedCategory('ALL')
+    setSelectedSemester('ALL')
+    setSelectedMonth('ALL')
+    setSelectedYear('ALL')
+    setSearchTerm('')
+  }
+
+  const categories = ['ALL', 'HCDC', 'CCJE', 'CET', 'CHATME', 'HUSOCOM', 'COME', 'SBME', 'STE']
+  const semesters = ['ALL', '1ST', '2ND', 'SUMMER']
+  const months = ['ALL', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 
+                  'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+
+  const hasActiveFilters = selectedCategory !== 'ALL' || selectedSemester !== 'ALL' || 
+                          selectedMonth !== 'ALL' || selectedYear !== 'ALL' || searchTerm !== ''
 
   return (
     <div className="p-6 space-y-6">
@@ -201,115 +270,249 @@ export default function ParticipantEvents() {
         </button>
         <h1 className="text-3xl font-bold text-foreground">Discover Events</h1>
         <p className="text-muted-foreground mt-1">Find and register for upcoming events</p>
-        <p className="text-sm text-muted-foreground mt-2">Your Department: <span className="font-semibold text-foreground">{userDepartment || 'Not Set'}</span></p>
       </div>
 
-      {/* Search and Filters */}
-      <div className="space-y-4">
+      {/* Search Bar - Full Width */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         <Input
           placeholder="Search events..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="bg-background border-border"
+          className="pl-10 bg-background border-border text-foreground h-12 text-base"
         />
-        <div className="flex gap-2 flex-wrap">
-          {categories.map((cat) => (
+      </div>
+
+      {/* Categories Filter - Top Horizontal */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <label className="text-sm font-semibold text-foreground">Categories</label>
+          {hasActiveFilters && (
             <Button
-              key={cat}
-              variant={selectedCategory === cat ? 'default' : 'outline'}
+              variant="ghost"
               size="sm"
-              onClick={() => setSelectedCategory(cat)}
-              className={selectedCategory === cat ? 'bg-secondary text-secondary-foreground' : 'border-border text-foreground'}
+              onClick={clearFilters}
+              className="text-xs text-muted-foreground hover:text-foreground"
             >
-              {cat === 'HCDC' ? 'HCDC EVENTS' : cat}
+              Clear Filters
+            </Button>
+          )}
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {categories.map((cat) => {
+            const isSelected = selectedCategory === cat
+            const colors = cat !== 'ALL' && cat !== 'HCDC' ? CATEGORY_COLORS[cat] : null
+            
+            return (
+              <Button
+                key={cat}
+                variant={isSelected ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedCategory(cat)}
+                className={`
+                  ${isSelected && colors 
+                    ? `${colors.bg} ${colors.text} border-0 hover:opacity-90` 
+                    : isSelected 
+                      ? 'bg-secondary text-secondary-foreground' 
+                      : colors 
+                        ? `${colors.border} border-2 bg-white dark:bg-card text-foreground hover:bg-muted` 
+                        : 'border-border text-foreground'}
+                  font-medium transition-all
+                `}
+              >
+                {cat === 'HCDC' ? 'HCDC EVENTS' : cat}
+              </Button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Year Filter */}
+      <div className="space-y-2">
+        <label className="text-sm font-semibold text-foreground">Year of Course</label>
+        <div className="flex gap-2 flex-wrap">
+          {availableYears.map((year) => (
+            <Button
+              key={year}
+              variant={selectedYear === year ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedYear(year)}
+              className={selectedYear === year ? 'bg-secondary text-secondary-foreground' : 'border-border text-foreground'}
+            >
+              {year === 'ALL' ? 'All Years' : year}
             </Button>
           ))}
         </div>
       </div>
 
-      {/* Events Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredEvents.map((event) => {
-          const hasAccess = canAccessEvent(event.category || 'HCDC', event.department)
-          return (
-            <Card
-              key={event.id}
-              className="overflow-hidden border border-border bg-card hover:shadow-lg transition-shadow"
-            >
-              {(event.coverImage || event.cover_image) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img 
-                  src={event.coverImage || event.cover_image || ''} 
-                  alt={event.name || event.title || 'Event cover'} 
-                  className="w-full aspect-video object-cover"
-                />
-              ) : (
-                <div className="aspect-video bg-gradient-to-br from-secondary/20 to-primary/20" />
-              )}
+      {/* Main Layout: Semesters (Left) | Events (Center) | Months (Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+        {/* Semesters Filter - Left Column */}
+        <div className="lg:col-span-2 space-y-2 order-2 lg:order-1">
+          <label className="text-sm font-semibold text-foreground block">Semesters</label>
+          <div className="space-y-1">
+            {semesters.map((sem) => (
+              <button
+                key={sem}
+                onClick={() => setSelectedSemester(sem)}
+                className={`
+                  w-full text-left px-4 py-2 rounded-md transition-all
+                  ${selectedSemester === sem
+                    ? 'bg-secondary text-secondary-foreground font-semibold'
+                    : 'text-foreground hover:bg-muted'}
+                  flex items-center gap-2
+                `}
+              >
+                <span className={`w-2 h-2 rounded-full ${selectedSemester === sem ? 'bg-secondary-foreground' : 'bg-muted-foreground'}`} />
+                {sem}
+              </button>
+            ))}
+          </div>
+        </div>
 
-              <div className="p-4 space-y-3">
-                <h3 className="font-semibold text-foreground line-clamp-2">{event.name || event.title || 'Untitled Event'}</h3>
+        {/* Events List - Center Column */}
+        <div className="lg:col-span-8 space-y-6 order-1 lg:order-2">
+          {Object.keys(eventsByMonth).length === 0 ? (
+            <Card className="p-12 border border-border bg-card text-center">
+              <p className="text-muted-foreground">No events found matching your filters</p>
+            </Card>
+          ) : (
+            Object.entries(eventsByMonth).map(([month, monthEvents]) => (
+              <div key={month} className="space-y-4">
+                <h2 className="text-xl font-bold text-foreground border-b border-border pb-2">
+                  {month}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {monthEvents.map((event) => {
+                    const eventCategory = getCategoryFromEvent(event)
+                    const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
+                    const hasAccess = canAccessEvent(event.category || 'HCDC', event.department)
+                    const eventDate = event.date ? new Date(event.date) : null
+                    const formattedDate = eventDate 
+                      ? eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'TBA'
+                    
+                    const yearOfCourse = getYearOfCourse(event)
+                    
+                    return (
+                      <Card
+                        key={event.id}
+                        className="overflow-hidden border border-border bg-card hover:shadow-lg transition-all cursor-pointer group"
+                        onClick={() => router.push(`/participant/event/${event.id}`)}
+                      >
+                        <div className="p-4 space-y-3">
+                          {/* Category Tag and Year */}
+                          <div className="flex items-center justify-between">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text}`}>
+                              {eventCategory}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-medium">
+                              {yearOfCourse}
+                            </span>
+                          </div>
 
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    {event.date} • {event.startTime || event.start_time || 'TBA'}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    {event.venue || event.location || 'TBA'}
-                  </div>
-                </div>
+                          {/* Event Title */}
+                          <h3 className="font-bold text-lg text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+                            {event.name || event.title || 'Untitled Event'}
+                          </h3>
 
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    className={`flex-1 ${hasAccess ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                    onClick={() => handleRegister(event)}
-                    disabled={!hasAccess}
-                  >
-                    {hasAccess ? 'View Details' : 'Restricted'}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => toggleBookmark(event.id)}
-                  >
-                    <Bookmark
-                      className={`w-5 h-5 ${bookmarked.has(event.id) ? 'fill-primary text-primary' : ''}`}
-                    />
-                  </Button>
+                          {/* Date & Time */}
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="w-4 h-4 shrink-0" />
+                            <span>{formattedDate}</span>
+                            {(event.startTime || event.start_time) && (
+                              <>
+                                <span>•</span>
+                                <span>{event.startTime || event.start_time}</span>
+                                {(event.endTime || event.end_time) && (
+                                  <span>- {event.endTime || event.end_time}</span>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          {/* Venue */}
+                          {(event.venue || event.location) && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <MapPin className="w-4 h-4 shrink-0" />
+                              <span className="line-clamp-1">{event.venue || event.location}</span>
+                            </div>
+                          )}
+
+                          {/* Actions */}
+                          <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              className={`flex-1 ${hasAccess ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                              onClick={() => router.push(`/participant/event/${event.id}`)}
+                              disabled={!hasAccess}
+                              size="sm"
+                            >
+                              {hasAccess ? 'Join Event' : 'Restricted'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleBookmark(event.id)}
+                              title={bookmarked.has(event.id) ? 'Remove bookmark' : 'Bookmark event'}
+                              className="shrink-0"
+                            >
+                              <Bookmark
+                                className={`w-5 h-5 ${bookmarked.has(event.id) ? 'fill-primary text-primary' : ''}`}
+                              />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    )
+                  })}
                 </div>
               </div>
-            </Card>
-          )
-        })}
+            ))
+          )}
+        </div>
+
+        {/* Months Filter - Right Column (Desktop) */}
+        <div className="lg:col-span-2 space-y-2 order-3 hidden lg:block">
+          <label className="text-sm font-semibold text-foreground block">Months</label>
+          <div className="space-y-1 max-h-[600px] overflow-y-auto">
+            {months.map((month) => (
+              <button
+                key={month}
+                onClick={() => setSelectedMonth(month)}
+                className={`
+                  w-full text-left px-4 py-2 rounded-full transition-all text-sm
+                  ${selectedMonth === month
+                    ? 'bg-secondary text-secondary-foreground font-semibold'
+                    : 'text-foreground hover:bg-muted'}
+                `}
+              >
+                {month}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Access Denied Modal */}
-      {deniedEventId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 border border-border bg-card max-w-md w-full mx-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                  <X className="w-5 h-5 text-red-600" />
-                </div>
-                <h2 className="text-lg font-semibold text-foreground">Can't Access Event</h2>
-              </div>
-              <button onClick={() => setDeniedEventId(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-muted-foreground">Only members of <span className="font-semibold text-foreground">{deniedDepartment}</span> can participate in this event.</p>
-            <Button
-              className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-              onClick={() => setDeniedEventId(null)}
+      {/* Months Filter - Mobile (Below Events) */}
+      <div className="lg:hidden space-y-2">
+        <label className="text-sm font-semibold text-foreground block">Filter by Month</label>
+        <div className="flex gap-2 flex-wrap">
+          {months.map((month) => (
+            <button
+              key={month}
+              onClick={() => setSelectedMonth(month)}
+              className={`
+                px-4 py-2 rounded-full transition-all text-sm
+                ${selectedMonth === month
+                  ? 'bg-secondary text-secondary-foreground font-semibold'
+                  : 'bg-muted text-foreground hover:bg-muted/80'}
+              `}
             >
-              Close
-            </Button>
-          </Card>
+              {month}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   )
 }

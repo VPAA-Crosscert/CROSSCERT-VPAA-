@@ -10,7 +10,9 @@ import { ArrowLeft, Mail, Lock, User, ChevronDown } from 'lucide-react'
 import { api, apiCall } from '@/lib/api-config'
 
 const DEPARTMENTS = {
-  'College of Criminal Justice Education': ['Bachelor of Science in Criminology'],
+  'College of Criminal Justice Education': [
+    'Bachelor of Science in Criminology',
+  ],
   'College of Engineering and Technology': [
     'Bachelor of Science in Computer Engineering (BSCpE)',
     'Bachelor of Science in Electronics Engineering (BSECE)',
@@ -21,7 +23,7 @@ const DEPARTMENTS = {
     'Bachelor of Science in Hospitality Management (BSHM)',
     'Bachelor of Science in Tourism Management (BSTM)',
   ],
-  'College of Arts & Sciences': [
+  'College of Humanities, Social Sciences and Communication': [
     'Bachelor of Arts in Political Science (AB PolSci)',
     'Bachelor of Arts in Economics (AB Econ)',
     'Bachelor of Arts in History (AB History)',
@@ -33,7 +35,9 @@ const DEPARTMENTS = {
     'Bachelor of Science in Psychology (BS Psych)',
     'Bachelor of Science in Social Work (BSSW)',
   ],
-  'College of Maritime Education': ['Bachelor of Science in Marine Transportation (BSMT)'],
+  'College of Maritime Education': [
+    'Bachelor of Science in Marine Transportation (BSMT)',
+  ],
   'School of Business & Management': [
     'Bachelor of Science in Accountancy (BSA)',
     'Bachelor of Science in Business Administration major in Financial Management (BSBA-FM)',
@@ -52,14 +56,14 @@ const DEPARTMENTS = {
     'Bachelor of Secondary Education major in Mathematics',
     'Bachelor of Secondary Education major in Science',
     'Bachelor of Secondary Education major in Social Studies',
-    'Bachelor of Secondary Education major in Values Education with Catetics',
+    'Bachelor of Secondary Education major in Values Education with Catechetics',
     'Bachelor of Special Needs Education – Generalist',
   ],
 }
 
 export default function SignUp() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -67,34 +71,34 @@ export default function SignUp() {
     confirmPassword: '',
     department: '',
     program: '',
-  })
-  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false)
-  const [showProgramDropdown, setShowProgramDropdown] = useState(false)
-  const [error, setError] = useState('')
+  });
+  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
+  const [showProgramDropdown, setShowProgramDropdown] = useState(false);
+  const [error, setError] = useState('');
 
-  const departmentList = Object.keys(DEPARTMENTS)
-  const programs = formData.department ? DEPARTMENTS[formData.department as keyof typeof DEPARTMENTS] : []
+  const departmentList = Object.keys(DEPARTMENTS);
+  const programs = formData.department ? DEPARTMENTS[formData.department as keyof typeof DEPARTMENTS] : [];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault();
+    setError('');
 
     if (!formData.department || !formData.program) {
-      setError('Please select both department and program')
-      return
+      setError('Please select both department and program');
+      return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      return
+      setError('Passwords do not match');
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       const payload = {
         name: formData.name,
@@ -102,79 +106,69 @@ export default function SignUp() {
         password: formData.password,
         department: formData.department,
         program: formData.program,
-      }
+      };
 
       // Build the correct URL - api.participants() returns URL with trailing slash
-      const participantsBaseUrl = api.participants()
-      const registerUrl = participantsBaseUrl.endsWith('/') 
+      const participantsBaseUrl = api.participants();
+      const registerUrl = participantsBaseUrl.endsWith('/')
         ? `${participantsBaseUrl}register/`
-        : `${participantsBaseUrl}/register/`
-      
-      console.log('[Signup] ========================================')
-      console.log('[Signup] Registering new participant')
-      console.log('[Signup] Name:', formData.name)
-      console.log('[Signup] Email:', formData.email)
-      console.log('[Signup] Department:', formData.department)
-      console.log('[Signup] Program:', formData.program)
-      console.log('[Signup] Register URL:', registerUrl)
-      console.log('[Signup] Payload:', { name: formData.name, email: formData.email, password: '***' })
-      
-      const res = await apiCall.post(registerUrl, payload)
-      console.log('[Signup] Response status:', res.status, res.statusText)
+        : `${participantsBaseUrl}/register/`;
+
+      const res = await apiCall.post(registerUrl, payload);
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        console.error('[Signup] Registration failed:', data)
-        setError(data.detail || data.error || 'Unable to create account.')
-        setIsLoading(false)
-        return
+        const data = await res.json().catch(() => ({}));
+        setError(data.detail || data.error || 'Unable to create account.');
+        setIsLoading(false);
+        return;
       }
 
-      const responseData = await res.json().catch(() => ({}))
-      console.log('[Signup] ✅ Registration successful:', responseData)
+      const responseData = await res.json().catch(() => ({}));
 
       // Save minimal user data to localStorage (only for session management)
-      localStorage.setItem('userRole', 'participant')
-      localStorage.setItem('userEmail', formData.email)
-      localStorage.setItem('userId', responseData.id?.toString() || '')
-      
-      console.log('[Signup] User session data saved')
-      router.push('/participant/dashboard')
+      localStorage.setItem('userRole', 'participant');
+      localStorage.setItem('userEmail', formData.email);
+      localStorage.setItem('userId', responseData.id?.toString() || '');
+
+      router.push('/participant/dashboard');
     } catch (err) {
-      setError('Network error while creating account.')
+      setError('Network error while creating account.');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Animated background blobs */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-blob1 z-0" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-blob2 z-0" />
+      <div className="w-full max-w-md space-y-8 relative z-10">
         {/* Header */}
-        <div className="space-y-2">
+        <div className="space-y-2 text-center">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 mx-auto"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
           </button>
-          <h1 className="text-3xl font-bold text-foreground">Create account</h1>
-          <p className="text-muted-foreground">Join CROSSCERT and start managing events</p>
+          <h1 className="text-4xl font-extrabold text-foreground tracking-tight">Create account</h1>
+          <p className="text-muted-foreground text-base">Join CROSSCERT and start managing events</p>
         </div>
 
         {/* Form */}
-        <Card className="p-6 border border-border bg-card">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <Card className="p-8 border border-border bg-card shadow-xl rounded-2xl animate-fadein">
+          <form onSubmit={handleSubmit} className="space-y-7 animate-slideup">
             {error && (
-              <div className="p-3 bg-destructive/10 border border-destructive text-destructive rounded-md text-sm">
+              <div className="p-3 bg-destructive/10 border border-destructive text-destructive rounded-md text-sm text-center">
                 {error}
               </div>
             )}
 
             {/* Name Field */}
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-foreground">Full Name</Label>
+              <Label htmlFor="name" className="text-foreground font-semibold">Full Name</Label>
               <div className="relative">
                 <User className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
                 <Input
@@ -184,7 +178,7 @@ export default function SignUp() {
                   placeholder="John Doe"
                   value={formData.name}
                   onChange={handleChange}
-                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground"
+                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground py-3 text-base rounded-lg"
                   required
                 />
               </div>
@@ -192,17 +186,17 @@ export default function SignUp() {
 
             {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground">Email Address</Label>
+              <Label htmlFor="email" className="text-foreground font-semibold">Email Address</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="you@hcdc.edu.ph"
+                  placeholder="firstname.lastname@hcdc.edu.ph"
                   value={formData.email}
                   onChange={handleChange}
-                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground"
+                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground py-3 text-base rounded-lg"
                   required
                 />
               </div>
@@ -210,7 +204,7 @@ export default function SignUp() {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">Password</Label>
+              <Label htmlFor="password" className="text-foreground font-semibold">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
                 <Input
@@ -220,7 +214,7 @@ export default function SignUp() {
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={handleChange}
-                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground"
+                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground py-3 text-base rounded-lg"
                   required
                 />
               </div>
@@ -228,7 +222,7 @@ export default function SignUp() {
 
             {/* Confirm Password Field */}
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-foreground">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="text-foreground font-semibold">Confirm Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
                 <Input
@@ -238,14 +232,14 @@ export default function SignUp() {
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground"
+                  className="pl-10 bg-background border-border text-foreground placeholder:text-muted-foreground py-3 text-base rounded-lg"
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-foreground">Department</Label>
+              <Label className="text-foreground font-semibold">Department</Label>
               <div className="relative">
                 <button
                   type="button"
@@ -257,7 +251,6 @@ export default function SignUp() {
                   </span>
                   <ChevronDown className="w-4 h-4" />
                 </button>
-                
                 {showDepartmentDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
                     {departmentList.map((dept) => (
@@ -265,8 +258,8 @@ export default function SignUp() {
                         key={dept}
                         type="button"
                         onClick={() => {
-                          setFormData(prev => ({ ...prev, department: dept, program: '' }))
-                          setShowDepartmentDropdown(false)
+                          setFormData(prev => ({ ...prev, department: dept, program: '' }));
+                          setShowDepartmentDropdown(false);
                         }}
                         className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm ${
                           formData.department === dept ? 'bg-primary/10 text-primary font-semibold' : 'text-foreground'
@@ -281,7 +274,7 @@ export default function SignUp() {
             </div>
 
             <div className="space-y-2">
-              <Label className={`text-foreground ${!formData.department ? 'opacity-50' : ''}`}>Program</Label>
+              <Label className={`text-foreground font-semibold ${!formData.department ? 'opacity-50' : ''}`}>Program</Label>
               <div className="relative">
                 <button
                   type="button"
@@ -298,7 +291,6 @@ export default function SignUp() {
                   </span>
                   <ChevronDown className="w-4 h-4" />
                 </button>
-                
                 {showProgramDropdown && formData.department && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
                     {programs.map((program) => (
@@ -306,8 +298,8 @@ export default function SignUp() {
                         key={program}
                         type="button"
                         onClick={() => {
-                          setFormData(prev => ({ ...prev, program }))
-                          setShowProgramDropdown(false)
+                          setFormData(prev => ({ ...prev, program }));
+                          setShowProgramDropdown(false);
                         }}
                         className={`w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm ${
                           formData.program === program ? 'bg-primary/10 text-primary font-semibold' : 'text-foreground'
@@ -324,7 +316,7 @@ export default function SignUp() {
             <Button
               type="submit"
               disabled={isLoading || !formData.department || !formData.program}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed py-3 text-lg rounded-lg shadow-md"
             >
               {isLoading ? 'Creating account...' : 'Create Account'}
             </Button>
@@ -332,7 +324,7 @@ export default function SignUp() {
         </Card>
 
         {/* Sign In Link */}
-        <div className="text-center text-sm text-muted-foreground">
+        <div className="text-center text-base text-muted-foreground mt-4">
           Already have an account?{' '}
           <button
             onClick={() => router.push('/auth/signin')}
@@ -343,5 +335,5 @@ export default function SignUp() {
         </div>
       </div>
     </div>
-  )
+  );
 }

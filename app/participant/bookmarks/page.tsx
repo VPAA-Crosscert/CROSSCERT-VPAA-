@@ -7,6 +7,7 @@ import { ArrowLeft, MapPin, Calendar, Bookmark, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getStoredEvents } from '@/lib/event-context'
 import { Event } from '@/lib/event-context'
+import { api, apiCall } from '@/lib/api-config'
 
 export default function BookmarksPage() {
   const router = useRouter()
@@ -14,14 +15,57 @@ export default function BookmarksPage() {
   const [events, setEvents] = useState<Event[]>([])
 
   useEffect(() => {
-    const storedEvents = getStoredEvents()
-    setEvents(storedEvents)
-    
-    // Load bookmarked events from localStorage
-    const storedBookmarks = localStorage.getItem('bookmarkedEvents')
-    if (storedBookmarks) {
-      setBookmarked(new Set(JSON.parse(storedBookmarks)))
+    const fetchEvents = async () => {
+      try {
+        // Fetch from API first (prioritize backend data)
+        const eventsUrl = api.events().endsWith('/') ? api.events() : `${api.events()}/`
+        const res = await apiCall.get(eventsUrl)
+        
+        let eventsList: Event[] = []
+        
+        if (!res.ok) {
+          console.warn('[Bookmarks] Unable to load events from API, using localStorage fallback')
+          eventsList = getStoredEvents()
+        } else {
+          let data: unknown = []
+          try {
+            data = await res.json()
+          } catch {
+            eventsList = getStoredEvents()
+          }
+          
+          // Handle paginated response
+          if (Array.isArray(data)) {
+            eventsList = data as Event[]
+          } else if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
+            eventsList = data.results as Event[]
+          } else if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
+            eventsList = data.data as Event[]
+          } else {
+            eventsList = getStoredEvents()
+          }
+        }
+        
+        setEvents(eventsList)
+        
+        // Load bookmarked events from localStorage
+        const storedBookmarks = localStorage.getItem('bookmarkedEvents')
+        if (storedBookmarks) {
+          setBookmarked(new Set(JSON.parse(storedBookmarks)))
+        }
+      } catch (err) {
+        console.error('[Bookmarks] Error fetching events:', err)
+        const storedEvents = getStoredEvents()
+        setEvents(storedEvents)
+        
+        const storedBookmarks = localStorage.getItem('bookmarkedEvents')
+        if (storedBookmarks) {
+          setBookmarked(new Set(JSON.parse(storedBookmarks)))
+        }
+      }
     }
+    
+    fetchEvents()
   }, [])
 
   const toggleBookmark = (id: string | number) => {

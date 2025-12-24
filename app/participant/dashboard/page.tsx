@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft, Calendar, Award, Clock, Zap } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getStoredEvents } from '@/lib/event-context'
-import { api, apiCall } from '@/lib/api-config'
+import { api, apiCall, getAuthenticatedUserEmail } from '@/lib/api-config'
 
 type DashboardEvent = {
   id: number | string
@@ -29,6 +29,11 @@ export default function ParticipantDashboard() {
   const router = useRouter()
   const [upcomingEvents, setUpcomingEvents] = useState<DashboardEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    eventsJoined: 0,
+    pendingEvaluations: 0,
+    certificatesEarned: 0,
+  })
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -112,6 +117,54 @@ export default function ParticipantDashboard() {
         const top3Events = publicUpcomingEvents.slice(0, 3)
         console.log('[Participant Dashboard] Top 3 events to display:', top3Events.length)
         setUpcomingEvents(top3Events)
+        
+        // Fetch user stats
+        const userEmail = await getAuthenticatedUserEmail()
+        if (userEmail) {
+          try {
+            // Fetch registrations
+            const baseUrl = api.registrations().endsWith('/') 
+              ? api.registrations().slice(0, -1) 
+              : api.registrations()
+            const regsUrl = `${baseUrl}/?email=${encodeURIComponent(userEmail)}`
+            const regsRes = await apiCall.get(regsUrl)
+            
+            if (regsRes.ok) {
+              const regsData = await regsRes.json()
+              const registrations = Array.isArray(regsData) 
+                ? regsData 
+                : (regsData.results || regsData.data || [])
+              
+              const eventsJoined = registrations.length
+              const pendingEvaluations = registrations.filter((reg: any) => 
+                reg.is_present && !reg.has_evaluated
+              ).length
+              
+              // Fetch certificates
+              const certsUrl = api.certificates().endsWith('/') 
+                ? api.certificates() 
+                : `${api.certificates()}/`
+              const certsRes = await apiCall.get(`${certsUrl}?email=${encodeURIComponent(userEmail)}`)
+              
+              let certificatesEarned = 0
+              if (certsRes.ok) {
+                const certsData = await certsRes.json()
+                const certificates = Array.isArray(certsData) 
+                  ? certsData 
+                  : (certsData.results || certsData.data || [])
+                certificatesEarned = certificates.length
+              }
+              
+              setStats({
+                eventsJoined,
+                pendingEvaluations,
+                certificatesEarned,
+              })
+            }
+          } catch (err) {
+            console.error('[Participant Dashboard] Error fetching stats:', err)
+          }
+        }
       } catch (err) {
         console.error('[Participant Dashboard] Error fetching events:', err)
         // Fallback to localStorage on error
@@ -125,7 +178,7 @@ export default function ParticipantDashboard() {
     fetchEvents()
   }, [])
 
-  const stats = [
+  const statsData = [
     {
       label: 'Upcoming Events',
       value: upcomingEvents.length.toString(),
@@ -134,19 +187,19 @@ export default function ParticipantDashboard() {
     },
     {
       label: 'Events Joined',
-      value: '8',
+      value: stats.eventsJoined.toString(),
       icon: Calendar,
       color: 'text-purple-500',
     },
     {
       label: 'Pending Evaluations',
-      value: '2',
+      value: stats.pendingEvaluations.toString(),
       icon: Zap,
       color: 'text-orange-500',
     },
     {
       label: 'Certificates Earned',
-      value: '6',
+      value: stats.certificatesEarned.toString(),
       icon: Award,
       color: 'text-green-500',
     },
@@ -164,7 +217,7 @@ export default function ParticipantDashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => {
+        {statsData.map((stat) => {
           const Icon = stat.icon
           return (
             <Card key={stat.label} className="p-6 border border-border bg-card">

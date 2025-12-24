@@ -1,3 +1,23 @@
+@keyframes blob1 {
+  0%, 100% { transform: scale(1) translateY(0) translateX(0); }
+  50% { transform: scale(1.1) translateY(20px) translateX(30px); }
+}
+@keyframes blob2 {
+  0%, 100% { transform: scale(1) translateY(0) translateX(0); }
+  50% { transform: scale(1.08) translateY(-20px) translateX(-30px); }
+}
+.animate-blob1 { animation: blob1 12s ease-in-out infinite; }
+.animate-blob2 { animation: blob2 14s ease-in-out infinite; }
+@keyframes fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fadein { animation: fadein 1.2s cubic-bezier(0.4,0,0.2,1); }
+@keyframes slideup {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slideup { animation: slideup 1s cubic-bezier(0.4,0,0.2,1); }
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
