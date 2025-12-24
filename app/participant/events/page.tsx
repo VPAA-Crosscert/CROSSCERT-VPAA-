@@ -67,12 +67,12 @@ export default function ParticipantEvents() {
       try {
         const dept = await fetchUserDepartment()
         setUserDepartment(dept)
-        
+
         const eventsUrl = api.events().endsWith('/') ? api.events() : `${api.events()}/`
         const res = await apiCall.get(eventsUrl)
-        
+
         let eventsList: Event[] = []
-        
+
         if (!res.ok) {
           eventsList = getStoredEvents()
         } else {
@@ -82,7 +82,7 @@ export default function ParticipantEvents() {
           } catch {
             eventsList = getStoredEvents()
           }
-          
+
           if (Array.isArray(data)) {
             eventsList = data as Event[]
           } else if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
@@ -93,16 +93,16 @@ export default function ParticipantEvents() {
             eventsList = getStoredEvents()
           }
         }
-        
+
         const publicEvents = eventsList.filter(event => event.isPublic !== false)
         setEvents(publicEvents)
-        
+
         const storedBookmarks = localStorage.getItem('bookmarkedEvents')
         if (storedBookmarks) {
           const arr: any[] = JSON.parse(storedBookmarks)
           setBookmarked(new Set(arr.map((v) => String(v))))
         }
-        
+
         const email = await getAuthenticatedUserEmail()
         if (email) {
           try {
@@ -115,13 +115,13 @@ export default function ParticipantEvents() {
               const regEventIds = new Set<string>(regs.map((r: any) => String(r.event)))
               setRegisteredEvents(regEventIds)
             }
-          } catch {}
+          } catch { }
         }
       } catch (err) {
         console.error('[Participant Events] Error fetching events:', err)
         const storedEvents = getStoredEvents()
         setEvents(storedEvents)
-        
+
         const storedBookmarks = localStorage.getItem('bookmarkedEvents')
         if (storedBookmarks) {
           const arr: any[] = JSON.parse(storedBookmarks)
@@ -129,7 +129,7 @@ export default function ParticipantEvents() {
         }
       }
     }
-    
+
     fetchEvents()
   }, [])
 
@@ -141,7 +141,7 @@ export default function ParticipantEvents() {
     if (month >= 5 && month <= 8) return '2ND'
     return 'SUMMER'
   }
-  
+
   const getMonth = (dateStr: string): string => {
     if (!dateStr) return 'UNKNOWN'
     const date = new Date(dateStr)
@@ -180,9 +180,9 @@ export default function ParticipantEvents() {
     return events.filter((event) => {
       const eventName = (event.name || event.title || '').toString()
       const matchesSearch = eventName.toLowerCase().includes(searchTerm.toLowerCase())
-      
+
       if (!matchesSearch) return false
-      
+
       // Category filter
       if (selectedCategory !== 'ALL') {
         const eventCategory = getCategoryFromEvent(event)
@@ -192,13 +192,13 @@ export default function ParticipantEvents() {
           if (eventCategory !== selectedCategory) return false
         }
       }
-      
+
       // Semester filter
       if (selectedSemester !== 'ALL') {
         const eventSemester = getSemester(event.date || '')
         if (eventSemester !== selectedSemester) return false
       }
-      
+
       // Month filter
       if (selectedMonth !== 'ALL') {
         const eventMonth = getMonth(event.date || '')
@@ -209,7 +209,7 @@ export default function ParticipantEvents() {
         const sy = getSchoolYear(event.date || '')
         if (!sy || sy !== selectedSchoolYear) return false
       }
-      
+
       return true
     })
   }, [events, searchTerm, selectedCategory, selectedSemester, selectedMonth, selectedSchoolYear])
@@ -224,10 +224,10 @@ export default function ParticipantEvents() {
       }
       grouped[month].push(event)
     })
-    
+
     // Sort months chronologically
-    const monthOrder = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 
-                       'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+    const monthOrder = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+      'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
     const sorted: Record<string, Event[]> = {}
     Object.keys(grouped).sort((a, b) => {
       const aIdx = monthOrder.indexOf(a)
@@ -243,20 +243,20 @@ export default function ParticipantEvents() {
         return dateA - dateB
       })
     })
-    
+
     return sorted
   }, [filteredEvents])
 
   const canAccessEvent = (eventCategory: string, eventDept?: string): boolean => {
     if (eventCategory === 'HCDC') return true
     if (!eventDept) return true
-    
+
     const userDeptFull = userDepartment
     if (!userDeptFull) return false
-    
+
     const userDeptAbbr = getDepartmentAbbr(userDeptFull)
     const eventDeptAbbr = getDepartmentAbbr(eventDept)
-    
+
     return userDeptAbbr !== null && eventDeptAbbr !== null && userDeptAbbr === eventDeptAbbr
   }
 
@@ -276,17 +276,17 @@ export default function ParticipantEvents() {
     setSelectedCategory('ALL')
     setSelectedSemester('ALL')
     setSelectedMonth('ALL')
-    setSelectedYear('ALL')
+    setSelectedSchoolYear('ALL')
     setSearchTerm('')
   }
 
   const categories = ['ALL', 'HCDC', 'CCJE', 'CET', 'CHATME', 'HUSOCOM', 'COME', 'SBME', 'STE']
   const semesters = ['ALL', '1ST', '2ND', 'SUMMER']
-  const months = ['ALL', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 
-                  'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+  const months = ['ALL', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
 
-  const hasActiveFilters = selectedCategory !== 'ALL' || selectedSemester !== 'ALL' || 
-                          selectedMonth !== 'ALL' || selectedSchoolYear !== 'ALL' || searchTerm !== ''
+  const hasActiveFilters = selectedCategory !== 'ALL' || selectedSemester !== 'ALL' ||
+    selectedMonth !== 'ALL' || selectedSchoolYear !== 'ALL' || searchTerm !== ''
 
   const handleJoinEvent = async (event: Event) => {
     const eventId = String(event.id)
@@ -321,7 +321,7 @@ export default function ParticipantEvents() {
           affiliation = user.program || user.department || 'HCDC'
         }
       }
-    } catch {}
+    } catch { }
     try {
       const payload = {
         event: parseInt(eventId, 10),
@@ -378,9 +378,16 @@ export default function ParticipantEvents() {
       }
       const regId = regs[0].id
       const delRes = await apiCall.delete(api.registrationById(regId))
-      if (!delRes.ok) {
-        alert('Failed to revoke registration. Please try again.')
-        return
+      if (!delRes.ok && delRes.status !== 404) {
+        const verifyRes = await apiCall.get(regsUrl)
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const remaining = Array.isArray(verifyData) ? verifyData : (verifyData.results || verifyData.data || [])
+          if (Array.isArray(remaining) && remaining.length > 0) {
+            alert('Failed to revoke registration. Please try again.')
+            return
+          }
+        }
       }
       setRegisteredEvents(prev => {
         const next = new Set<string>(prev)
@@ -432,7 +439,7 @@ export default function ParticipantEvents() {
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat
             const colors = cat !== 'ALL' && cat !== 'HCDC' ? CATEGORY_COLORS[cat] : null
-            
+
             return (
               <Button
                 key={cat}
@@ -440,12 +447,12 @@ export default function ParticipantEvents() {
                 size="sm"
                 onClick={() => setSelectedCategory(cat)}
                 className={`
-                  ${isSelected && colors 
-                    ? `${colors.bg} ${colors.text} border-0 hover:opacity-90` 
-                    : isSelected 
-                      ? 'bg-secondary text-secondary-foreground' 
-                      : colors 
-                        ? `${colors.border} border-2 bg-white dark:bg-card text-foreground hover:bg-muted` 
+                  ${isSelected && colors
+                    ? `${colors.bg} ${colors.text} border-0 hover:opacity-90`
+                    : isSelected
+                      ? 'bg-secondary text-secondary-foreground'
+                      : colors
+                        ? `${colors.border} border-2 bg-white dark:bg-card text-foreground hover:bg-muted`
                         : 'border-border text-foreground'}
                   font-medium transition-all
                 `}
@@ -457,7 +464,7 @@ export default function ParticipantEvents() {
         </div>
       </div>
 
-      
+
 
       {/* Main Layout: Semesters (Left) | Events (Center) | Months (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
@@ -502,12 +509,12 @@ export default function ParticipantEvents() {
                     const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
                     const hasAccess = canAccessEvent(event.category || 'HCDC', event.department)
                     const eventDate = event.date ? new Date(event.date) : null
-                    const formattedDate = eventDate 
+                    const formattedDate = eventDate
                       ? eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                       : 'TBA'
-                    
+
                     const yearOfCourse = getYearOfCourse(event)
-                    
+
                     return (
                       <Card
                         key={event.id}
@@ -586,7 +593,7 @@ export default function ParticipantEvents() {
                               variant="ghost"
                               size="icon"
                               onClick={() => toggleBookmark(event.id)}
-                              title={bookmarked.has(event.id) ? 'Remove bookmark' : 'Bookmark event'}
+                              title={bookmarked.has(String(event.id)) ? 'Remove bookmark' : 'Bookmark event'}
                               className="shrink-0"
                             >
                               <Bookmark
@@ -678,7 +685,7 @@ export default function ParticipantEvents() {
           </Card>
         </div>
       )}
-      
+
       {showUnregisterSuccess && unregisterEventId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="p-6 border border-border bg-card w-full max-w-xl mx-4">
@@ -709,7 +716,7 @@ export default function ParticipantEvents() {
           </Card>
         </div>
       )}
-      
+
     </div>
   )
 }

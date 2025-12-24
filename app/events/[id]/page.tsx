@@ -116,20 +116,18 @@ export default function EventDetailAdminPage() {
                       <td className="px-6 py-4 text-sm text-foreground">{participant.name}</td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">{participant.email}</td>
                       <td className="px-6 py-4 text-sm">
-                        <div className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                          participant.status === 'checked-in'
+                        <div className={`inline-block px-2 py-1 rounded text-xs font-medium ${participant.status === 'checked-in'
                             ? 'bg-primary/10 text-primary'
                             : 'bg-muted text-muted-foreground'
-                        }`}>
+                          }`}>
                           {participant.status === 'checked-in' ? 'Checked In' : 'Registered'}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <div className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                          participant.evaluation === 'completed'
+                        <div className={`inline-block px-2 py-1 rounded text-xs font-medium ${participant.evaluation === 'completed'
                             ? 'bg-accent/10 text-accent'
                             : 'bg-muted text-muted-foreground'
-                        }`}>
+                          }`}>
                           {participant.evaluation === 'completed' ? 'Completed' : 'Pending'}
                         </div>
                       </td>
@@ -174,7 +172,7 @@ export default function EventDetailAdminPage() {
         {/* Certificates Tab */}
         <TabsContent value="certificates">
           <Card className="p-6 border border-border bg-card space-y-4">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2" fullWidth>
+            <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
               <Download className="w-4 h-4" />
               Generate All Certificates
             </Button>

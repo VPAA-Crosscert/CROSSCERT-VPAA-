@@ -1,35 +1,15 @@
-"use client";
-import { useRouter, useParams } from 'next/navigation';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Calendar, Users, Bookmark } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { toast } from '@/hooks/use-toast';
-import { getEventById, getRegistrationStatus, updateRegistrationStatus, fetchUserDepartment } from '@/lib/event-context';
-import { api, apiCall, getAuthenticatedUserEmail } from '@/lib/api-config';
-import { QRCodeSVG } from 'qrcode.react';
+'use client'
 
-// Fallback Event type if not present
-type Event = {
-  id: number | string;
-  name?: string;
-  title?: string;
-  status?: string;
-  category?: string;
-  department?: string;
-  coverImage?: string;
-  cover_image?: string;
-  date?: string;
-  startTime?: string;
-  start_time?: string;
-  endTime?: string;
-  end_time?: string;
-  venue?: string;
-  location?: string;
-  speakers?: string;
-  description?: string;
-  code_prefix?: string;
-};
+import { useRouter, useParams } from 'next/navigation'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { ArrowLeft, MapPin, Calendar, Users, Bookmark } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { toast } from '@/hooks/use-toast'
+import { getEventById, getRegistrationStatus, updateRegistrationStatus, fetchUserDepartment } from '@/lib/event-context'
+import { Event } from '@/lib/event-context'
+import { api, apiCall, getAuthenticatedUserEmail } from '@/lib/api-config'
+import { QRCodeSVG } from 'qrcode.react'
 
 const DEPARTMENT_ABBR = {
   'College of Criminal Justice Education': 'CCJE',
@@ -39,151 +19,216 @@ const DEPARTMENT_ABBR = {
   'College of Maritime Education': 'COME',
   'School of Business & Management': 'SBME',
   'School of Teacher Education': 'STE',
-};
+}
 
+// Add a reverse mapping function
 const getDepartmentAbbr = (fullName: string): string | null => {
-  if (!fullName) return null;
-  // Check if it's already an abbreviation
-  if (Object.values(DEPARTMENT_ABBR).includes(fullName as any)) {
-    return fullName;
-  }
-  // Map full name to abbreviation
-  return DEPARTMENT_ABBR[fullName as keyof typeof DEPARTMENT_ABBR] || null;
-};
+  return DEPARTMENT_ABBR[fullName as keyof typeof DEPARTMENT_ABBR] || null
+}
 
 export default function ParticipantEventDetailPage() {
-  const router = useRouter();
-  const params = useParams();
-  const [event, setEvent] = useState<Event | null>(null);
-  const [eventStatus, setEventStatus] = useState('');
-  const [hasAccess, setHasAccess] = useState(true);
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [buttonLabel, setButtonLabel] = useState('Register Now');
-  const [loading, setLoading] = useState(true);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [registrationData, setRegistrationData] = useState<any>(null);
-  const [registrationInfo, setRegistrationInfo] = useState<any>(null);
-  const [userDepartment, setUserDepartment] = useState<string | null>(null);
-  const [registrationStatus, setRegistrationStatus] = useState<'none' | 'registered' | 'checked-in' | 'checked-out' | 'evaluated'>('none');
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [showUnregisterSuccessModal, setShowUnregisterSuccessModal] = useState(false);
+  const [event, setEvent] = useState<Event | null>(null)
+  const [eventStatus, setEventStatus] = useState<string | null>(null)
+  const [userDepartment, setUserDepartment] = useState<string | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [buttonLabel, setButtonLabel] = useState<string>('Register Now')
+  const [registrationStatus, setRegistrationStatus] = useState<string>('none')
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false)
+  const [hasAccess, setHasAccess] = useState<boolean>(false)
+  const [isBookmarked, setIsBookmarked] = useState<boolean>(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [registrationData, setRegistrationData] = useState<any>(null)
+  const router = useRouter()
+  const params = useParams()
 
   useEffect(() => {
-    const fetchEvent = async () => {
-      setLoading(true);
-      const eventId = params.id as string;
-      let apiEvent: Event | null = null;
-      let userDept: string | null = null;
-      let canAccess = true;
+    const eventId = params.id as string
+
+    async function fetchEvent() {
+      setLoading(true)
+
+      // Try API first
       try {
-        // Try to fetch event from API (if available)
-        const response = await apiCall.get(api.eventById(eventId));
+        const eventUrl = api.eventById(eventId)
+        console.log('[Participant Event Detail] Fetching from API:', eventUrl)
+        const response = await apiCall.get(eventUrl)
+
         if (response.ok) {
-          apiEvent = await response.json();
-          setEvent(apiEvent as Event);
-          setEventStatus(apiEvent?.status || '');
-          userDept = await fetchUserDepartment();
-          setUserDepartment(userDept);
-          canAccess = (() => {
-            if (!apiEvent) return false;
-            const eventCategory = apiEvent.category || 'HCDC';
-            const eventDept = apiEvent.department;
-            if (eventCategory === 'HCDC') return true;
-            if (!eventDept) return true;
-            if (!userDept) return false;
-            const userDeptAbbr = getDepartmentAbbr(userDept);
-            const eventDeptAbbr = getDepartmentAbbr(eventDept);
-            return userDeptAbbr !== null && eventDeptAbbr !== null && userDeptAbbr === eventDeptAbbr;
-          })();
-          setHasAccess(canAccess);
-          // Bookmarks
-          const storedBookmarks = localStorage.getItem('bookmarkedEvents');
+          const apiEvent = await response.json()
+          console.log('[Participant Event Detail] ✅ API fetch successful:', apiEvent)
+
+          setEvent(apiEvent as Event)
+          setEventStatus(apiEvent.status || '')
+
+          // Check access control - fetch user department from API
+          const userDept = await fetchUserDepartment()
+          setUserDepartment(userDept)
+
+          const canAccess = (() => {
+            const eventCategory = apiEvent.category || 'HCDC'
+            const eventDept = apiEvent.department
+
+            // HCDC events are accessible to everyone
+            if (eventCategory === 'HCDC') return true
+
+            // If no department restriction, allow access
+            if (!eventDept) return true
+
+            // Get user's department
+            if (!userDept) {
+              console.log('[Event Detail] User department not set, access denied')
+              return false
+            }
+
+            // Convert both to abbreviations for comparison
+            const userDeptAbbr = getDepartmentAbbr(userDept)
+            const eventDeptAbbr = getDepartmentAbbr(eventDept)
+
+            console.log('[Event Detail] Access check:', {
+              eventCategory,
+              eventDept,
+              eventDeptAbbr,
+              userDept,
+              userDeptAbbr,
+              match: userDeptAbbr === eventDeptAbbr
+            })
+
+            // Match if abbreviations match
+            return userDeptAbbr !== null && eventDeptAbbr !== null && userDeptAbbr === eventDeptAbbr
+          })()
+
+          setHasAccess(canAccess)
+          console.log('[Event Detail] Has access:', canAccess)
+
+          // Load bookmark status from localStorage
+          const storedBookmarks = localStorage.getItem('bookmarkedEvents')
           if (storedBookmarks) {
-            const bookmarks = new Set(JSON.parse(storedBookmarks));
-            setIsBookmarked(bookmarks.has(eventId));
+            const bookmarks = new Set(JSON.parse(storedBookmarks))
+            setIsBookmarked(bookmarks.has(eventId))
           }
-          // Registration status
-          let derivedStatus: 'registered' | 'checked-in' | 'checked-out' | 'evaluated' | 'none' = 'none';
-          try {
-            const userEmail = await getAuthenticatedUserEmail();
-            if (userEmail) {
-              const regsUrl = `${api.registrations()}?event=${eventId}&email=${encodeURIComponent(userEmail)}`;
-              const regsRes = await apiCall.get(regsUrl);
-              if (regsRes.ok) {
-                const regsData = await regsRes.json();
-                const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || []);
-                if (regs.length > 0) {
-                  const reg = regs[0];
-                  if (reg.has_evaluated) {
-                    derivedStatus = 'evaluated';
-                  } else if (reg.is_checked_out) {
-                    derivedStatus = 'checked-out';
-                  } else if (reg.is_present) {
-                    derivedStatus = 'checked-in';
-                  } else {
-                    derivedStatus = 'registered';
+
+          // Determine registration status from backend (authoritative) using current user email
+          let derivedStatus: 'registered' | 'checked-in' | 'evaluated' | 'none' = 'none'
+          async function fetchRegistrationStatus() {
+            try {
+              const userEmail = await getAuthenticatedUserEmail()
+              if (userEmail) {
+                const regsUrl = `${api.registrations()}?event=${eventId}&email=${encodeURIComponent(userEmail)}`
+                const regsRes = await apiCall.get(regsUrl)
+                if (regsRes.ok) {
+                  const regsData = await regsRes.json()
+                  const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
+                  if (regs.length > 0) {
+                    const reg = regs[0]
+                    if (reg.has_evaluated) {
+                      derivedStatus = 'evaluated'
+                    } else if (reg.is_present) {
+                      derivedStatus = 'checked-in'
+                    } else {
+                      derivedStatus = 'registered'
+                    }
                   }
                 }
               }
+            } catch (regErr) {
+              console.warn('[Participant Event Detail] Could not fetch registration for status:', regErr)
             }
-          } catch (err) {
-            console.warn('[Event Detail] Could not fetch registration status:', err);
+
+            // Fallback to local stored status if backend didn't give us anything
+            if (derivedStatus === 'none') {
+              derivedStatus = getRegistrationStatus(eventId)
+            }
+
+            setRegistrationStatus(derivedStatus)
+
+            const normalizedStatus = (apiEvent.status || '').toLowerCase()
+            if (derivedStatus === 'registered') {
+              setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
+            } else if (derivedStatus === 'checked-in') {
+              setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
+            } else if (derivedStatus === 'evaluated') {
+              setButtonLabel('View Certificate')
+            } else {
+              setButtonLabel(canAccess ? 'Register Now' : 'Restricted')
+            }
           }
-          setRegistrationStatus(derivedStatus);
-          const normalizedStatus = (apiEvent?.status || '').toLowerCase();
-          if (derivedStatus === 'registered') {
-            setButtonLabel('Check In');
-          } else if (derivedStatus === 'checked-in') {
-            setButtonLabel('Check Out');
-          } else if (derivedStatus === 'checked-out') {
-            setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Waiting for Evaluation');
-          } else if (derivedStatus === 'evaluated') {
-            setButtonLabel('View Certificate');
-          } else {
-            setButtonLabel(canAccess ? 'Register Now' : 'Restricted');
-          }
+          await fetchRegistrationStatus()
+
+          setLoading(false)
+          return
+        } else {
+          console.warn('[Participant Event Detail] ❌ API request failed, status:', response.status)
         }
-      } catch (err) {
-        console.error('[Event Detail] Failed to fetch event:', err);
-      } finally {
-        setLoading(false);
+      } catch (apiErr) {
+        console.error('[Participant Event Detail] ❌ API fetch error:', apiErr)
       }
-    };
-    fetchEvent();
+
+      // Fallback to localStorage
+      console.log('[Participant Event Detail] Falling back to localStorage search')
+      const foundEvent = getEventById(eventId)
+      setEvent(foundEvent)
+      setEventStatus(foundEvent?.status || '')
+
+      // Check access control for localStorage events too
+      const userDept = await fetchUserDepartment()
+      setUserDepartment(userDept)
+
+      if (foundEvent) {
+        const canAccess = (() => {
+          const eventCategory = foundEvent.category || 'HCDC'
+          const eventDept = foundEvent.department
+
+          if (eventCategory === 'HCDC') return true
+          if (!eventDept) return true
+          if (!userDept) return false
+
+          const userDeptAbbr = getDepartmentAbbr(userDept)
+          const eventDeptAbbr = getDepartmentAbbr(eventDept)
+
+          return userDeptAbbr !== null && eventDeptAbbr !== null && userDeptAbbr === eventDeptAbbr
+        })()
+
+        setHasAccess(canAccess)
+      }
+
+      // Load bookmark status from localStorage
+      const storedBookmarks = localStorage.getItem('bookmarkedEvents')
+      if (storedBookmarks) {
+        const bookmarks = new Set(JSON.parse(storedBookmarks))
+        setIsBookmarked(bookmarks.has(eventId))
+      }
+
+      const status = getRegistrationStatus(eventId)
+      setRegistrationStatus(status)
+
+      const normalizedStatus = (foundEvent?.status || '').toLowerCase()
+      if (status === 'registered') {
+        setButtonLabel(normalizedStatus === 'completed' ? 'Complete Evaluation' : 'Evaluation Pending')
+      } else if (status === 'evaluated') {
+        setButtonLabel('View Certificate')
+      } else {
+        setButtonLabel(hasAccess ? 'Register Now' : 'Restricted')
+      }
+
+      setLoading(false)
+    }
+
+    fetchEvent()
   }, [params.id])
 
-  useEffect(() => {
-    const loadRegistrationInfo = async () => {
-      if (!(registrationStatus === 'registered' || registrationStatus === 'checked-in')) {
-        setRegistrationInfo(null)
-        return
-      }
-      try {
-        const userEmail = await getAuthenticatedUserEmail()
-        if (!userEmail) return
-        const baseUrl = api.registrations().endsWith('/') ? api.registrations().slice(0, -1) : api.registrations()
-        const url = `${baseUrl}/?event=${params.id}&email=${encodeURIComponent(userEmail)}`
-        const res = await apiCall.get(url)
-        if (res.ok) {
-          const data = await res.json()
-          const regs = Array.isArray(data) ? data : (data.results || data.data || [])
-          setRegistrationInfo(regs[0] || null)
-        }
-      } catch {}
-    }
-    loadRegistrationInfo()
-  }, [registrationStatus, params.id])
-
   const handleRegister = async () => {
-    const eventId = params.id as string;
-    
-    // Check access
+    const eventId = params.id as string
+    console.log('[Registration] ========================================')
+    console.log('[Registration] Starting registration process')
+    console.log('[Registration] Event ID:', eventId, 'Type:', typeof eventId)
+
+    // Check access before allowing registration
     if (!hasAccess) {
       console.warn('[Registration] ❌ Access denied - user does not have permission for this event')
       alert(`You don't have access to register for this event. This event is restricted to ${event?.department || 'a specific department'}.`)
       return
     }
-    
+
     // Get authenticated user info from API session (not localStorage)
     const userEmail = await getAuthenticatedUserEmail()
     if (!userEmail) {
@@ -192,12 +237,12 @@ export default function ParticipantEventDetailPage() {
       router.push('/auth/signin')
       return
     }
-    
+
     // Fetch user profile data from API
     let firstName = 'Participant'
     let lastName = 'User'
     let affiliation = 'HCDC'
-    
+
     try {
       const { authApi, apiRequest } = await import('@/lib/api-config')
       const profileResponse = await apiRequest(authApi.me(), { method: 'GET' })
@@ -221,21 +266,21 @@ export default function ParticipantEventDetailPage() {
     } catch (err) {
       console.warn('[Registration] Could not fetch user profile, using defaults:', err)
       // Fallback: parse name from email
-    const emailParts = userEmail.split('@')[0].split('.')
+      const emailParts = userEmail.split('@')[0].split('.')
       firstName = emailParts[0] || 'Participant'
       lastName = emailParts.slice(1).join(' ') || 'User'
     }
-    
+
     console.log('[Registration] User email:', userEmail)
     console.log('[Registration] User name:', { firstName, lastName })
     console.log('[Registration] User affiliation:', affiliation)
-    
+
     console.log('[Registration] Parsed name:', { firstName, lastName, affiliation })
-    
+
     try {
       const registrationUrl = api.registrations()
       console.log('[Registration] Registration URL:', registrationUrl)
-      
+
       const payload = {
         event: parseInt(eventId),
         email: userEmail,
@@ -243,64 +288,64 @@ export default function ParticipantEventDetailPage() {
         last_name: lastName,
         affiliation: affiliation,
       }
-      
+
       console.log('[Registration] Request payload:', JSON.stringify(payload, null, 2))
-      
+
       const response = await apiCall.post(registrationUrl, payload)
       console.log('[Registration] Response status:', response.status, response.statusText)
       console.log('[Registration] Response headers:', Object.fromEntries(response.headers.entries()))
-      
+
       if (!response.ok) {
         let errorMessage = 'Failed to register for event'
         let errorData: any = null
-        
+
         try {
           const responseText = await response.text()
           console.log('[Registration] Response text (raw):', responseText)
-          
+
           errorData = JSON.parse(responseText)
           console.error('[Registration] ❌ Error response (parsed):', JSON.stringify(errorData, null, 2))
-          
+
           // Check for unique constraint violation (already registered)
-          const isDuplicateError = 
+          const isDuplicateError =
             response.status === 400 && (
-              errorData.non_field_errors?.some((msg: string) => 
-                msg.toLowerCase().includes('unique') || 
+              errorData.non_field_errors?.some((msg: string) =>
+                msg.toLowerCase().includes('unique') ||
                 msg.toLowerCase().includes('already')
               ) ||
               errorData.detail?.toLowerCase().includes('unique') ||
               errorData.detail?.toLowerCase().includes('already') ||
               errorData.error?.toLowerCase().includes('unique')
             )
-          
+
           console.log('[Registration] Is duplicate error?', isDuplicateError)
-          
+
           if (isDuplicateError) {
             console.log('[Registration] User already registered, fetching existing registration...')
             errorMessage = 'You are already registered for this event'
-            
+
             // Fetch existing registration to show QR code
             // api.registrations() already ends with /, so we use ? not /?
-            const baseUrl = api.registrations().endsWith('/') 
-              ? api.registrations().slice(0, -1) 
+            const baseUrl = api.registrations().endsWith('/')
+              ? api.registrations().slice(0, -1)
               : api.registrations()
             const existingRegUrl = `${baseUrl}/?event=${eventId}&email=${encodeURIComponent(userEmail)}`
             console.log('[Registration] Fetching existing registration from:', existingRegUrl)
-            
+
             const existingRes = await apiCall.get(existingRegUrl)
             console.log('[Registration] Existing registration response status:', existingRes.status)
-            
+
             if (existingRes.ok) {
               const existingData = await existingRes.json()
               console.log('[Registration] Existing registration data:', existingData)
-              
+
               // Handle paginated response
-              const registrations = Array.isArray(existingData) 
-                ? existingData 
+              const registrations = Array.isArray(existingData)
+                ? existingData
                 : (existingData.results || existingData.data || [])
-              
+
               console.log('[Registration] Found registrations:', registrations.length)
-              
+
               if (registrations.length > 0) {
                 const reg = registrations[0]
                 console.log('[Registration] ✅ Using existing registration:', {
@@ -308,7 +353,7 @@ export default function ParticipantEventDetailPage() {
                   qr_code_value: reg.qr_code_value,
                   has_qr_code: !!reg.qr_code,
                 })
-                
+
                 // If no QR code value from backend, generate one based on registration ID
                 let qrCodeValue = reg.qr_code_value
                 if (!qrCodeValue && reg.id) {
@@ -317,7 +362,7 @@ export default function ParticipantEventDetailPage() {
                   qrCodeValue = `${eventPrefix}-${String(reg.id).padStart(6, '0')}`
                   console.log('[Registration] Generated QR code value:', qrCodeValue)
                 }
-                
+
                 setRegistrationData({
                   qr_code: reg.qr_code || null, // null if not available, will use frontend generation
                   qr_code_value: qrCodeValue,
@@ -343,11 +388,11 @@ export default function ParticipantEventDetailPage() {
           console.error('[Registration] ❌ Failed to parse error response:', parseErr)
           errorMessage = `Registration failed: ${response.status} ${response.statusText}`
         }
-        
+
         alert(errorMessage)
         return
       }
-      
+
       const registration = await response.json()
       console.log('[Registration] ✅ Successfully registered!')
       console.log('[Registration] Registration data:', {
@@ -356,24 +401,24 @@ export default function ParticipantEventDetailPage() {
         has_qr_code: !!registration.qr_code,
         email: registration.email,
       })
-      
+
       // Store registration data with QR code (no barcode)
       setRegistrationData({
         qr_code: registration.qr_code,
         qr_code_value: registration.qr_code_value,
       })
-      
+
       console.log('[Registration] Stored registration data in state')
-      
+
       // Update local state
       updateRegistrationStatus(eventId, 'registered')
       setRegistrationStatus('registered')
       setButtonLabel('Check In')
       setShowSuccessModal(true)
-      
+
       console.log('[Registration] ✅ Registration complete!')
       console.log('[Registration] ========================================')
-      
+
     } catch (err: any) {
       console.error('[Registration] ❌ Exception during registration:', err)
       console.error('[Registration] Error stack:', err.stack)
@@ -400,7 +445,7 @@ export default function ParticipantEventDetailPage() {
     } else if (registrationStatus === 'registered' || registrationStatus === 'checked-in') {
       const normalizedStatus = (eventStatus || '').toLowerCase()
       if (normalizedStatus === 'completed') {
-      handleEvaluation()
+        handleEvaluation()
       } else {
         alert('This event has not been concluded yet. Evaluations will be available once the event organizer concludes the event.')
       }
@@ -408,47 +453,8 @@ export default function ParticipantEventDetailPage() {
       handleViewCertificate()
     }
   }
-  const handleUnregister = async () => {
-    if (registrationStatus !== 'registered') return
-    try {
-      const email = await getAuthenticatedUserEmail()
-      if (!email) {
-        alert('Please sign in to manage registrations.')
-        router.push('/auth/signin')
-        return
-      }
-      const baseUrl = api.registrations().endsWith('/') ? api.registrations().slice(0, -1) : api.registrations()
-      const url = `${baseUrl}/?event=${params.id}&email=${encodeURIComponent(email)}`
-      const res = await apiCall.get(url)
-      let regId: number | null = null
-      if (res.ok) {
-        const data = await res.json()
-        const regs = Array.isArray(data) ? data : (data.results || data.data || [])
-        regId = regs?.[0]?.id ?? null
-      }
-      if (!regId && registrationInfo?.id) {
-        regId = Number(registrationInfo.id)
-      }
-      if (!regId) {
-        alert('Registration record not found.')
-        return
-      }
-      const delRes = await apiCall.delete(api.registrationById(regId))
-      if (!delRes.ok) {
-        alert('Failed to revoke registration.')
-        return
-      }
-      setRegistrationStatus('none')
-      setRegistrationInfo(null)
-      setRegistrationData(null)
-      setButtonLabel('Register Now')
-      setShowUnregisterSuccessModal(true)
-    } catch {
-      alert('Failed to revoke registration.')
-    }
-  }
 
-    if (loading) {
+  if (loading) {
     return (
       <div className="p-6 text-center">
         <p className="text-muted-foreground">Loading event...</p>
@@ -482,9 +488,9 @@ export default function ParticipantEventDetailPage() {
       {/* Hero Section */}
       {(event.coverImage || event.cover_image) ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img 
-          src={event.coverImage || event.cover_image || ''} 
-          alt={event.name || event.title || 'Event cover'} 
+        <img
+          src={event.coverImage || event.cover_image || ''}
+          alt={event.name || event.title || 'Event cover'}
           className="w-full aspect-video object-cover rounded-lg border border-border"
         />
       ) : (
@@ -545,13 +551,12 @@ export default function ParticipantEventDetailPage() {
         <div className="space-y-4">
           <Card className="p-6 border border-border bg-card sticky top-20 space-y-4">
             <Button
-              className={`w-full font-semibold ${
-                hasAccess && registrationStatus === 'none'
-                  ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground'
-                  : hasAccess
+              className={`w-full font-semibold ${hasAccess && registrationStatus === 'none'
+                ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground'
+                : hasAccess
                   ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
+                }`}
               size="lg"
               onClick={handleMainAction}
               disabled={!hasAccess && registrationStatus === 'none'}
@@ -565,17 +570,17 @@ export default function ParticipantEventDetailPage() {
               onClick={() => {
                 const newBookmarked = !isBookmarked
                 setIsBookmarked(newBookmarked)
-                
+
                 // Update localStorage
                 const storedBookmarks = localStorage.getItem('bookmarkedEvents')
                 const bookmarks = storedBookmarks ? new Set(JSON.parse(storedBookmarks)) : new Set<number | string>()
-                
+
                 if (newBookmarked) {
                   bookmarks.add(params.id as string)
                 } else {
                   bookmarks.delete(params.id as string)
                 }
-                
+
                 localStorage.setItem('bookmarkedEvents', JSON.stringify(Array.from(bookmarks)))
               }}
             >
@@ -584,20 +589,7 @@ export default function ParticipantEventDetailPage() {
             </Button>
 
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                Status:{' '}
-                <span className="font-semibold text-foreground">
-                  {registrationStatus === 'none'
-                    ? 'Not Registered'
-                    : registrationStatus === 'registered'
-                      ? 'waiting for check in'
-                      : registrationStatus === 'checked-in'
-                        ? 'waiting for check out'
-                        : registrationStatus === 'checked-out'
-                          ? 'waiting for evaluation'
-                          : 'evaluated'}
-                </span>
-              </p>
+              <p>Status: <span className="font-semibold text-foreground capitalize">{registrationStatus === 'none' ? 'Not Registered' : registrationStatus}</span></p>
               {!hasAccess && (
                 <p className="text-xs text-orange-600 mt-2">
                   ⚠️ Restricted to {event?.department || 'specific department'} members only
@@ -609,75 +601,6 @@ export default function ParticipantEventDetailPage() {
                 </p>
               )}
             </div>
-            {registrationStatus === 'registered' && (
-              <div className="mt-4 space-y-3">
-                <div className="bg-muted p-4 rounded-lg border border-border text-center">
-                  <p className="text-sm text-muted-foreground mb-2">Your Registration QR Code</p>
-                  <div className="flex justify-center bg-white rounded p-2">
-                    {registrationInfo?.qr_code ? (
-                      <img
-                        src={`data:image/png;base64,${registrationInfo.qr_code}`}
-                        alt="QR Code"
-                        className="w-40 h-40 object-contain"
-                      />
-                    ) : registrationInfo?.qr_code_value ? (
-                      <QRCodeSVG
-                        id="sidebar-qr-svg"
-                        value={registrationInfo.qr_code_value}
-                        size={160}
-                        level="H"
-                        includeMargin={true}
-                      />
-                    ) : null}
-                  </div>
-                  <div className="mt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (registrationInfo?.qr_code) {
-                          const link = document.createElement('a')
-                          link.href = `data:image/png;base64,${registrationInfo.qr_code}`
-                          link.download = 'qr-code.png'
-                          link.click()
-                          return
-                        }
-                        const svgEl = document.getElementById('sidebar-qr-svg')
-                        if (svgEl) {
-                          const serializer = new XMLSerializer()
-                          const svgStr = serializer.serializeToString(svgEl as any)
-                          const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-                          const url = URL.createObjectURL(blob)
-                          const link = document.createElement('a')
-                          link.href = url
-                          link.download = 'qr-code.svg'
-                          link.click()
-                          URL.revokeObjectURL(url)
-                        }
-                      }}
-                    >
-                      Download QR
-                    </Button>
-                    <Button
-                      className="ml-2"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowQrModal(true)}
-                    >
-                      Show QR
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      className="ml-2"
-                      size="sm"
-                      onClick={handleUnregister}
-                    >
-                      Unregister
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
           </Card>
         </div>
       </div>
@@ -693,7 +616,7 @@ export default function ParticipantEventDetailPage() {
                   You have successfully registered for {event.name || event.title || 'this event'}.
                 </p>
               </div>
-              
+
               {registrationData ? (
                 <div className="space-y-4">
                   <div className="bg-muted p-4 rounded-lg border border-border text-center">
@@ -736,7 +659,7 @@ export default function ParticipantEventDetailPage() {
                   <p className="text-sm text-muted-foreground">Loading QR code...</p>
                 </div>
               )}
-              
+
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -755,87 +678,6 @@ export default function ParticipantEventDetailPage() {
                   }}
                 >
                   View Full Details
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-      
-      {showQrModal && registrationInfo && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 border border-border bg-card w-full max-w-2xl mx-4">
-            <div className="space-y-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-1">
-                    {`${registrationInfo.first_name || ''} ${registrationInfo.last_name || ''}`.trim() || 'Participant'}
-                  </h2>
-                  <p className="text-muted-foreground">{registrationInfo.email}</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowQrModal(false)}
-                >
-                  <ArrowLeft className="w-5 h-5 rotate-180" />
-                </Button>
-              </div>
-              <div className="bg-muted p-4 rounded-lg border border-border text-center">
-                <p className="text-sm text-muted-foreground mb-2">QR Code</p>
-                <div className="flex justify-center bg-white rounded p-2">
-                  {registrationInfo.qr_code ? (
-                    <img
-                      src={`data:image/png;base64,${registrationInfo.qr_code}`}
-                      alt="QR Code"
-                      className="w-48 h-48 object-contain"
-                    />
-                  ) : registrationInfo.qr_code_value ? (
-                    <QRCodeSVG
-                      value={registrationInfo.qr_code_value}
-                      size={192}
-                      level="H"
-                      includeMargin={true}
-                    />
-                  ) : null}
-                </div>
-                {registrationInfo.qr_code_value && (
-                  <p className="text-xs text-muted-foreground mt-2 font-mono">
-                    Code: {registrationInfo.qr_code_value}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setShowQrModal(false)}
-                >
-                  Close
-                </Button>
-                <Button
-                  className="flex-1 bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-                  onClick={() => {
-                    setShowQrModal(false)
-                    router.push(`/participant/event/${params.id}/qrcode`)
-                  }}
-                >
-                  View Full Details
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-      {showUnregisterSuccessModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 border border-border bg-card w-full max-w-xl mx-4">
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-foreground">Successfully unregistered</h2>
-              <p className="text-muted-foreground">You have been unregistered from this event.</p>
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setShowUnregisterSuccessModal(false)}>
-                  Close
                 </Button>
               </div>
             </div>

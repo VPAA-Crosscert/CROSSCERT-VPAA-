@@ -5,21 +5,21 @@ import { ReactNode } from 'react'
 
 interface ThemeProviderProps {
   children: ReactNode
-  attribute?: string
+  attribute?: 'class' | 'data-theme'
   defaultTheme?: string
   enableSystem?: boolean
 }
 
-export function ThemeProvider({ 
-  children, 
+export function ThemeProvider({
+  children,
   attribute = 'class',
   defaultTheme = 'light',
-  enableSystem = true 
+  enableSystem = true
 }: ThemeProviderProps) {
   return (
-    <NextThemesProvider 
-      attribute={attribute} 
-      defaultTheme={defaultTheme} 
+    <NextThemesProvider
+      attribute={attribute}
+      defaultTheme={defaultTheme}
       enableSystem={enableSystem}
       storageKey="crosscert-theme"
     >
