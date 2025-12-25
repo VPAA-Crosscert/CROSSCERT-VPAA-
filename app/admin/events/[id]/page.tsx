@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield, X, Search, FileDown, Printer } from 'lucide-react'
+import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield, X, Search, FileDown, Printer, CheckCircle2 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { getEventById, Event } from '@/lib/event-context'
 import { api, apiCall, adminApi } from '@/lib/api-config'
@@ -62,6 +62,8 @@ export default function AdminEventDetailPage() {
   const [loading, setLoading] = useState<boolean>(true)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false)
   const [showConcludeConfirm, setShowConcludeConfirm] = useState<boolean>(false)
+  const [showConcludeSuccess, setShowConcludeSuccess] = useState<boolean>(false)
+  const [concluding, setConcluding] = useState<boolean>(false)
 
   // Real Data States
   const [registrations, setRegistrations] = useState<Registration[]>([])
@@ -72,6 +74,7 @@ export default function AdminEventDetailPage() {
   const [showParticipantsModal, setShowParticipantsModal] = useState<boolean>(false)
   const [showAnalyticsModal, setShowAnalyticsModal] = useState<boolean>(false)
   const [selectedParticipant, setSelectedParticipant] = useState<Registration | null>(null)
+  const [selectedParticipantFull, setSelectedParticipantFull] = useState<any>(null)
 
   // Countdown Logic
   const [timeLeft, setTimeLeft] = useState<{ days: number, hours: number, minutes: number, seconds: number } | null>(null)
@@ -193,12 +196,33 @@ export default function AdminEventDetailPage() {
 
   const handleConclude = async () => {
     if (!event) return
+    setConcluding(true)
     try {
-      alert('Event marked as concluded (mock).')
+      const response = await apiCall.post(adminApi.eventById(event.id) + 'conclude/', {})
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        alert(errorData.error || 'Failed to conclude event')
+        setConcluding(false)
+        return
+      }
+
+      // Success - refresh event data
+      const eventUrl = adminApi.eventById(event.id)
+      const eventResponse = await apiCall.get(eventUrl)
+
+      if (eventResponse.ok) {
+        const updatedEvent = await eventResponse.json()
+        setEvent(updatedEvent as Event)
+      }
+
       setShowConcludeConfirm(false)
-      router.refresh()
-    } catch {
-      alert('Failed to conclude event')
+      setShowConcludeSuccess(true)
+    } catch (error) {
+      console.error('Error concluding event:', error)
+      alert('Failed to conclude event. Please try again.')
+    } finally {
+      setConcluding(false)
     }
   }
 
@@ -475,6 +499,44 @@ export default function AdminEventDetailPage() {
                 </div>
               )}
 
+              {showConcludeConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
+                  <Card className="max-w-md w-full p-8 text-center m-4 rounded-[2rem]">
+                    <Power className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+                    <h3 className="text-2xl font-bold mb-2">Conclude Event?</h3>
+                    <p className="text-neutral-500 mb-6">
+                      This will mark the event as completed. After conclusion:
+                      <br />• Check-in will be <strong>disabled</strong>
+                      <br />• Check-out will be <strong>enabled</strong>
+                      <br />• Participants can be checked out
+                    </p>
+                    <div className="flex gap-4">
+                      <Button variant="outline" onClick={() => setShowConcludeConfirm(false)} className="flex-1 h-12 rounded-xl" disabled={concluding}>Cancel</Button>
+                      <Button onClick={handleConclude} className="flex-1 h-12 rounded-xl bg-neutral-900 hover:bg-black text-white" disabled={concluding}>
+                        {concluding ? 'Concluding...' : 'Conclude'}
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {showConcludeSuccess && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
+                  <Card className="max-w-md w-full p-8 text-center m-4 rounded-[2rem]">
+                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                      <CheckCircle2 className="w-10 h-10 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-bold mb-2 text-green-600 dark:text-green-500">Event Successfully Concluded!</h3>
+                    <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+                      Check-in is now <strong className="text-red-600">disabled</strong> and check-out is <strong className="text-green-600">enabled</strong>.
+                    </p>
+                    <Button onClick={() => setShowConcludeSuccess(false)} className="w-full h-12 rounded-xl bg-green-600 hover:bg-green-700 text-white">
+                      Got it!
+                    </Button>
+                  </Card>
+                </div>
+              )}
+
             </div>
           </div>
 
@@ -543,9 +605,23 @@ export default function AdminEventDetailPage() {
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                            onClick={() => {
+                            onClick={async () => {
                               setSelectedParticipant(reg)
-                              setTimeout(() => window.print(), 100)
+                              // Fetch full registration data with qr_code_value
+                              try {
+                                const regResponse = await apiCall.get(api.registrationById(reg.id))
+                                if (regResponse.ok) {
+                                  const fullReg = await regResponse.json()
+                                  setSelectedParticipantFull(fullReg)
+                                  setTimeout(() => window.print(), 100)
+                                } else {
+                                  setSelectedParticipantFull(reg)
+                                  setTimeout(() => window.print(), 100)
+                                }
+                              } catch {
+                                setSelectedParticipantFull(reg)
+                                setTimeout(() => window.print(), 100)
+                              }
                             }}
                           >
                             <Printer className="w-4 h-4 text-neutral-400" />
@@ -672,18 +748,20 @@ export default function AdminEventDetailPage() {
 
       {/* HIDDEN PRINT COMPONENT */}
       <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-0">
-        {selectedParticipant && (
+        {selectedParticipant && selectedParticipantFull && (
           <div className="w-[300px] mx-auto pt-8 flex flex-col items-center font-mono text-black">
             <div className="text-center mb-6">
               <h1 className="text-2xl font-black uppercase tracking-tight mb-2">EVENT PASS</h1>
-              <p className="text-xs uppercase tracking-widest border-b border-black pb-4 mb-4">Official Verification</p>
+              <p className="text-xs uppercase tracking-widest border-b border-black pb-4 mb-4">Official Entry Pass</p>
               <h2 className="text-lg font-bold leading-tight mb-1">{event.name}</h2>
-              <p className="text-xs">{new Date(event.date).toLocaleDateString()}</p>
+              <p className="text-xs">{new Date(event.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+              <p className="text-xs mt-1">{event.startTime || event.start_time} - {event.endTime || event.end_time}</p>
+              <p className="text-xs mt-1">{event.venue || event.location}</p>
             </div>
 
             <div className="border-4 border-black p-2 rounded-xl mb-6">
               <QRCodeSVG
-                value={`REG-${event.id}-${selectedParticipant.email}`}
+                value={selectedParticipantFull.qr_code_value || `REG-${event.id}-${selectedParticipant.email}`}
                 size={150}
                 level="H"
               />
@@ -696,9 +774,9 @@ export default function AdminEventDetailPage() {
               <p className="text-[10px] uppercase tracking-wider mb-1">Affiliation</p>
               <p className="font-bold uppercase mb-6">{selectedParticipant.affiliation}</p>
 
-              <p className="text-[10px] uppercase tracking-wider mb-2">Identifier</p>
+              <p className="text-[10px] uppercase tracking-wider mb-2">Ticket ID</p>
               <p className="bg-black text-white px-2 py-1 inline-block text-xs font-mono rounded">
-                REQ-{selectedParticipant.id}
+                {selectedParticipantFull.qr_code_value || `REG-${selectedParticipant.id}`}
               </p>
             </div>
 

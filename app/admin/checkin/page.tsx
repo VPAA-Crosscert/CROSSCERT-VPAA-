@@ -30,6 +30,7 @@ export default function AdminCheckIn() {
   const [scannedCode, setScannedCode] = useState('')
   const [participantName, setParticipantName] = useState('')
   const [checkedInCount, setCheckedInCount] = useState(0)
+  const [checkedOutCount, setCheckedOutCount] = useState(0)
   const [totalExpected, setTotalExpected] = useState(0)
   const [showSuccess, setShowSuccess] = useState(false)
   const [lastAction, setLastAction] = useState<'check-in' | 'check-out' | null>(null)
@@ -108,6 +109,7 @@ export default function AdminCheckIn() {
   const fetchEventStats = useCallback(async () => {
     if (!selectedEvent) {
       setCheckedInCount(0)
+      setCheckedOutCount(0)
       setTotalExpected(0)
       return
     }
@@ -130,6 +132,20 @@ export default function AdminCheckIn() {
 
         const checkedIn = registrations.filter((reg: any) => reg.is_present === true).length
         setCheckedInCount(checkedIn)
+
+        // Fetch check-ins to count check-outs
+        try {
+          const checkInsUrl = `${api.checkIns()}?registration__event=${selectedEvent}`
+          const checkInsRes = await apiCall.get(checkInsUrl)
+          if (checkInsRes.ok) {
+            const checkInsData = await checkInsRes.json()
+            const checkIns = Array.isArray(checkInsData) ? checkInsData : (checkInsData.results || checkInsData.data || [])
+            const checkedOut = checkIns.filter((ci: any) => ci.check_out_at !== null && ci.check_out_at !== undefined).length
+            setCheckedOutCount(checkedOut)
+          }
+        } catch (err) {
+          console.error('Failed to fetch check-out stats:', err)
+        }
       } else {
         console.warn('Failed to fetch stats:', regsRes.status)
       }
@@ -143,6 +159,8 @@ export default function AdminCheckIn() {
   }, [selectedEvent, fetchEventStats])
 
   const showError = (message: string) => {
+    // Close success modal if open to prevent glitching
+    setShowSuccess(false)
     setErrorModalMessage(message)
     setShowErrorModal(true)
   }
@@ -224,6 +242,7 @@ export default function AdminCheckIn() {
 
       setParticipantName(`${data.participant_name ?? 'Participant'}`)
       await fetchEventStats()
+      setShowErrorModal(false) // Close error modal if open
       setShowSuccess(true)
       setLastAction(action)
 
@@ -698,14 +717,26 @@ export default function AdminCheckIn() {
 
             <div className="space-y-4">
               {/* Checked In */}
-              <div className="relative overflow-hidden p-5 rounded-xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/30 dark:to-rose-950/30 border border-red-200 dark:border-red-800">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/10 rounded-full blur-2xl -mr-12 -mt-12" />
+              <div className="relative overflow-hidden p-5 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-2xl -mr-12 -mt-12" />
                 <div className="relative">
                   <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-4 h-4 text-red-600 dark:text-red-400" />
-                    <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">Checked In</p>
+                    <Users className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">Checked In</p>
                   </div>
-                  <p className="text-4xl font-bold text-red-700 dark:text-red-500">{checkedInCount}</p>
+                  <p className="text-4xl font-bold text-green-700 dark:text-green-500">{checkedInCount}</p>
+                </div>
+              </div>
+
+              {/* Checked Out */}
+              <div className="relative overflow-hidden p-5 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border border-blue-200 dark:border-blue-800">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl -mr-12 -mt-12" />
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">Checked Out</p>
+                  </div>
+                  <p className="text-4xl font-bold text-blue-700 dark:text-blue-500">{checkedOutCount}</p>
                 </div>
               </div>
 

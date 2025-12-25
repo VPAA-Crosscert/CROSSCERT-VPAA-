@@ -43,7 +43,27 @@ class EventViewSet(viewsets.ModelViewSet):
     """ViewSet for Event CRUD operations."""
     queryset = Event.objects.all()
     serializer_class = EventSerializer
-    permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Allow public read access (list, retrieve) for public events.
+        Require authentication for write operations (create, update, delete).
+        """
+        if self.action in ['list', 'retrieve']:
+            # Public can view events
+            return []
+        # All other actions require authentication
+        return [IsAuthenticated()]
+    
+    def get_queryset(self):
+        """
+        Return all events for authenticated users.
+        Return only public events for anonymous users.
+        """
+        if self.request.user.is_authenticated:
+            return Event.objects.all()
+        # Anonymous users can only see public events
+        return Event.objects.filter(is_public=True)
 
     def create(self, request, *args, **kwargs):
         """Create an event."""
