@@ -9,6 +9,7 @@ class EventSerializer(serializers.ModelSerializer):
     """Serializer for Event model."""
 
     registration_count = serializers.SerializerMethodField()
+    attended_count = serializers.SerializerMethodField()
     organizer_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -41,6 +42,7 @@ class EventSerializer(serializers.ModelSerializer):
             'certificate_template_image',
             'certificate_coordinates',
             'certificate_sample_text',
+            'certificate_font_styles',
             'created_at',
             'updated_at',
             'registration_count',
@@ -53,9 +55,6 @@ class EventSerializer(serializers.ModelSerializer):
             'event_qr_code',
             'created_at',
             'updated_at',
-            'registration_count',
-            'attended_count',
-            'organizer_name',
         ]
 
     def get_registration_count(self, obj):

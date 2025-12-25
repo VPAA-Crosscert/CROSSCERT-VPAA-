@@ -46,21 +46,12 @@ class EventViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        """Override create to catch exceptions and return JSON error instead of 500."""
+        """Create an event."""
         serializer = self.get_serializer(data=request.data)
-        try:
-            serializer.is_valid(raise_exception=True)
-            # Use perform_create to keep behaviour consistent
-            try:
-                self.perform_create(serializer)
-            except Exception as e:
-                # Return the exception message for debugging in dev
-                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
         """Attach organizer and bootstrap event QR metadata."""

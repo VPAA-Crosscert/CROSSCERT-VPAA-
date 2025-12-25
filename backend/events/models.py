@@ -81,6 +81,7 @@ class Event(models.Model):
     )
     certificate_coordinates = models.JSONField(default=default_certificate_coordinates, blank=True)
     certificate_sample_text = models.JSONField(default=default_certificate_sample_text, blank=True)
+    certificate_font_styles = models.JSONField(default=dict, blank=True, help_text="Stores font sizes and colors for certificate text fields")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
