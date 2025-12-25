@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
-from events.views import EventViewSet, EventRegistrationViewSet, CheckInViewSet
+from events.views import EventViewSet, EventRegistrationViewSet, CheckInViewSet, NotificationViewSet
 from participants.views import ParticipantViewSet, EvaluationViewSet
 from certificates.views import CertificateViewSet, QRCodeViewSet
 from auth_endpoints import login_endpoint, logout_endpoint, csrf_token_endpoint, current_user_endpoint
@@ -15,6 +15,7 @@ api_router = DefaultRouter()
 api_router.register(r'events', EventViewSet, basename='event')
 api_router.register(r'registrations', EventRegistrationViewSet, basename='registration')
 api_router.register(r'check-ins', CheckInViewSet, basename='check-in')
+api_router.register(r'notifications', NotificationViewSet, basename='notification')
 api_router.register(r'evaluations', EvaluationViewSet, basename='evaluation')
 api_router.register(r'certificates', CertificateViewSet, basename='certificate')
 api_router.register(r'qr-code', QRCodeViewSet, basename='qr-code')

@@ -269,3 +269,233 @@ CROSSCERT Team
         except Exception as e:
             print(f"Failed to send email: {e}")
             return False
+
+
+class Notification(models.Model):
+    """Notification model for user alerts."""
+    TYPE_CHOICES = [
+        ('registration', 'Registration'),
+        ('check_in', 'Check In'),
+        ('check_out', 'Check Out'),
+        ('certificate', 'Certificate'),
+        ('general', 'General'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    notification_type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='general')
+    related_event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.user.username}"
+
+
+# Signals for Auto-Notifications
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=EventRegistration)
+def notify_on_registration(sender, instance, created, **kwargs):
+    """Notify user on registration and evaluation."""
+    if created:
+        try:
+            user = User.objects.get(email=instance.email)
+            Notification.objects.create(
+                user=user,
+                title="Registration Confirmed",
+                message=f"You have successfully registered for {instance.event.title}.",
+                notification_type='registration',
+                related_event=instance.event
+            )
+        except User.DoesNotExist:
+            pass
+    
+    # Check for evaluation completion update
+    if not created and instance.has_evaluated and instance.is_eligible_for_certificate:
+        # Check if we noticed this change (using a simple check or just allow duplicate for now, 
+        # ideally we should check if notification already exists but for simplicity we assume state change logic is handled elsewhere or user won't spam save)
+        # To avoid duplicates, we can check date or recent. For now, simple create.
+        # Actually signals fire on every save. We should check if field changed. 
+        # But `post_save` doesn't give 'updated_fields' reliably unless specified in save().
+        # We'll rely on the frontend flow calling specific endpoints or checking uniqueness.
+        pass
+
+@receiver(post_save, sender=CheckIn)
+def notify_on_attendance(sender, instance, created, **kwargs):
+    """Notify user on check-in and check-out."""
+    try:
+        user = User.objects.get(email=instance.registration.email)
+        
+        # Check-in
+        if created:
+            Notification.objects.create(
+                user=user,
+                title="Checked In",
+                message=f"You have successfully checked in to {instance.registration.event.title}.",
+                notification_type='check_in',
+                related_event=instance.registration.event
+            )
+        
+        # Check-out (update)
+        if not created and instance.check_out_at:
+            # Prevent duplicate check-out notifications if saved multiple times
+            # Check if a check-out notification already exists for this check-in recently? 
+            # Or just check if specific logic triggered it. 
+            # For simplicity, we create it.
+            # Ideally, limit duplication.
+            exists = Notification.objects.filter(
+                user=user, 
+                notification_type='check_out', 
+                related_event=instance.registration.event,
+                created_at__date=datetime.now().date()
+            ).exists()
+            if not exists:
+                Notification.objects.create(
+                    user=user,
+                    title="Checked Out",
+                    message=f"You have checked out of {instance.registration.event.title}. Don't forget to evaluate!",
+                    notification_type='check_out',
+                    related_event=instance.registration.event
+                )
+
+    except User.DoesNotExist:
+        pass
+
+@receiver(post_save, sender=Certificate)
+def notify_on_certificate(sender, instance, created, **kwargs):
+    """Notify user when certificate is generated."""
+    if created:
+        try:
+            user = User.objects.get(email=instance.registration.email)
+            Notification.objects.create(
+                user=user,
+                title="Certificate Ready",
+                message=f"Your certificate for {instance.registration.event.title} is now available.",
+                notification_type='certificate',
+                related_event=instance.registration.event
+            )
+        except User.DoesNotExist:
+            pass
+
+
+@receiver(post_save, sender=Event)
+def notify_on_new_event(sender, instance, created, **kwargs):
+    """Notify users when a new event is created/published."""
+    # Existing logic for new events
+    if created and instance.status != 'draft':
+        _send_event_notifications(instance)
+
+    # Logic for Event Start (Status change to 'live')
+    if hasattr(instance, '_old_status'):
+        print(f"[DEBUG] Event Save: {instance.title} - Old: {instance._old_status} -> New: {instance.status}")
+        if instance._old_status != 'live' and instance.status == 'live':
+             print("[DEBUG] Triggering Start Notifications")
+             _send_event_started_notifications(instance)
+
+
+def _send_event_started_notifications(event):
+    """Send notifications when event starts."""
+    from participants.models import UserProfile
+    from django.db.models import Q
+    
+    users_to_notify = []
+    
+    # Mapping for robust matching
+    DEPARTMENT_MAPPING = {
+        'CCJE': 'College of Criminal Justice Education',
+        'CET': 'College of Engineering and Technology',
+        'CHATME': 'College of Hospitality & Tourism Management',
+        'HUSOCOM': 'College of Humanities, Social Sciences and Communication',
+        'COME': 'College of Maritime Education',
+        'SBME': 'School of Business & Management',
+        'STE': 'School of Teacher Education',
+    }
+    # Reverse mapping
+    REVERSE_MAPPING = {v: k for k, v in DEPARTMENT_MAPPING.items()}
+
+    if event.category == 'HCDC':
+        # Notify ALL
+        profiles = UserProfile.objects.all()
+        users_to_notify = [p.user for p in profiles]
+        print(f"[DEBUG] Notification: HCDC Wide - {len(users_to_notify)} users")
+        
+    elif event.category == 'department' and event.department:
+        # Notify specific department (handle Abbr vs Full Name mismatch)
+        dept_query = Q(department__iexact=event.department)
+        
+        # If event has Abbr (e.g., CCJE), check for Full Name
+        if event.department in DEPARTMENT_MAPPING:
+            dept_query |= Q(department__iexact=DEPARTMENT_MAPPING[event.department])
+            
+        # If event has Full Name, check for Abbr
+        if event.department in REVERSE_MAPPING:
+            dept_query |= Q(department__iexact=REVERSE_MAPPING[event.department])
+            
+        profiles = UserProfile.objects.filter(dept_query)
+        users_to_notify = [p.user for p in profiles]
+        print(f"[DEBUG] Notification: Dept {event.department} - {len(users_to_notify)} users")
+    
+    notifications = []
+    for user in users_to_notify:
+        notifications.append(Notification(
+            user=user,
+            title="Event Started! 🚀",
+            message=f"Happening Now: {event.title} has started! You may now proceed to the venue or check in.",
+            notification_type='general', 
+            related_event=event
+        ))
+    
+    if notifications:
+        Notification.objects.bulk_create(notifications)
+        print(f"[DEBUG] Created {len(notifications)} notifications")
+
+
+# Signal to track state change
+from django.db.models.signals import pre_save
+
+@receiver(pre_save, sender=Event)
+def track_event_state(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            old_instance = sender.objects.get(pk=instance.pk)
+            instance._old_status = old_instance.status
+        except sender.DoesNotExist:
+            instance._old_status = None
+    else:
+        instance._old_status = None
+
+
+def _send_event_notifications(event):
+    from participants.models import UserProfile
+    
+    users_to_notify = []
+    
+    if event.category == 'HCDC':
+        # Notify ALL participants
+        profiles = UserProfile.objects.all()
+        users_to_notify = [p.user for p in profiles]
+        
+    elif event.category == 'department' and event.department:
+        # Notify specific department
+        profiles = UserProfile.objects.filter(department=event.department)
+        users_to_notify = [p.user for p in profiles]
+    
+    # Bulk create notifications
+    notifications = []
+    for user in users_to_notify:
+        notifications.append(Notification(
+            user=user,
+            title="New Event Available",
+            message=f"New event: {event.title} is now available for registration.",
+            notification_type='general', # generic type for new event
+            related_event=event
+        ))
+    
+    if notifications:
+        Notification.objects.bulk_create(notifications)

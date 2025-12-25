@@ -5,12 +5,23 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MapPin, Calendar, Clock, ArrowLeft, Share2, Ticket, Users, FileText, CheckCircle2, AlertCircle, Info, Landmark, Bookmark, QrCode, GraduationCap, School, Download, X } from 'lucide-react'
+import { MapPin, Calendar, Clock, ArrowLeft, Share2, Ticket, Users, FileText, CheckCircle2, AlertCircle, Info, Landmark, Bookmark, QrCode, GraduationCap, School, Download, X, Facebook, Instagram, Twitter, Mail, Heart, Star, Rocket } from 'lucide-react'
 import { getEventById, getRegistrationStatus, Event, fetchUserDepartment } from '@/lib/event-context'
 import { getAuthenticatedUserEmail, api, apiCall, authApi, apiRequest } from '@/lib/api-config'
 import { QRCodeSVG } from 'qrcode.react'
 
 // Define the precise color palette
+// Define the precise color palette
+// THEME_STYLES maps the event.theme field to color styles
+const THEME_STYLES: Record<string, { bg: string; border: string; text: string; gradient: string }> = {
+  'Professional Blue': { bg: 'bg-blue-600', text: 'text-blue-100', border: 'border-blue-400', gradient: 'from-blue-600 to-blue-900' },
+  'Modern Red': { bg: 'bg-red-600', text: 'text-red-100', border: 'border-red-400', gradient: 'from-red-600 to-red-900' },
+  'Vibrant Orange': { bg: 'bg-orange-600', text: 'text-orange-100', border: 'border-orange-400', gradient: 'from-orange-600 to-orange-900' },
+  'Elegant Gold': { bg: 'bg-yellow-500', text: 'text-yellow-50', border: 'border-yellow-400', gradient: 'from-yellow-500 to-yellow-800' },
+  'Nature Green': { bg: 'bg-green-600', text: 'text-green-100', border: 'border-green-400', gradient: 'from-green-600 to-green-900' },
+  'Sleek Dark': { bg: 'bg-zinc-800', text: 'text-zinc-100', border: 'border-zinc-600', gradient: 'from-zinc-800 to-black' },
+}
+
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; gradient: string }> = {
   'STE': { bg: 'bg-blue-600', text: 'text-blue-100', border: 'border-blue-400', gradient: 'from-blue-600 to-blue-900' },
   'CET': { bg: 'bg-orange-600', text: 'text-orange-100', border: 'border-orange-400', gradient: 'from-orange-600 to-orange-900' },
@@ -311,13 +322,34 @@ export default function ParticipantEventDetailPage() {
       img.src = url
     }
   }
-
-
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white animate-pulse">Loading event experience...</div>
   if (!event) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">Event not found</div>
 
-  const eventCategory = getCategoryFromEvent(event)
-  const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
+  const eventCategory = event ? getCategoryFromEvent(event) : 'HCDC'
+
+  // Logic: HCDC events ALWAYS use the Red/Blue gradient.
+  // Other events use the selected theme if available, otherwise fallback to department color or default.
+  let colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
+
+  if (event && eventCategory !== 'HCDC' && event.theme && THEME_STYLES[event.theme]) {
+    colors = THEME_STYLES[event.theme]
+  } else if (event && eventCategory === 'HCDC' && event.theme && event.theme !== 'Professional Blue' && THEME_STYLES[event.theme]) {
+    // Optional: If user wants specific theme even for HCDC (except the gradient rule says only HCDC gets gradient, 
+    // but user said "THE GRADIENT RED AND BLUE IS ONLY FOR THE HCDC WIDE VENTS", 
+    // which implies HCDC *must* look like that, OR that *only* HCDC can look like that. 
+    // Usually "Only for HCDC" means "Don't use it elsewhere". 
+    // "THEME SELECTED IN THE EVENT CREATION" implies customizability.
+    // Let's assume: If event.theme is set, use it. If not, use Category default.
+    // BUT, keep HCDC default specific.
+    if (THEME_STYLES[event.theme]) {
+      colors = THEME_STYLES[event.theme]
+    }
+  }
+
+  // Override: If category is HCDC and theme is default or missing, ensure HCDC gradient.
+  if (eventCategory === 'HCDC' && (!event?.theme || event.theme === 'Professional Blue')) {
+    colors = CATEGORY_COLORS['HCDC']
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -520,9 +552,24 @@ export default function ParticipantEventDetailPage() {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10" />
                     <div className="flex justify-between items-start z-10">
                       <QrCode className="w-8 h-8 opacity-80" />
-                      <Badge className="bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-md">
-                        {event.isPaidEvent ? `₱${event.ticketPrice}` : 'FREE ACCESS'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        {(event.isPublic || (event as any).is_public) && (
+                          <Badge className="bg-white/10 backdrop-blur-md text-white border-white/20 px-3 py-1.5">
+                            <Users className="w-3 h-3 mr-2" />
+                            Public Event
+                          </Badge>
+                        )}
+                        {/* LIVE BADGE */}
+                        {event.status === 'live' && (
+                          <Badge className="bg-red-600/90 hover:bg-red-600 text-white border-none px-4 py-1.5 animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+                            <Rocket className="w-3 h-3 mr-2 animate-bounce" />
+                            EVENT STARTED
+                          </Badge>
+                        )}
+                        <Badge className="bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-md">
+                          {event.isPaidEvent ? `₱${event.ticketPrice}` : 'FREE ACCESS'}
+                        </Badge>
+                      </div>
                     </div>
                     <div className="z-10">
                       <p className="text-xs uppercase opacity-80 font-bold tracking-wider">Access Pass</p>

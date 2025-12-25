@@ -17,14 +17,16 @@ export const API_ROUTES = {
     csrfToken: '/api/auth/csrf-token/',
     me: '/api/auth/me/',
   },
-  
+
   // General API routes
   events: '/api/events',
   registrations: '/api/registrations',
   checkIns: '/api/check-ins',
   evaluations: '/api/evaluations',
+  evaluations: '/api/evaluations',
   certificates: '/api/certificates',
-  
+  notifications: '/api/notifications',
+
   // Admin API routes (using dashes)
   admin: {
     events: '/api/admin/events',
@@ -51,13 +53,13 @@ export const adminApi = {
   checkIns: () => getApiUrl(API_ROUTES.admin.checkIns),
   evaluations: () => getApiUrl(API_ROUTES.admin.evaluations),
   certificates: () => getApiUrl(API_ROUTES.admin.certificates),
-  
+
   // Helper to get a specific event by ID
   eventById: (id: string | number) => `${getApiUrl(API_ROUTES.admin.events)}/${id}/`,
-  
+
   // Helper to get a specific participant by ID
   participantById: (id: string | number) => `${getApiUrl(API_ROUTES.admin.participants)}/${id}/`,
-  
+
   // Helper to get check-ins for an event
   checkInsByEvent: (eventId: string | number) => `${getApiUrl(API_ROUTES.admin.checkIns)}/?event=${eventId}`,
 }
@@ -90,13 +92,26 @@ export const api = {
     const url = getApiUrl('/api/participants')
     return url.endsWith('/') ? url : `${url}/`
   },
-  
+  notifications: () => {
+    const url = getApiUrl(API_ROUTES.notifications)
+    return url.endsWith('/') ? url : `${url}/`
+  },
+  notificationById: (id: string | number) => {
+    return `${api.notifications()}${id}/`
+  },
+  notificationMarkRead: (id: string | number) => {
+    return `${api.notifications()}${id}/mark_as_read/`
+  },
+  notificationMarkAllRead: () => {
+    return `${api.notifications()}mark_all_as_read/`
+  },
+
   // Helper for participant registration
   participantRegister: () => {
     const baseUrl = api.participants()
     return baseUrl.endsWith('/') ? `${baseUrl}register/` : `${baseUrl}/register/`
   },
-  
+
   // Helper to get a specific resource by ID
   eventById: (id: string | number) => `${getApiUrl(API_ROUTES.events)}/${id}/`,
   registrationById: (id: string | number) => `${getApiUrl(API_ROUTES.registrations)}/${id}/`,
@@ -118,7 +133,7 @@ export const authApi = {
  */
 export function getCsrfToken(): string {
   if (typeof document === 'undefined') return ''
-  
+
   const cookies = document.cookie.split(';')
   for (const cookie of cookies) {
     const [name, value] = cookie.trim().split('=')

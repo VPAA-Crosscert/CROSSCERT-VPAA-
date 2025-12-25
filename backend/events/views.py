@@ -12,8 +12,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView, UpdateView, ListView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
-from .models import Event, EventRegistration, CheckIn, Certificate
-from .serializers import EventSerializer, EventRegistrationSerializer, CheckInSerializer
+from .models import Event, EventRegistration, CheckIn, Certificate, Notification
+from .serializers import EventSerializer, EventRegistrationSerializer, CheckInSerializer, NotificationSerializer
 from .forms import EventForm
 from django.contrib import messages
 from crosscert.email_utils import (
@@ -358,3 +358,22 @@ class CheckInViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(check_in)
         return Response(serializer.data, status=status.HTTP_200_OK)
+class NotificationViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing user notifications."""
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response({'status': 'marked as read'})
+
+    @action(detail=False, methods=['post'])
+    def mark_all_as_read(self, request):
+        self.get_queryset().update(is_read=True)
+        return Response({'status': 'all marked as read'})

@@ -60,7 +60,7 @@ export default function ParticipantEvents() {
   const [userDepartment, setUserDepartment] = useState('')
   const [showJoinSuccess, setShowJoinSuccess] = useState(false)
   const [joiningEventId, setJoiningEventId] = useState<string | number | null>(null)
-  const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set())
+  const [registeredEvents, setRegisteredEvents] = useState<Map<string, string>>(new Map())
   const [showUnregisterSuccess, setShowUnregisterSuccess] = useState(false)
   const [unregisterEventId, setUnregisterEventId] = useState<string | number | null>(null)
 
@@ -117,8 +117,17 @@ export default function ParticipantEvents() {
             if (regsRes.ok) {
               const regsData = await regsRes.json()
               const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
-              const regEventIds = new Set<string>(regs.map((r: any) => String(r.event)))
-              setRegisteredEvents(regEventIds)
+
+              const statusMap = new Map<string, string>()
+              regs.forEach((r: any) => {
+                let status = 'Registered'
+                if (r.has_evaluated) status = 'Completed'
+                else if (r.is_checked_out) status = 'Checked Out'
+                else if (r.is_present) status = 'Checked In'
+
+                statusMap.set(String(r.event), status)
+              })
+              setRegisteredEvents(statusMap)
             }
           } catch { }
         }
@@ -394,21 +403,11 @@ export default function ParticipantEvents() {
         affiliation,
       }
       const res = await apiCall.post(api.registrations(), payload)
-      if (!res.ok) {
-        setJoiningEventId(event.id)
-        setShowJoinSuccess(true)
-        setRegisteredEvents(prev => {
-          const next = new Set<string>(prev)
-          next.add(String(event.id))
-          return next
-        })
-        return
-      }
       setJoiningEventId(event.id)
       setShowJoinSuccess(true)
       setRegisteredEvents(prev => {
-        const next = new Set<string>(prev)
-        next.add(String(event.id))
+        const next = new Map(prev)
+        next.set(String(event.id), 'Registered')
         return next
       })
     } catch (err) {
@@ -441,7 +440,7 @@ export default function ParticipantEvents() {
       const regId = regs[0].id
       await apiCall.delete(api.registrationById(regId))
       setRegisteredEvents(prev => {
-        const next = new Set<string>(prev)
+        const next = new Map(prev)
         next.delete(String(event.id))
         return next
       })
@@ -627,31 +626,40 @@ export default function ParticipantEvents() {
                         const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
                         const hasAccess = canAccessEvent(event.category || 'HCDC', event.department)
                         const isRegistered = registeredEvents.has(String(event.id))
+                        const status = registeredEvents.get(String(event.id))
                         const borderColor = colors ? colors.border : 'border-neutral-200 dark:border-neutral-800'
 
                         return (
                           <div
                             key={event.id}
-                            className={`group relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-xl hover:shadow-red-500/10 transition-all duration-300 flex flex-col h-full`}
+                            className={`group relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-lg transition-all duration-300 ${!hasAccess ? 'opacity-75 grayscale-[0.5]' : ''}`}
                           >
-                            {/* Image */}
-                            <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => router.push(`/participant/event/${event.id}`)}>
+                            {/* Image & Badge */}
+                            <div className="relative h-48 overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                               {(event.coverImage || event.cover_image) ? (
-                                // eslint-disable-next-line @next/next/no-img-element
                                 <img
-                                  src={event.coverImage || event.cover_image || ''}
+                                  src={event.coverImage || event.cover_image}
                                   alt={event.name || event.title}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                 />
                               ) : (
-                                <div className={`w-full h-full bg-gradient-to-br ${colors.gradient} opacity-20`} />
+                                <div className={`w-full h-full bg-gradient-to-br ${colors.gradient}`} />
                               )}
                               <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
-                              <div className="absolute top-3 left-3 flex gap-2">
+                              <div className="absolute top-3 left-3 flex flex-wrap gap-2">
                                 <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md bg-black/30 border border-white/20`}>
                                   {eventCategory}
                                 </span>
+                                {isRegistered && status && (
+                                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md border border-white/20 ${status === 'Completed' ? 'bg-green-500/80' :
+                                    status === 'Checked Out' ? 'bg-blue-500/80' :
+                                      status === 'Checked In' ? 'bg-indigo-500/80' :
+                                        'bg-amber-500/80'
+                                    }`}>
+                                    {status}
+                                  </span>
+                                )}
                               </div>
 
                               <button

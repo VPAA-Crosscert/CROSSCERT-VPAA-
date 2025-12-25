@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield, X, Search, FileDown, Printer, CheckCircle2 } from 'lucide-react'
+import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield, X, Search, FileDown, Printer, CheckCircle2, Rocket } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { getEventById, Event } from '@/lib/event-context'
 import { api, apiCall, adminApi } from '@/lib/api-config'
@@ -64,6 +64,26 @@ export default function AdminEventDetailPage() {
   const [showConcludeConfirm, setShowConcludeConfirm] = useState<boolean>(false)
   const [showConcludeSuccess, setShowConcludeSuccess] = useState<boolean>(false)
   const [concluding, setConcluding] = useState<boolean>(false)
+
+  // Start Event Modal (Moved here to avoid Hook error)
+  const [showStartSuccessModal, setShowStartSuccessModal] = useState(false)
+
+  const handleStartEvent = async () => {
+    if (!event) return
+    try {
+      const response = await apiCall.patch(adminApi.eventById(event.id), { status: 'live' })
+      if (response.ok) {
+        const updated = await response.json()
+        setEvent(updated)
+        setShowStartSuccessModal(true)
+      } else {
+        alert('Failed to start event')
+      }
+    } catch (e) {
+      console.error(e)
+      alert('Error starting event')
+    }
+  }
 
   // Real Data States
   const [registrations, setRegistrations] = useState<Registration[]>([])
@@ -229,12 +249,72 @@ export default function AdminEventDetailPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white animate-pulse">Loading event experience...</div>
   if (!event) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">Event not found</div>
 
-  const eventCategory = getCategoryFromEvent(event)
+  const eventCategory = event ? getCategoryFromEvent(event) : 'HCDC'
   const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
-  const isConcluded = event.status?.toLowerCase() === 'completed' || event.status?.toLowerCase() === 'concluded'
+  const isConcluded = event?.status?.toLowerCase() === 'completed' || event?.status?.toLowerCase() === 'concluded'
+  const isStarted = event?.status?.toLowerCase() === 'live'
+
+
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+
+      {/* SUCCESS MODAL FOR START EVENT */}
+      {showStartSuccessModal && event && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300 p-4">
+          <Card className="max-w-md w-full p-0 text-center rounded-[2.5rem] bg-white dark:bg-neutral-900 shadow-2xl relative overflow-hidden border border-white/10">
+            {/* Background Decor */}
+            <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${colors.gradient}`} />
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500 rounded-full blur-[100px] opacity-20" />
+            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500 rounded-full blur-[100px] opacity-20" />
+
+            <div className="relative p-10 flex flex-col items-center">
+
+              {/* Animated Icon */}
+              <div className="relative mb-8 group">
+                <div className={`absolute inset-0 rounded-full ${colors.bg} blur-xl opacity-40 animate-pulse group-hover:opacity-60 transition-opacity`} />
+                <div className={`relative w-24 h-24 rounded-3xl ${colors.bg} flex items-center justify-center shadow-2xl rotate-3 group-hover:rotate-6 transition-transform duration-500 ring-4 ring-white/20`}>
+                  <Rocket className="w-12 h-12 text-white drop-shadow-md" />
+                </div>
+                <div className="absolute -right-2 -top-2 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded-full shadow-lg border border-yellow-200 animate-bounce">
+                  LIVE!
+                </div>
+              </div>
+
+              <h3 className="text-3xl font-black text-neutral-900 dark:text-white mb-3 leading-tight tracking-tight">
+                {event.name} <br />
+                <span className={`text-transparent bg-clip-text bg-gradient-to-r ${colors.gradient}`}>
+                  Has Officially Started!
+                </span>
+              </h3>
+
+              <p className="text-neutral-500 font-medium mb-8 max-w-xs mx-auto leading-relaxed">
+                Notifications have been sent to all participants. You may now begin check-in procedures.
+              </p>
+
+              <div className="w-full space-y-3">
+                <Button
+                  onClick={() => {
+                    setShowStartSuccessModal(false)
+                    setShowParticipantsModal(true) // Proceed to check in
+                  }}
+                  className={`w-full h-14 text-base font-bold text-white rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all ${colors.bg}`}
+                >
+                  Proceed to Check In <ArrowLeft className="rotate-180 ml-2 w-5 h-5" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowStartSuccessModal(false)}
+                  className="w-full rounded-xl text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* 1. IMMERSIVE HERO SECTION */}
       <div className="relative w-full h-[60vh] md:h-[75vh] overflow-hidden">
@@ -432,12 +512,44 @@ export default function AdminEventDetailPage() {
                   <div className="space-y-4">
                     {/* Primary Actions */}
                     <div className="space-y-3">
-                      <Button
-                        onClick={() => router.push(`/admin/events/${event.id}/edit`)}
-                        className="w-full h-14 text-sm font-bold shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl"
-                      >
-                        <Edit className="w-4 h-4 mr-3" /> Edit Event
-                      </Button>
+
+                      {/* Start / Edit Row */}
+                      <div className="flex items-center gap-3">
+                        {!isConcluded && !isStarted && (
+                          <Button
+                            onClick={handleStartEvent}
+                            className="flex-1 h-14 text-sm font-bold shadow-lg shadow-green-500/20 bg-green-600 hover:bg-green-700 text-white rounded-2xl animate-pulse hover:animate-none transition-all"
+                          >
+                            <Power className="w-4 h-4 mr-2" /> Start Event
+                          </Button>
+                        )}
+                        {isStarted && !isConcluded && (
+                          <Button
+                            disabled
+                            className="flex-1 h-14 text-sm font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-400 rounded-2xl border border-neutral-200 dark:border-neutral-700"
+                          >
+                            <CheckCircle2 className="w-4 h-4 mr-2" /> Event In Progress
+                          </Button>
+                        )}
+                        {isConcluded && (
+                          <Button
+                            disabled
+                            className="flex-1 h-14 text-sm font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-400 rounded-2xl border border-neutral-200 dark:border-neutral-700"
+                          >
+                            <CheckCircle2 className="w-4 h-4 mr-2" /> Completed
+                          </Button>
+                        )}
+
+                        {/* Edit Icon Button */}
+                        <Button
+                          onClick={() => router.push(`/admin/events/${event.id}/edit`)}
+                          variant="outline"
+                          className="h-14 w-14 rounded-2xl border-2 border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all p-0 flex items-center justify-center"
+                          title="Edit Event"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </Button>
+                      </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <Button
@@ -466,7 +578,8 @@ export default function AdminEventDetailPage() {
                       {!isConcluded && (
                         <Button
                           onClick={() => setShowConcludeConfirm(true)}
-                          className="w-full h-12 bg-neutral-900 hover:bg-black text-white rounded-xl font-medium"
+                          disabled={!isStarted} // Disabled until started
+                          className={`w-full h-12 rounded-xl font-medium transition-colors ${!isStarted ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed' : 'bg-neutral-900 hover:bg-black text-white'}`}
                         >
                           <Power className="w-4 h-4 mr-2" /> Conclude Event
                         </Button>
@@ -597,7 +710,34 @@ export default function AdminEventDetailPage() {
                           {reg.is_present ? (
                             <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-none">Checked In</Badge>
                           ) : (
-                            <Badge className="bg-neutral-100 text-neutral-600 hover:bg-neutral-200 border-none">Registered</Badge>
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                size="sm"
+                                disabled={!isStarted} // Disabled if event not started
+                                onClick={async () => {
+                                  try {
+                                    // Optimistic Update
+                                    const updatedRegs = registrations.map(r =>
+                                      r.id === reg.id ? { ...r, is_present: true } : r
+                                    )
+                                    setRegistrations(updatedRegs)
+
+                                    // API Call (Assuming PATCH matches backend logic)
+                                    await apiCall.patch(api.registrationById(reg.id), { is_present: true })
+
+                                    // Refresh to be safe
+                                    // fetchEventAndData() // Optional, maybe too heavy
+                                  } catch (e) {
+                                    console.error("Check-in failed", e)
+                                    alert("Check-in failed")
+                                  }
+                                }}
+                                className={`text-xs ${isStarted ? 'bg-neutral-900 text-white hover:bg-black' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
+                              >
+                                Check In
+                              </Button>
+                              <Badge className="bg-neutral-100 text-neutral-600 hover:bg-neutral-200 border-none">Registered</Badge>
+                            </div>
                           )}
                         </td>
                         <td className="p-4">
@@ -607,7 +747,6 @@ export default function AdminEventDetailPage() {
                             className="h-8 w-8 p-0 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
                             onClick={async () => {
                               setSelectedParticipant(reg)
-                              // Fetch full registration data with qr_code_value
                               try {
                                 const regResponse = await apiCall.get(api.registrationById(reg.id))
                                 if (regResponse.ok) {

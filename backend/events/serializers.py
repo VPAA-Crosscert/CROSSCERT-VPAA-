@@ -2,7 +2,7 @@
 Serializers for Event app.
 """
 from rest_framework import serializers
-from .models import Event, EventRegistration, CheckIn
+from .models import Event, EventRegistration, CheckIn, Notification
 
 
 class EventSerializer(serializers.ModelSerializer):
@@ -122,3 +122,11 @@ class CheckInSerializer(serializers.ModelSerializer):
 
     def get_event_title(self, obj):
         return obj.registration.event.title
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Serializer for Notification model."""
+    class Meta:
+        model = Notification
+        fields = ['id', 'user', 'title', 'message', 'notification_type', 'related_event', 'is_read', 'created_at']
+        read_only_fields = ['user', 'created_at']

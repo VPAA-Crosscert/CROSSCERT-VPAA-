@@ -11,11 +11,12 @@ export function ParticipantTopbar() {
   const pathname = usePathname()
   const [mounted, setMounted] = useState(false)
   const [userName, setUserName] = useState('')
+  // Fetch unread notifications count
+  const [unreadCount, setUnreadCount] = useState(0)
   const [userEmail, setUserEmail] = useState('')
 
   useEffect(() => {
     setMounted(true)
-    // Get user info from localStorage
     const storedFirstName = localStorage.getItem('userFirstName')
     const storedLastName = localStorage.getItem('userLastName')
     const storedEmail = localStorage.getItem('userEmail')
@@ -29,6 +30,22 @@ export function ParticipantTopbar() {
     if (storedEmail) {
       setUserEmail(storedEmail)
     }
+
+    const fetchUnreadCount = async () => {
+      try {
+        const { apiCall, api } = await import('@/lib/api-config')
+        const res = await apiCall.get(api.notifications())
+        if (res.ok) {
+          const data = await res.json()
+          const list = Array.isArray(data) ? data : (data.results || [])
+          const unread = list.filter((n: any) => !n.is_read).length
+          setUnreadCount(unread)
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications count', err)
+      }
+    }
+    fetchUnreadCount()
   }, [])
 
   // Get page title from pathname
@@ -58,11 +75,14 @@ export function ParticipantTopbar() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-10 w-10 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+            className="h-10 w-10 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all relative"
+            onClick={() => router.push('/participant/notifications')}
           >
             <Bell className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+            {unreadCount > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse ring-2 ring-white dark:ring-neutral-900" />
+            )}
           </Button>
-          <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
         </div>
 
         {/* User Profile */}

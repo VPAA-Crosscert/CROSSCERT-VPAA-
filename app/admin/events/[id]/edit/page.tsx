@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowLeft, Save, Loader2, Calendar, MapPin, Clock, Users, FileText, LayoutTemplate, Tag, Lock, Ticket, Upload, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Calendar, MapPin, Clock, Users, FileText, LayoutTemplate, Tag, Lock, Ticket, Upload, Image as ImageIcon, Palette, Check } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Event, getEventById } from '@/lib/event-context'
 import { adminApi, apiCall } from '@/lib/api-config'
@@ -50,6 +50,31 @@ const getCategoryFromEvent = (event: Event): string => {
   return deptAbbr || 'HCDC'
 }
 
+// Theme definitions matching Create page
+interface Theme {
+  id: number
+  name: string
+  color: string
+  accent: string
+  textColor?: string
+  border?: string
+  gradientFrom: string
+  bg?: string // Map to page.tsx styles for consistency if needed, but Create uses 'color' class
+}
+
+const THEMES: Theme[] = [
+  { id: 1, name: 'HCDC', color: 'bg-gradient-to-br from-red-700 to-blue-900', accent: '#b91c1c', textColor: 'text-blue-900', border: 'border-blue-900', gradientFrom: 'from-red-700' },
+  { id: 2, name: 'CCJE', color: 'bg-red-700', accent: '#b91c1c', textColor: 'text-red-700', border: 'border-red-700', gradientFrom: 'from-red-700' },
+  { id: 3, name: 'CET', color: 'bg-orange-500', accent: '#f97316', textColor: 'text-orange-500', border: 'border-orange-500', gradientFrom: 'from-orange-500' },
+  { id: 4, name: 'CHATME', color: 'bg-gray-500', accent: '#6b7280', textColor: 'text-gray-500', border: 'border-gray-500', gradientFrom: 'from-gray-500' },
+  { id: 5, name: 'HUSOCOM', color: 'bg-fuchsia-700', accent: '#a21caf', textColor: 'text-fuchsia-700', border: 'border-fuchsia-700', gradientFrom: 'from-fuchsia-700' },
+  { id: 6, name: 'COME', color: 'bg-sky-500', accent: '#0ea5e9', textColor: 'text-sky-500', border: 'border-sky-500', gradientFrom: 'from-sky-500' },
+  { id: 7, name: 'SBME', color: 'bg-yellow-500', accent: '#eab308', textColor: 'text-yellow-600', border: 'border-yellow-500', gradientFrom: 'from-yellow-500' },
+  { id: 8, name: 'STE', color: 'bg-blue-600', accent: '#2563eb', textColor: 'text-blue-600', border: 'border-blue-600', gradientFrom: 'from-blue-600' },
+  { id: 9, name: 'Black', color: 'bg-black', accent: '#000000', textColor: 'text-black', border: 'border-black', gradientFrom: 'from-black' },
+  { id: 11, name: 'White', color: 'bg-white', accent: '#ffffff', textColor: 'text-slate-900', border: 'border-slate-200', gradientFrom: 'from-slate-100' },
+]
+
 export default function EditEventPage() {
   const router = useRouter()
   const params = useParams()
@@ -76,8 +101,12 @@ export default function EditEventPage() {
     cover_image: '',
   })
 
-  // Theme support
-  const [themeColors, setThemeColors] = useState(CATEGORY_COLORS['HCDC'])
+  // Theme state
+  const [selectedTheme, setSelectedTheme] = useState(1)
+  const activeTheme = THEMES.find(t => t.id === selectedTheme) ?? THEMES[0]
+
+  // Derived theme colors for preview (mapping Create theme logic to Edit page needs)
+  // We use activeTheme properties directly in the JSX below.
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -91,18 +120,25 @@ export default function EditEventPage() {
         if (response.ok) {
           targetEvent = await response.json()
         } else {
-          // Fallback to local
           targetEvent = getEventById(eventId)
         }
 
         if (targetEvent) {
           setEvent(targetEvent)
 
-          // Determine theme
-          const category = getCategoryFromEvent(targetEvent)
-          setThemeColors(CATEGORY_COLORS[category] || CATEGORY_COLORS['HCDC'])
+          // Determine initial theme from event data
+          let initialThemeId = 1
+          if (targetEvent.theme) {
+            const found = THEMES.find(t => t.name === targetEvent.theme)
+            if (found) initialThemeId = found.id
+          } else {
+            // Fallback based on category
+            const cat = targetEvent.category || 'HCDC'
+            const found = THEMES.find(t => t.name === cat || (cat === 'department' && t.name === getDepartmentAbbr(targetEvent.department || '')))
+            if (found) initialThemeId = found.id
+          }
+          setSelectedTheme(initialThemeId)
 
-          // Map API fields
           setFormData({
             title: targetEvent.title || targetEvent.name || '',
             description: targetEvent.description || '',
@@ -150,10 +186,6 @@ export default function EditEventPage() {
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Simple temporary fake upload (base64) for client-side demo if needed, 
-    // or ideally this would act like the create page compressor.
-    // For now we will try to read as DataURL to preview.
     const reader = new FileReader()
     reader.onload = (ev) => {
       if (ev.target?.result) {
@@ -178,6 +210,7 @@ export default function EditEventPage() {
           : [],
         capacity: Number(formData.capacity),
         ticket_price: Number(formData.ticket_price),
+        theme: activeTheme.name, // Save the selected theme name
       }
 
       const response = await apiCall.patch(eventUrl, payload)
@@ -215,7 +248,7 @@ export default function EditEventPage() {
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
         ) : (
-          <div className={`absolute inset-0 bg-gradient-to-r ${themeColors.gradient}`} />
+          <div className={`absolute inset-0 ${activeTheme.color}`} />
         )}
 
         {/* Overlay */}
@@ -259,7 +292,6 @@ export default function EditEventPage() {
           {/* LEFT COLUMN: Main Form */}
           <div className="lg:col-span-8 space-y-6">
             <Card className="p-8 border-none shadow-xl bg-white dark:bg-neutral-900 rounded-2xl space-y-8">
-
               {error && (
                 <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-sm font-medium">
                   {error}
@@ -272,94 +304,77 @@ export default function EditEventPage() {
                   <FileText className="w-5 h-5 text-neutral-500" />
                   <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Core Information</h2>
                 </div>
-
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-neutral-700 dark:text-neutral-300">Event Title</Label>
-                    <Input
-                      name="title"
-                      value={formData.title}
-                      onChange={handleChange}
-                      className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 h-12 text-lg font-medium"
-                    />
+                    <Input name="title" value={formData.title} onChange={handleChange} className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 h-12 text-lg font-medium" />
                   </div>
-
                   <div className="space-y-2">
                     <Label className="text-neutral-700 dark:text-neutral-300">Description</Label>
-                    <Textarea
-                      name="description"
-                      value={formData.description}
-                      onChange={handleChange}
-                      className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 min-h-[150px] resize-y"
-                    />
+                    <Textarea name="description" value={formData.description} onChange={handleChange} className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 min-h-[150px] resize-y" />
                   </div>
                 </div>
               </div>
 
               {/* Section 2: Logistics */}
               <div className="space-y-6">
-                <div className="flex items-center gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
-                  <Calendar className="w-5 h-5 text-neutral-500" />
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Date & Time</h2>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-neutral-700 dark:text-neutral-300">Date</Label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-3 w-4 h-4 text-neutral-400" />
-                      <Input
-                        type="date"
-                        name="date"
-                        value={formData.date}
-                        onChange={handleChange}
-                        className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
-                      />
-                    </div>
+                    <Label>Date</Label>
+                    <Input type="date" name="date" value={formData.date} onChange={handleChange} className="bg-neutral-50 dark:bg-neutral-800" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-neutral-700 dark:text-neutral-300">Start Time</Label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-3 w-4 h-4 text-neutral-400" />
-                      <Input
-                        type="time"
-                        name="start_time"
-                        value={formData.start_time}
-                        onChange={handleChange}
-                        className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
-                      />
-                    </div>
+                    <Label>Start Time</Label>
+                    <Input type="time" name="start_time" value={formData.start_time} onChange={handleChange} className="bg-neutral-50 dark:bg-neutral-800" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-neutral-700 dark:text-neutral-300">End Time</Label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-3 w-4 h-4 text-neutral-400" />
-                      <Input
-                        type="time"
-                        name="end_time"
-                        value={formData.end_time}
-                        onChange={handleChange}
-                        className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
-                      />
-                    </div>
+                    <Label>End Time</Label>
+                    <Input type="time" name="end_time" value={formData.end_time} onChange={handleChange} className="bg-neutral-50 dark:bg-neutral-800" />
                   </div>
                 </div>
               </div>
 
-              {/* Section 3: Settings (Category, Semester, Capacity) */}
+              {/* Section 3.5: Categorization (New) */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
                   <Tag className="w-5 h-5 text-neutral-500" />
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Categorization & Limits</h2>
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Category</h2>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-neutral-700 dark:text-neutral-300">Semester</Label>
+                    <Label>Event Category</Label>
+                    <Select value={formData.category} onValueChange={(v) => handleSelectChange('category', v)}>
+                      <SelectTrigger className="bg-neutral-50 dark:bg-neutral-800"><SelectValue placeholder="Select Category" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="HCDC">HCDC Wide</SelectItem>
+                        <SelectItem value="department">Department</SelectItem>
+                        <SelectItem value="outside">Outside / Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.category === 'department' && (
+                    <div className="space-y-2">
+                      <Label>Department</Label>
+                      <Select value={formData.department} onValueChange={(v) => handleSelectChange('department', v)}>
+                        <SelectTrigger className="bg-neutral-50 dark:bg-neutral-800"><SelectValue placeholder="Select Department" /></SelectTrigger>
+                        <SelectContent>
+                          {Object.values(DEPARTMENT_ABBR).map((abbr) => (
+                            <SelectItem key={abbr} value={abbr}>{abbr}</SelectItem>
+                          ))}
+                          {/* Fallback list if DEPARTMENT_ABBR keys/values differ */}
+                          {!Object.values(DEPARTMENT_ABBR).length && (
+                            <SelectItem value="CCJE">CCJE</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>Semester</Label>
                     <Select value={formData.semester} onValueChange={(v) => handleSelectChange('semester', v)}>
-                      <SelectTrigger className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700">
-                        <SelectValue placeholder="Select Semester" />
-                      </SelectTrigger>
+                      <SelectTrigger className="bg-neutral-50 dark:bg-neutral-800"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="First Semester">First Semester</SelectItem>
                         <SelectItem value="Second Semester">Second Semester</SelectItem>
@@ -368,11 +383,9 @@ export default function EditEventPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-neutral-700 dark:text-neutral-300">School Year</Label>
+                    <Label>School Year</Label>
                     <Select value={formData.school_year} onValueChange={(v) => handleSelectChange('school_year', v)}>
-                      <SelectTrigger className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700">
-                        <SelectValue placeholder="Select School Year" />
-                      </SelectTrigger>
+                      <SelectTrigger className="bg-neutral-50 dark:bg-neutral-800"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="2024-2025">2024-2025</SelectItem>
                         <SelectItem value="2025-2026">2025-2026</SelectItem>
@@ -380,114 +393,81 @@ export default function EditEventPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-neutral-700 dark:text-neutral-300">Max Capacity</Label>
-                    <Input
-                      type="number"
-                      name="capacity"
-                      value={formData.capacity}
-                      onChange={handleChange}
-                      className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-neutral-700 dark:text-neutral-300">Venue</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-neutral-400" />
-                      <Input
-                        name="location"
-                        value={formData.location}
-                        onChange={handleChange}
-                        className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
+
+
+              {/* Section 4: Branding (New) */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
+                  <Palette className="w-5 h-5 text-neutral-500" />
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Branding & Theme</h2>
+                </div>
+
+                <div className="grid grid-cols-5 gap-4">
+                  {THEMES.map((theme) => (
+                    <button
+                      key={theme.id}
+                      onClick={() => setSelectedTheme(theme.id)}
+                      className={`relative w-full aspect-square rounded-xl transition-all flex items-center justify-center group outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${selectedTheme === theme.id
+                        ? 'ring-2 ring-primary scale-105'
+                        : 'opacity-70 hover:opacity-100 hover:scale-105'
+                        }`}
+                      title={theme.name}
+                    >
+                      <div className={`w-full h-full rounded-xl shadow-sm ${theme.color} ${theme.id === 11 ? 'border border-slate-300 dark:border-slate-600' : ''}`} />
+                      {selectedTheme === theme.id && (
+                        <div className={`absolute inset-0 flex items-center justify-center drop-shadow-md ${theme.id === 11 ? 'text-slate-900' : 'text-white'}`}>
+                          <Check className="w-6 h-6" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-sm text-neutral-500">Selected Theme: <span className="font-semibold">{activeTheme.name}</span></p>
+              </div>
+
             </Card>
           </div>
 
-          {/* RIGHT COLUMN: Sidebar Settings */}
           <div className="lg:col-span-4 space-y-6">
-
-            {/* Save Card */}
             <Card className="p-6 border-none shadow-xl bg-white dark:bg-neutral-900 rounded-2xl sticky top-6">
+              {/* ... Sidebar ... */}
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-4">Publish Settings</h3>
-
               <div className="space-y-4 mb-6">
+                {/* Public Switch */}
                 <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800">
                   <div className="flex items-center gap-2">
                     <Lock className="w-4 h-4 text-neutral-500" />
-                    <Label className="cursor-pointer" htmlFor="is-public">Public Event</Label>
+                    <Label htmlFor="is-public" className="cursor-pointer">Public Event</Label>
                   </div>
-                  <Switch
-                    id="is-public"
-                    checked={formData.is_public}
-                    onCheckedChange={(c) => handleSwitchChange('is_public', c)}
-                  />
+                  <Switch id="is-public" checked={formData.is_public} onCheckedChange={(c) => handleSwitchChange('is_public', c)} />
                 </div>
+                {/* Paid Switch */}
                 <div className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800">
                   <div className="flex items-center gap-2">
                     <Ticket className="w-4 h-4 text-neutral-500" />
-                    <Label className="cursor-pointer" htmlFor="is-paid">Paid Event</Label>
+                    <Label htmlFor="is-paid" className="cursor-pointer">Paid Event</Label>
                   </div>
-                  <Switch
-                    id="is-paid"
-                    checked={formData.is_paid_event}
-                    onCheckedChange={(c) => handleSwitchChange('is_paid_event', c)}
-                  />
+                  <Switch id="is-paid" checked={formData.is_paid_event} onCheckedChange={(c) => handleSwitchChange('is_paid_event', c)} />
                 </div>
                 {formData.is_paid_event && (
-                  <div className="space-y-2 animate-in slide-in-from-top-2">
-                    <Label className="text-neutral-700 dark:text-neutral-300">Ticket Price (₱)</Label>
-                    <Input
-                      type="number"
-                      name="ticket_price"
-                      value={formData.ticket_price}
-                      onChange={handleChange}
-                      className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
-                    />
+                  <div className="space-y-2">
+                    <Label>Ticket Price</Label>
+                    <Input type="number" name="ticket_price" value={formData.ticket_price} onChange={handleChange} />
                   </div>
                 )}
               </div>
 
-              <Button
-                className={`w-full h-12 text-base font-bold shadow-lg shadow-blue-500/20 text-white ${themeColors.bg} hover:brightness-110`}
-                onClick={handleSave}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-5 h-5 mr-2" /> Save Changes
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => router.back()}
-                disabled={isLoading}
-                className="w-full mt-2"
-              >
-                Discard Changes
+              <Button className={`w-full h-12 text-base font-bold text-white shadow-lg ${activeTheme.color}`} onClick={handleSave} disabled={isLoading}>
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
+                Save Changes
               </Button>
             </Card>
 
-            {/* Speakers Quick Edit */}
             <Card className="p-6 border-none shadow-lg bg-white dark:bg-neutral-900 rounded-2xl">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2">
-                <Users className="w-4 h-4" /> Speakers
-              </h3>
-              <Textarea
-                name="speakers"
-                value={formData.speakers}
-                onChange={handleChange}
-                className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 min-h-[100px]"
-                placeholder="Dr. Doe, Prof. Smith (comma separated)"
-              />
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2"><Users className="w-4 h-4" /> Speakers</h3>
+              <Textarea name="speakers" value={formData.speakers} onChange={handleChange} className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 min-h-[100px]" placeholder="Comma separated" />
             </Card>
           </div>
         </div>
