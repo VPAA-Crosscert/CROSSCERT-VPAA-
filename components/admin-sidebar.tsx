@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { Button } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { LayoutDashboard, Calendar, Users, BarChart3, Settings, LogOut, QrCode, Search, Menu, X, FileText, Star, Sparkles } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
@@ -75,9 +75,9 @@ export function AdminSidebar() {
               <Image
                 src={logoSrc}
                 alt="HCDC"
-                width={160}
-                height={40}
-                className="w-full max-w-[140px] h-auto object-contain transition-transform group-hover:scale-105"
+                width={120}
+                height={30}
+                className="w-full max-w-[100px] h-auto object-contain transition-transform group-hover:scale-105"
                 priority
               />
             )}
@@ -89,18 +89,7 @@ export function AdminSidebar() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="p-4">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-red-500 transition-colors" />
-            <Input
-              placeholder="Quick search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-            />
-          </div>
-        </div>
+
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -137,7 +126,6 @@ export function AdminSidebar() {
               <Sparkles className="w-4 h-4 text-red-600 dark:text-red-400" />
               <span className="text-xs font-semibold text-red-600 dark:text-red-400">Admin Panel</span>
             </div>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">Manage your events</p>
           </div>
           <button
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group"
@@ -202,18 +190,7 @@ export function AdminSidebar() {
           </button>
         </div>
 
-        {/* Search */}
-        <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-red-500 transition-colors" />
-            <Input
-              placeholder="Quick search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-            />
-          </div>
-        </div>
+
 
         {/* Navigation */}
         <nav className="p-4 space-y-1 flex-1">
@@ -253,7 +230,6 @@ export function AdminSidebar() {
               <Sparkles className="w-4 h-4 text-red-600 dark:text-red-400" />
               <span className="text-xs font-semibold text-red-600 dark:text-red-400">Admin Panel</span>
             </div>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">Manage your events</p>
           </div>
           <button
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group"

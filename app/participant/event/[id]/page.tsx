@@ -250,13 +250,15 @@ export default function ParticipantEventDetailPage() {
   }
 
   const handleMainAction = () => {
+    if (!event) return
+
     if (registrationStatus === 'none') {
       handleRegister()
-    } else if (registrationStatus === 'registered') {
+    } else if (registrationStatus === 'registered' || registrationStatus === 'checked-in') {
       // Show Ticket Modal instead of navigating
       setShowTicketModal(true)
     } else if (registrationStatus === 'checked-out') {
-      alert('Evaluation page coming soon!')
+      router.push(`/participant/event/${event.id}/evaluation`)
     } else if (registrationStatus === 'evaluated') {
       router.push('/participant/certificates')
     }
@@ -528,6 +530,8 @@ export default function ParticipantEventDetailPage() {
                       <p className="text-sm text-neutral-500 font-medium mb-2">Status</p>
                       {registrationStatus === 'none' ? (
                         <span className="inline-block px-4 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 font-bold text-sm">NOT REGISTERED</span>
+                      ) : registrationStatus === 'checked-out' ? (
+                        <span className="inline-block px-6 py-2 rounded-full bg-blue-600 text-white font-bold tracking-wide shadow-lg uppercase">CHECKED OUT</span>
                       ) : (
                         <span className={`inline-block px-6 py-2 rounded-full ${colors.bg} text-white font-bold tracking-wide shadow-lg uppercase`}>
                           {registrationStatus.replace('-', ' ')}

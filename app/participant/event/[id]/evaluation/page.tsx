@@ -3,7 +3,7 @@
 import { useRouter, useParams } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Star, AlertCircle, Loader2, Check } from 'lucide-react'
+import { ArrowLeft, Star, AlertCircle, Loader2, Check, Sparkles, Award, TrendingUp, MessageSquare, Users, MapPin } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -33,7 +33,6 @@ export default function ParticipantEvaluation() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get authenticated user email
         const userEmail = await getAuthenticatedUserEmail()
         if (!userEmail) {
           setError('Please sign in to submit an evaluation.')
@@ -41,7 +40,6 @@ export default function ParticipantEvaluation() {
           return
         }
 
-        // Fetch user profile
         const profileResponse = await apiCall.get(authApi.me())
         if (profileResponse.ok) {
           const profileData = await profileResponse.json()
@@ -50,15 +48,14 @@ export default function ParticipantEvaluation() {
             setUserProfile({
               name: user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username,
               email: user.email,
-              year_level: '', // Will be filled by user
+              year_level: '',
             })
           }
         }
 
-        // Fetch event
         const eventUrl = api.eventById(params.id as string)
         const eventResponse = await apiCall.get(eventUrl)
-        
+
         if (eventResponse.ok) {
           const apiEvent = await eventResponse.json()
           setEvent(apiEvent)
@@ -69,10 +66,9 @@ export default function ParticipantEvaluation() {
           return
         }
 
-        // Fetch registration
         const regUrl = `${api.registrations()}?event=${params.id}&email=${encodeURIComponent(userEmail)}`
         const regResponse = await apiCall.get(regUrl)
-        
+
         if (regResponse.ok) {
           const regData = await regResponse.json()
           const registrations = Array.isArray(regData) ? regData : (regData.results || regData.data || [])
@@ -95,7 +91,7 @@ export default function ParticipantEvaluation() {
         setLoading(false)
       }
     }
-    
+
     fetchData()
   }, [params.id])
 
@@ -145,10 +141,10 @@ export default function ParticipantEvaluation() {
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-screen">
-        <Card className="p-8 border border-border bg-card text-center">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading evaluation form...</p>
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center p-6">
+        <Card className="p-12 border-none shadow-2xl bg-white dark:bg-neutral-900 rounded-3xl text-center max-w-md">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-red-500" />
+          <p className="text-neutral-600 dark:text-neutral-400 font-medium">Loading evaluation form...</p>
         </Card>
       </div>
     )
@@ -156,83 +152,101 @@ export default function ParticipantEvaluation() {
 
   if (error && !event) {
     return (
-      <div className="p-6 space-y-6">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
-        <Card className="p-8 border border-border bg-card max-w-2xl mx-auto text-center space-y-4">
-          <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
-          <p className="text-destructive">{error}</p>
-          <Button onClick={() => router.back()}>Go Back</Button>
-        </Card>
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 p-6">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-neutral-500 hover:text-red-500 dark:text-neutral-400 dark:hover:text-red-400 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="font-medium">Back</span>
+          </button>
+          <Card className="p-12 border-none shadow-2xl bg-white dark:bg-neutral-900 rounded-3xl text-center space-y-6">
+            <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">Error</h2>
+              <p className="text-neutral-600 dark:text-neutral-400">{error}</p>
+            </div>
+            <Button
+              onClick={() => router.back()}
+              className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white"
+            >
+              Go Back
+            </Button>
+          </Card>
+        </div>
       </div>
     )
   }
 
-  // Gate evaluation form - only show if event is completed
   const normalizedStatus = (eventStatus || '').toLowerCase()
   if (normalizedStatus !== 'completed') {
     return (
-      <div className="p-6 space-y-6">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
-
-        <Card className="p-8 border border-border bg-card max-w-2xl mx-auto text-center space-y-4">
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
-            <AlertCircle className="w-8 h-8 text-orange-600" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Evaluation Not Available</h2>
-            <p className="text-muted-foreground">
-              This event has not been concluded yet. Evaluations will be available once the event organizer concludes the event.
-            </p>
-          </div>
-          <Button
-            className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-            onClick={() => router.push(`/participant/event/${params.id}`)}
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 p-6">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-neutral-500 hover:text-red-500 dark:text-neutral-400 dark:hover:text-red-400 transition-colors group"
           >
-            Back to Event
-          </Button>
-        </Card>
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="font-medium">Back</span>
+          </button>
+
+          <Card className="p-12 border-none shadow-2xl bg-white dark:bg-neutral-900 rounded-3xl text-center space-y-6">
+            <div className="w-20 h-20 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-10 h-10 text-orange-600 dark:text-orange-400" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-neutral-900 dark:text-white mb-3">Evaluation Not Available</h2>
+              <p className="text-neutral-600 dark:text-neutral-400 text-lg">
+                This event has not been concluded yet. Evaluations will be available once the event organizer concludes the event.
+              </p>
+            </div>
+            <Button
+              className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white px-8"
+              onClick={() => router.push(`/participant/event/${params.id}`)}
+            >
+              Back to Event
+            </Button>
+          </Card>
+        </div>
       </div>
     )
   }
 
   if (submitted) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-screen">
-        <Card className="p-8 border border-border bg-card max-w-md w-full space-y-6 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-            <Check className="w-8 h-8 text-green-600" />
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-neutral-950 dark:via-green-950/20 dark:to-neutral-950 flex items-center justify-center p-6">
+        <Card className="p-12 border-none shadow-2xl bg-white dark:bg-neutral-900 rounded-3xl max-w-lg w-full space-y-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-500 to-emerald-500" />
+
+          <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-green-500/30 animate-bounce">
+            <Check className="w-12 h-12 text-white" strokeWidth={3} />
           </div>
+
           <div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Thank You!</h2>
-            <p className="text-muted-foreground mb-2">Your evaluation has been submitted successfully.</p>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-4xl font-black text-neutral-900 dark:text-white mb-3">Thank You!</h2>
+            <p className="text-neutral-600 dark:text-neutral-400 text-lg mb-2">Your evaluation has been submitted successfully.</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-500">
               Your certificate will be generated and sent to your email shortly.
             </p>
           </div>
-          <div className="space-y-2">
+
+          <div className="space-y-3">
             <Button
-              className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+              className="w-full h-12 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-semibold rounded-xl"
               onClick={() => router.push(`/participant/event/${params.id}`)}
             >
               Back to Event
             </Button>
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full h-12 border-2 rounded-xl font-semibold"
               onClick={() => router.push('/participant/certificates')}
             >
+              <Award className="w-4 h-4 mr-2" />
               View My Certificates
             </Button>
           </div>
@@ -241,126 +255,159 @@ export default function ParticipantEvaluation() {
     )
   }
 
-  const RatingSection = ({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) => (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium text-foreground">{label}</Label>
-      <div className="flex gap-2">
+  const RatingSection = ({ label, value, onChange, icon: Icon }: { label: string; value: number; onChange: (value: number) => void; icon: any }) => (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+          <Icon className="w-5 h-5 text-red-600 dark:text-red-400" />
+        </div>
+        <Label className="text-base font-semibold text-neutral-900 dark:text-white">{label}</Label>
+      </div>
+      <div className="flex gap-2 items-center">
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
             type="button"
             onClick={() => onChange(star)}
-            className="transition-transform hover:scale-110"
+            className="transition-all hover:scale-125 active:scale-95"
           >
             <Star
-              className={`w-6 h-6 ${
-                star <= value
-                  ? 'fill-yellow-400 text-yellow-400'
-                  : 'text-muted-foreground'
-              }`}
+              className={`w-10 h-10 ${star <= value
+                ? 'fill-yellow-400 text-yellow-400'
+                : 'text-neutral-300 dark:text-neutral-700'
+                }`}
             />
           </button>
         ))}
-        <span className="ml-2 text-sm text-muted-foreground">{value}/5</span>
+        <span className="ml-3 text-2xl font-bold text-neutral-900 dark:text-white">{value}<span className="text-neutral-400">/5</span></span>
       </div>
     </div>
   )
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-rose-50 to-orange-50 dark:from-neutral-950 dark:via-red-950/10 dark:to-neutral-950 p-6">
+      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Event Evaluation</h1>
-        <p className="text-muted-foreground mt-1">For {event?.title || event?.name || 'Event'}</p>
-      </div>
-
-      {error && (
-        <Card className="p-4 border border-destructive bg-destructive/10">
-          <p className="text-destructive text-sm">{error}</p>
-        </Card>
-      )}
-
-      {/* Evaluation Form */}
-      <Card className="p-6 border border-border bg-card max-w-2xl space-y-6">
-        {/* Year Level */}
-        <div className="space-y-2">
-          <Label htmlFor="yearLevel" className="text-sm font-medium text-foreground">
-            Year Level <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="yearLevel"
-            placeholder="e.g., 1st Year, 2nd Year, 3rd Year, 4th Year"
-            value={formData.yearLevel}
-            onChange={(e) => setFormData(prev => ({ ...prev, yearLevel: e.target.value }))}
-            className="bg-background border-border"
-            required
-          />
-        </div>
-
-        {/* Ratings */}
-        <div className="space-y-4">
-          <Label className="text-base font-semibold text-foreground">Rate the following aspects:</Label>
-          <RatingSection
-            label="Content Quality"
-            value={formData.contentRating}
-            onChange={(value) => setFormData(prev => ({ ...prev, contentRating: value }))}
-          />
-          <RatingSection
-            label="Instructor/Resource Speaker"
-            value={formData.instructorRating}
-            onChange={(value) => setFormData(prev => ({ ...prev, instructorRating: value }))}
-          />
-          <RatingSection
-            label="Facilities/Venue"
-            value={formData.facilitiesRating}
-            onChange={(value) => setFormData(prev => ({ ...prev, facilitiesRating: value }))}
-          />
-          <RatingSection
-            label="Overall Experience"
-            value={formData.overallRating}
-            onChange={(value) => setFormData(prev => ({ ...prev, overallRating: value }))}
-          />
-        </div>
-
-        {/* Feedback */}
-        <div className="space-y-2">
-          <Label htmlFor="feedback" className="text-sm font-medium text-foreground">
-            Additional Feedback (Optional)
-          </Label>
-          <Textarea
-            id="feedback"
-            placeholder="Share your thoughts, suggestions, or comments about the event..."
-            value={formData.feedback}
-            onChange={(e) => setFormData(prev => ({ ...prev, feedback: e.target.value }))}
-            className="bg-background border-border min-h-32"
-          />
-        </div>
-
-        {/* Submit Button */}
-        <Button
-          className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold"
-          size="lg"
-          onClick={handleSubmit}
-          disabled={submitting || !formData.yearLevel.trim()}
+        {/* Header */}
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-neutral-500 hover:text-red-500 dark:text-neutral-400 dark:hover:text-red-400 transition-colors group"
         >
-          {submitting ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Submitting...
-            </>
-          ) : (
-            'Submit Evaluation'
-          )}
-        </Button>
-      </Card>
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="font-medium">Back</span>
+        </button>
+
+        <div className="text-center space-y-3">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-red-600 to-rose-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/30">
+              <Star className="w-8 h-8 text-white fill-white" />
+            </div>
+          </div>
+          <h1 className="text-5xl font-black text-neutral-900 dark:text-white tracking-tight">Event Evaluation</h1>
+          <p className="text-xl text-neutral-600 dark:text-neutral-400">Help us improve by sharing your experience</p>
+          <p className="text-lg font-semibold text-red-600 dark:text-red-400">{event?.title || event?.name || 'Event'}</p>
+        </div>
+
+        {error && (
+          <Card className="p-6 border-2 border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 rounded-2xl">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0" />
+              <p className="text-red-700 dark:text-red-300 font-medium">{error}</p>
+            </div>
+          </Card>
+        )}
+
+        {/* Evaluation Form */}
+        <Card className="p-8 md:p-12 border-none shadow-2xl bg-white dark:bg-neutral-900 rounded-3xl space-y-8">
+
+          {/* Year Level */}
+          <div className="space-y-3">
+            <Label htmlFor="yearLevel" className="text-base font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-red-500" />
+              Year Level <span className="text-red-600">*</span>
+            </Label>
+            <Input
+              id="yearLevel"
+              placeholder="e.g., 1st Year, 2nd Year, 3rd Year, 4th Year"
+              value={formData.yearLevel}
+              onChange={(e) => setFormData(prev => ({ ...prev, yearLevel: e.target.value }))}
+              className="h-14 text-lg border-2 rounded-xl focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+
+          <div className="h-px bg-neutral-200 dark:bg-neutral-800" />
+
+          {/* Ratings */}
+          <div className="space-y-8">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-red-500" />
+              <h3 className="text-2xl font-bold text-neutral-900 dark:text-white">Rate Your Experience</h3>
+            </div>
+
+            <RatingSection
+              label="Content Quality"
+              value={formData.contentRating}
+              onChange={(value) => setFormData(prev => ({ ...prev, contentRating: value }))}
+              icon={Award}
+            />
+            <RatingSection
+              label="Instructor/Resource Speaker"
+              value={formData.instructorRating}
+              onChange={(value) => setFormData(prev => ({ ...prev, instructorRating: value }))}
+              icon={Users}
+            />
+            <RatingSection
+              label="Facilities/Venue"
+              value={formData.facilitiesRating}
+              onChange={(value) => setFormData(prev => ({ ...prev, facilitiesRating: value }))}
+              icon={MapPin}
+            />
+            <RatingSection
+              label="Overall Experience"
+              value={formData.overallRating}
+              onChange={(value) => setFormData(prev => ({ ...prev, overallRating: value }))}
+              icon={Star}
+            />
+          </div>
+
+          <div className="h-px bg-neutral-200 dark:bg-neutral-800" />
+
+          {/* Feedback */}
+          <div className="space-y-3">
+            <Label htmlFor="feedback" className="text-base font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-red-500" />
+              Additional Feedback (Optional)
+            </Label>
+            <Textarea
+              id="feedback"
+              placeholder="Share your thoughts, suggestions, or comments about the event..."
+              value={formData.feedback}
+              onChange={(e) => setFormData(prev => ({ ...prev, feedback: e.target.value }))}
+              className="min-h-40 text-lg border-2 rounded-xl focus:ring-2 focus:ring-red-500 resize-none"
+            />
+          </div>
+
+          {/* Submit Button */}
+          <Button
+            className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all"
+            onClick={handleSubmit}
+            disabled={submitting || !formData.yearLevel.trim()}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                Submitting Your Evaluation...
+              </>
+            ) : (
+              <>
+                <Check className="w-5 h-5 mr-3" />
+                Submit Evaluation
+              </>
+            )}
+          </Button>
+        </Card>
+      </div>
     </div>
   )
 }

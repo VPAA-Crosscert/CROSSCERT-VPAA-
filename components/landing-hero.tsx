@@ -66,8 +66,12 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
   const { nodes, materials } = useGLTF('/lanyardcard/card.glb') as any
   const texture = useTexture('/lanyardcard/lanyard.png')
   const ccLogo = useTexture('/crosscert-logo.png')
+  const hcdcLogo = useTexture('/hcdc black.png')
+
   const [logoSize, setLogoSize] = useState<[number, number]>([0.9, 0.25])
   const logoPlane = useMemo(() => new THREE.PlaneGeometry(logoSize[0], logoSize[1]), [logoSize])
+  const hcdcPlane = useMemo(() => new THREE.PlaneGeometry(0.4, 0.4), [])
+
   const [curve] = useState(() => new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]))
   const [dragged, drag] = useState<false | THREE.Vector3>(false)
   const [hovered, hover] = useState(false)
@@ -89,8 +93,8 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
     const img: any = ccLogo.image
     if (img?.width && img?.height) {
       const aspect = img.width / img.height
-      const targetHeight = 0.45
-      const targetWidth = Math.min(2.5, targetHeight * aspect)
+      const targetHeight = 0.6
+      const targetWidth = Math.min(2.8, targetHeight * aspect)
       setLogoSize([targetWidth, targetHeight])
     }
   }, [ccLogo])
@@ -112,7 +116,7 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
       vec.set(state.pointer.x, state.pointer.y, 0.5).unproject(state.camera)
       dir.copy(vec).sub(state.camera.position).normalize()
       vec.add(dir.multiplyScalar(state.camera.position.length()))
-      ;[card, j1, j2, j3, fixed].forEach((ref) => ref.current?.wakeUp())
+        ;[card, j1, j2, j3, fixed].forEach((ref) => ref.current?.wakeUp())
       card.current?.setNextKinematicTranslation({ x: vec.x - dragged.x, y: vec.y - dragged.y, z: vec.z - dragged.z })
     }
     if (fixed.current) {
@@ -154,12 +158,18 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
             <mesh geometry={logoPlane} position={[0, 0.55, 0.006]}>
               <meshBasicMaterial map={ccLogo} transparent alphaTest={0.05} toneMapped={false} />
             </mesh>
+
+            {/* Back Logo - HCDC Black */}
+            <mesh geometry={hcdcPlane} position={[0, 0.5, -0.006]} rotation={[0, Math.PI, 0]}>
+              <meshBasicMaterial map={hcdcLogo} transparent alphaTest={0.05} toneMapped={false} />
+            </mesh>
+
             <mesh geometry={nodes.clip.geometry} material={materials.metal} material-roughness={0.3} />
             <mesh geometry={nodes.clamp.geometry} material={materials.metal} />
           </group>
         </RigidBody>
       </group>
-            <mesh ref={band} position={[0, 0.5 , 0]}>
+      <mesh ref={band} position={[0, 0.5, 0]}>
         <meshLineGeometry />
         {/* Make the lanyard visually wider by increasing lineWidth */}
         <meshLineMaterial color="white" depthTest={false} resolution={isSmall ? [1000, 2000] : [1000, 1000]} useMap map={texture} repeat={[-4, 1]} lineWidth={2.2} />

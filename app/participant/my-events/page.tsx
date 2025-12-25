@@ -44,20 +44,31 @@ const StatusStep = ({
   active,
   completed,
   label,
-  icon: Icon
+  icon: Icon,
+  isPending
 }: {
   active: boolean;
   completed: boolean;
   label: string;
-  icon: any
+  icon: any;
+  isPending?: boolean;
 }) => (
-  <div className={`flex flex-col items-center gap-1 ${active ? 'text-red-600 dark:text-red-400' : completed ? 'text-green-600 dark:text-green-400' : 'text-neutral-300 dark:text-neutral-700'}`}>
+  <div className={`flex flex-col items-center gap-1 ${isPending
+    ? 'text-red-600 dark:text-red-400'
+    : active
+      ? 'text-red-600 dark:text-red-400'
+      : completed
+        ? 'text-green-600 dark:text-green-400'
+        : 'text-neutral-300 dark:text-neutral-700'
+    }`}>
     <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300
-      ${active
+      ${isPending
         ? 'border-red-600 bg-red-50 text-red-600 dark:bg-red-900/20 dark:border-red-500 scale-110 shadow-lg shadow-red-500/20'
-        : completed
-          ? 'border-green-600 bg-green-50 text-green-600 dark:bg-green-900/20 dark:border-green-500'
-          : 'border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900'
+        : active
+          ? 'border-red-600 bg-red-50 text-red-600 dark:bg-red-900/20 dark:border-red-500 scale-110 shadow-lg shadow-red-500/20'
+          : completed
+            ? 'border-green-600 bg-green-50 text-green-600 dark:bg-green-900/20 dark:border-green-500'
+            : 'border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900'
       }
     `}>
       {completed ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
@@ -76,6 +87,7 @@ export default function MyEvents() {
   const [pastEvents, setPastEvents] = useState<EventWithRegistration[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [completedEvents, setCompletedEvents] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const fetchMyEvents = async () => {
@@ -145,24 +157,15 @@ export default function MyEvents() {
         const past: EventWithRegistration[] = []
 
         allEvents.forEach(event => {
-          const eventDate = new Date(event.date)
-          eventDate.setHours(0, 0, 0, 0)
+          const hasEvaluated = event.registration.has_evaluated
+          const isMarkedDone = completedEvents.has(String(event.id))
 
-          const status = (event.status || '').toLowerCase()
-          const isCompleted = status === 'completed' || status === 'concluded'
-
-          if (isCompleted) {
+          // Only move to past/history when manually marked as done
+          if (isMarkedDone) {
             past.push(event)
-          } else if (eventDate >= now) {
-            upcoming.push(event)
           } else {
-            // Even if date is past, if not marked completed by admin, do we keep it? 
-            // User said: "in the history is just the events that are done and completed"
-            // Usually simpler to strictly follow date for history unless active.
-            // Let's stick to: Date Past = History (unless running?)
-            // Actually, if it's NOT completed, maybe it should stay in active? 
-            // Let's assume Date < Now = Past for safely moving things out of view.
-            past.push(event)
+            // Keep in upcoming even after evaluation until marked done
+            upcoming.push(event)
           }
         })
 
@@ -181,7 +184,26 @@ export default function MyEvents() {
     }
 
     fetchMyEvents()
+  }, [completedEvents]) // Add completedEvents to dependency array to re-fetch/re-sort when it changes
+
+  useEffect(() => {
+    // Load completed events from localStorage
+    const stored = localStorage.getItem('completedEvents')
+    if (stored) {
+      setCompletedEvents(new Set(JSON.parse(stored)))
+    }
   }, [])
+
+  const handleMarkAsDone = (eventId: number) => {
+    const newCompleted = new Set(completedEvents)
+    newCompleted.add(String(eventId))
+    setCompletedEvents(newCompleted)
+    localStorage.setItem('completedEvents', JSON.stringify(Array.from(newCompleted)))
+
+    // The useEffect with [completedEvents] dependency will handle moving the event
+    // No need to manually update upcomingEvents and pastEvents here directly.
+    // Re-triggering fetchMyEvents or re-filtering based on the new completedEvents state is more robust.
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 p-6 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
@@ -317,13 +339,13 @@ export default function MyEvents() {
 
                         {/* Status Stepper */}
                         <div className="flex items-center justify-between px-2 pt-2 pb-4 border-b border-neutral-100 dark:border-neutral-800">
-                          <StatusStep active={!isCheckedIn} completed={isCheckedIn} label="Reg" icon={Ticket} />
-                          <StatusLine completed={isCheckedIn} />
-                          <StatusStep active={isCheckedIn && !isCheckedOut} completed={isCheckedOut} label="In" icon={QrCode} />
+                          <StatusStep active={false} completed={true} label="Reg" icon={Ticket} />
+                          <StatusLine completed={true} />
+                          <StatusStep active={false} completed={isCheckedIn} label="In" icon={QrCode} />
                           <StatusLine completed={isCheckedOut} />
-                          <StatusStep active={isCheckedOut && !hasEvaluated} completed={hasEvaluated} label="Out" icon={CheckCircle} />
+                          <StatusStep active={false} completed={isCheckedOut} label="Out" icon={CheckCircle} />
                           <StatusLine completed={hasEvaluated} />
-                          <StatusStep active={false} completed={hasEvaluated} label="Done" icon={Star} />
+                          <StatusStep active={false} completed={hasEvaluated} label="Eval" icon={Star} isPending={isCheckedOut && !hasEvaluated} />
                         </div>
                       </div>
 
@@ -345,7 +367,17 @@ export default function MyEvents() {
                           </Button>
                         )}
 
-                        {(!isCheckedOut || hasEvaluated) && (
+                        {hasEvaluated && (
+                          <Button
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => handleMarkAsDone(event.id)}
+                          >
+                            <Check className="w-4 h-4 mr-2" />
+                            Mark as Done
+                          </Button>
+                        )}
+
+                        {!isCheckedOut && !hasEvaluated && (
                           <Button
                             variant="outline"
                             className="flex-1 border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800"
@@ -381,56 +413,69 @@ export default function MyEvents() {
                 const eventDate = new Date(event.date)
                 const hasEvaluated = event.registration.has_evaluated
                 const isCheckedOut = event.registration.is_checked_out
+                const isCheckedIn = event.registration.is_present
 
                 return (
                   <div
                     key={event.id}
-                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 flex flex-col md:flex-row items-center gap-6 hover:border-red-500/30 transition-all opacity-80 hover:opacity-100"
+                    className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-xl hover:shadow-green-500/5 transition-all duration-300 overflow-hidden flex flex-col md:flex-row"
                   >
-                    <div className="w-16 h-16 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</span>
-                      <span className="text-xl font-bold text-neutral-900 dark:text-white">{eventDate.getDate()}</span>
+                    {/* Left: Image & Date */}
+                    <div className="w-full md:w-48 h-48 md:h-auto relative bg-neutral-100 dark:bg-neutral-800">
+                      {(event.coverImage || event.cover_image) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={event.coverImage || event.cover_image || ''} alt="" className="w-full h-full object-cover opacity-60" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-neutral-300 to-neutral-400" />
+                      )}
+                      <div className="absolute top-4 left-4 md:top-auto md:bottom-4 md:left-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md px-3 py-2 rounded-lg text-center shadow-lg border border-neutral-200 dark:border-neutral-700 min-w-[60px]">
+                        <div className="text-xs font-bold text-neutral-600 dark:text-neutral-400 uppercase">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</div>
+                        <div className="text-xl font-extrabold text-neutral-900 dark:text-white">{eventDate.getDate()}</div>
+                      </div>
                     </div>
 
-                    <div className="flex-1 text-center md:text-left">
-                      <h3 className="font-bold text-lg text-neutral-900 dark:text-white">{event.title || event.name}</h3>
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-1">{event.location || event.venue || 'No Location'}</p>
-                      {!isCheckedOut && (
-                        <span className="inline-block text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold uppercase">Did Not Checkout</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      {hasEvaluated ? (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-sm font-semibold border border-green-100 dark:border-green-900/30">
-                          <Star className="w-4 h-4 fill-current" />
-                          Evaluated
+                    {/* Right: Content */}
+                    <div className="flex-1 p-6 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <div>
+                          <div className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            Completed
+                          </div>
+                          <h3 className="text-xl font-bold text-neutral-900 dark:text-white line-clamp-1 mb-1">
+                            {event.title || event.name || 'Untitled Event'}
+                          </h3>
+                          <p className="text-sm text-neutral-500 dark:text-neutral-400">{event.location || event.venue || 'No Location'}</p>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-full text-sm font-semibold border border-orange-100 dark:border-orange-900/30">
-                          <Clock className="w-4 h-4" />
-                          Pending Evaluation
-                        </div>
-                      )}
 
-                      {!hasEvaluated ? (
-                        <Button
-                          className={`${isCheckedOut ? 'bg-orange-500 hover:bg-orange-600' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'} text-white`}
-                          onClick={() => {
-                            if (isCheckedOut) router.push(`/participant/event/${event.id}/evaluation`)
-                          }}
-                          disabled={!isCheckedOut}
-                        >
-                          Evaluate Now
-                        </Button>
-                      ) : (
+                        {/* Status Stepper - All Completed */}
+                        <div className="flex items-center justify-between px-2 pt-2 pb-4 border-b border-neutral-100 dark:border-neutral-800">
+                          <StatusStep active={false} completed={true} label="Reg" icon={Ticket} />
+                          <StatusLine completed={true} />
+                          <StatusStep active={false} completed={true} label="In" icon={QrCode} />
+                          <StatusLine completed={true} />
+                          <StatusStep active={false} completed={true} label="Out" icon={CheckCircle} />
+                          <StatusLine completed={true} />
+                          <StatusStep active={false} completed={true} label="Eval" icon={Star} />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-4">
                         <Button
                           variant="outline"
+                          className="flex-1"
                           onClick={() => router.push(`/participant/certificates`)}
                         >
+                          <Award className="w-4 h-4 mr-2" />
                           View Certificate
                         </Button>
-                      )}
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => router.push(`/participant/event/${event.id}`)}
+                        >
+                          Details
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )

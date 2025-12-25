@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog'
-import { ArrowLeft, Upload, MapPin, CalendarIcon, Clock, Users, Ruler, Eye, Palette, Edit, Globe, Lock, Ticket, CheckCircle, UserCheck, Building2, Tag, BookOpen, GraduationCap, FileText, Maximize2 } from 'lucide-react'
+import { ArrowLeft, Upload, MapPin, CalendarIcon, Clock, Users, Ruler, Eye, Palette, Edit, Globe, Lock, Ticket, CheckCircle, UserCheck, Building2, Tag, BookOpen, GraduationCap, FileText, Maximize2, Loader2, Check } from 'lucide-react'
 
 
 
@@ -93,7 +93,7 @@ interface Theme {
 }
 
 const THEMES: Theme[] = [
-  { id: 1, name: 'HCDC', color: 'bg-blue-900', accent: '#1e3a8a', textColor: 'text-blue-900', border: 'border-blue-900', gradientFrom: 'from-blue-900' },
+  { id: 1, name: 'HCDC', color: 'bg-gradient-to-br from-red-700 to-blue-900', accent: '#b91c1c', textColor: 'text-blue-900', border: 'border-blue-900', gradientFrom: 'from-red-700' },
   { id: 2, name: 'CCJE', color: 'bg-red-700', accent: '#b91c1c', textColor: 'text-red-700', border: 'border-red-700', gradientFrom: 'from-red-700' },
   { id: 3, name: 'CET', color: 'bg-orange-500', accent: '#f97316', textColor: 'text-orange-500', border: 'border-orange-500', gradientFrom: 'from-orange-500' },
   { id: 4, name: 'CHATME', color: 'bg-gray-500', accent: '#6b7280', textColor: 'text-gray-500', border: 'border-gray-500', gradientFrom: 'from-gray-500' },
@@ -124,6 +124,9 @@ export default function CreateEventPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [publishStatus, setPublishStatus] = useState<'idle' | 'loading' | 'success'>('idle')
+  const [showPublishModal, setShowPublishModal] = useState(false)
+  const [createdEventId, setCreatedEventId] = useState<string | null>(null)
 
   // Initialize CSRF token on component mount
   useEffect(() => {
@@ -197,7 +200,7 @@ export default function CreateEventPage() {
   const totalSteps = 6
 
   const isStep1Valid = eventName && eventDescription && eventDate && startTime && endTime && venue
-  const isStep2Valid = !hasCapacityLimit || (hasCapacityLimit && Number(capacity) > 0)
+  const isStep2Valid = (!hasCapacityLimit || (hasCapacityLimit && Number(capacity) > 0)) && (!isPaidEvent || (isPaidEvent && Number(ticketPrice) > 0))
   const isCertificateReady = Boolean(certificateTemplate)
 
   const activeTheme = useMemo(() => THEMES.find(t => t.id === selectedTheme) ?? THEMES[0], [selectedTheme])
@@ -358,6 +361,8 @@ export default function CreateEventPage() {
   const handleCreateEvent = async () => {
     // Post event to backend API
     setIsLoading(true)
+    setShowPublishModal(true)
+    setPublishStatus('loading')
     setError('')
     try {
       const payload = {
@@ -441,25 +446,25 @@ export default function CreateEventPage() {
 
       const createdEvent = await response.json()
       console.log('[Create Event] Success! Created event:', createdEvent)
-      console.log('[Create Event] Event ID:', createdEvent.id)
-      console.log('[Create Event] Event title:', createdEvent.title)
-      console.log('[Create Event] Full response:', JSON.stringify(createdEvent, null, 2))
-
       setIsLoading(false)
-
-      // Redirect to the event detail page using the ID from the API response
+      setPublishStatus('success')
       if (createdEvent.id) {
-        console.log('[Create Event] Redirecting to event detail page:', `/admin/events/${createdEvent.id}`)
-        router.push(`/admin/events/${createdEvent.id}`)
-      } else {
-        console.warn('[Create Event] No ID in response, redirecting to events list')
-        router.push('/admin/events')
+        setCreatedEventId(createdEvent.id)
       }
-      router.refresh()
     } catch (err: any) {
       setError(err.message || 'Unable to create event right now.')
       setIsLoading(false)
+      setShowPublishModal(false) // Close modal on error so user can correct it
     }
+  }
+
+  const handleSuccessNavigation = () => {
+    if (createdEventId) {
+      router.push(`/admin/events/${createdEventId}`)
+    } else {
+      router.push('/admin/events')
+    }
+    router.refresh()
   }
 
   const renderStepIndicator = () => (
@@ -512,14 +517,14 @@ export default function CreateEventPage() {
       {currentStep === 1 && (
         <div className="space-y-6">
           {/* Enhanced Header */}
-          <Card className="p-6 border border-border bg-gradient-to-br from-card to-card/50">
+          <Card className={`p-6 border border-border ${activeTheme.color} bg-opacity-10`} style={{ background: activeTheme.name === 'HCDC' ? 'linear-gradient(135deg, #b91c1c 0%, #1e3a8a 100%)' : undefined }}>
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <CalendarIcon className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 animate-bounce">
+                <CalendarIcon className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1">
-                <h2 className="text-3xl font-bold text-foreground mb-2">Step 1 · Event Details</h2>
-                <p className="text-sm text-muted-foreground">
+                <h2 className="text-3xl font-bold text-white mb-2">Step 1 · Event Details</h2>
+                <p className="text-sm text-white/90">
                   Fill in the essential information about your event. Fields marked with * are required.
                 </p>
               </div>
@@ -1033,12 +1038,21 @@ export default function CreateEventPage() {
 
                 {/* Event Card Preview */}
                 <Card
-                  className={`overflow-hidden bg-card shadow-lg mx-auto transition-all duration-1000 border-t-8 ${activeTheme.border || 'border-transparent'} ${useFloat ? 'animate-pulse' : ''} ${cardStyle === 'poster' ? 'max-w-[320px] h-[500px] flex flex-col relative' : 'max-w-md'}`}
+                  className={`overflow-hidden bg-card shadow-lg mx-auto transition-all duration-1000 ${
+                    // Border Logic: Remove default top border for HCDC theme (we use custom div)
+                    activeTheme.name === 'HCDC' ? 'border-t-0' : `border-t-8 ${activeTheme.border || 'border-transparent'}`
+                    } ${useFloat ? 'animate-pulse' : ''} ${cardStyle === 'poster' ? 'max-w-[320px] h-[500px] flex flex-col relative' : 'max-w-md'}`}
                   style={{
                     boxShadow: useNeon ? `0 0 25px ${activeTheme.accent}60` : undefined,
-                    transform: useFloat ? 'translateY(-5px)' : 'none'
+                    transform: useFloat ? 'translateY(-5px)' : 'none',
+                    // Removed background gradient as requested
                   }}
                 >
+                  {/* Custom Gradient Top Border for HCDC Theme */}
+                  {activeTheme.name === 'HCDC' && (
+                    <div className="h-2 w-full" style={{ background: 'linear-gradient(135deg, #b91c1c 0%, #1e3a8a 100%)' }} />
+                  )}
+
                   {/* Banner Image */}
                   <div className={`relative group overflow-hidden ${cardStyle === 'poster' ? 'absolute inset-0 h-full' : 'h-48 bg-muted'}`}>
                     {/* Pattern Overlay Surprise */}
@@ -2139,6 +2153,54 @@ export default function CreateEventPage() {
           </div>
         </div>
       )}
+
+      {/* Publishing Status Modal */}
+      <Dialog open={showPublishModal} onOpenChange={(open) => {
+        // Prevent closing while loading
+        if (!isLoading && open === false) {
+          setShowPublishModal(false)
+          if (publishStatus === 'success') {
+            handleSuccessNavigation()
+          }
+        }
+      }}>
+        <DialogContent className="sm:max-w-md text-center p-8">
+          <DialogTitle className="sr-only">
+            {publishStatus === 'loading' ? 'Publishing Event' : 'Event Published'}
+          </DialogTitle>
+
+          {publishStatus === 'loading' ? (
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Upload className="w-6 h-6 text-primary animate-pulse" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-xl font-semibold">Publishing Event</h3>
+                <p className="text-muted-foreground">Please wait while we set up your event...</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center space-y-6 animate-in zoom-in-50 duration-300">
+              <div className="w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                <Check className="w-10 h-10 text-green-600 dark:text-green-500" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold text-green-600 dark:text-green-500">Success!</h3>
+                <p className="text-muted-foreground">
+                  <span className="font-semibold text-foreground">{eventName}</span> has been published successfully.
+                </p>
+              </div>
+              <Button onClick={handleSuccessNavigation} className="w-full bg-green-600 hover:bg-green-700 text-white">
+                View Event Details
+                <ArrowLeft className="w-4 h-4 ml-2 rotate-180" />
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
