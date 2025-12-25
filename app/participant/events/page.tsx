@@ -3,13 +3,14 @@
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, MapPin, Calendar, Bookmark, X, Search, ChevronDown } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Bookmark, X, Search, ChevronDown, Sparkles, Filter } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { getStoredEvents, fetchUserDepartment } from '@/lib/event-context'
 import { Event } from '@/lib/event-context'
 import { api, apiCall, getAuthenticatedUserEmail, authApi, apiRequest } from '@/lib/api-config'
+import { Badge } from '@/components/ui/badge'
 
 const DEPARTMENT_ABBR = {
   'College of Criminal Justice Education': 'CCJE',
@@ -21,15 +22,15 @@ const DEPARTMENT_ABBR = {
   'School of Teacher Education': 'STE',
 }
 
-const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  'CCJE': { bg: 'bg-red-500', border: 'border-red-500', text: 'text-white' },
-  'CET': { bg: 'bg-orange-500', border: 'border-orange-500', text: 'text-white' },
-  'CHATME': { bg: 'bg-gray-500', border: 'border-gray-500', text: 'text-white' },
-  'HUSOCOM': { bg: 'bg-fuchsia-500', border: 'border-fuchsia-500', text: 'text-white' },
-  'COME': { bg: 'bg-sky-500', border: 'border-sky-500', text: 'text-white' },
-  'SBME': { bg: 'bg-yellow-500', border: 'border-yellow-500', text: 'text-black' },
-  'STE': { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-white' },
-  'HCDC': { bg: 'bg-primary', border: 'border-primary', text: 'text-primary-foreground' },
+const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; gradient: string }> = {
+  'CCJE': { bg: 'bg-red-500', border: 'border-red-500', text: 'text-white', gradient: 'from-red-500 to-red-600' },
+  'CET': { bg: 'bg-orange-500', border: 'border-orange-500', text: 'text-white', gradient: 'from-orange-500 to-orange-600' },
+  'CHATME': { bg: 'bg-gray-500', border: 'border-gray-500', text: 'text-white', gradient: 'from-gray-500 to-gray-600' },
+  'HUSOCOM': { bg: 'bg-fuchsia-500', border: 'border-fuchsia-500', text: 'text-white', gradient: 'from-fuchsia-500 to-fuchsia-600' },
+  'COME': { bg: 'bg-sky-500', border: 'border-sky-500', text: 'text-white', gradient: 'from-sky-500 to-sky-600' },
+  'SBME': { bg: 'bg-yellow-500', border: 'border-yellow-500', text: 'text-black', gradient: 'from-yellow-400 to-yellow-500' },
+  'STE': { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-white', gradient: 'from-blue-600 to-blue-700' },
+  'HCDC': { bg: 'bg-red-600', border: 'border-red-600', text: 'text-white', gradient: 'from-red-600 to-rose-600' },
 }
 
 const getDepartmentAbbr = (fullName: string): string | null => {
@@ -389,7 +390,6 @@ export default function ParticipantEvents() {
       }
       const res = await apiCall.post(api.registrations(), payload)
       if (!res.ok) {
-        // If already registered, still show success
         setJoiningEventId(event.id)
         setShowJoinSuccess(true)
         setRegisteredEvents(prev => {
@@ -434,18 +434,7 @@ export default function ParticipantEvents() {
         return
       }
       const regId = regs[0].id
-      const delRes = await apiCall.delete(api.registrationById(regId))
-      if (!delRes.ok && delRes.status !== 404) {
-        const verifyRes = await apiCall.get(regsUrl)
-        if (verifyRes.ok) {
-          const verifyData = await verifyRes.json()
-          const remaining = Array.isArray(verifyData) ? verifyData : (verifyData.results || verifyData.data || [])
-          if (Array.isArray(remaining) && remaining.length > 0) {
-            alert('Failed to revoke registration. Please try again.')
-            return
-          }
-        }
-      }
+      await apiCall.delete(api.registrationById(regId))
       setRegisteredEvents(prev => {
         const next = new Set<string>(prev)
         next.delete(String(event.id))
@@ -459,224 +448,262 @@ export default function ParticipantEvents() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 p-6 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Discover Events</h1>
-        <p className="text-muted-foreground mt-1">Find and register for upcoming events</p>
-      </div>
-
-      {/* Search Bar - Full Width */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-        <Input
-          placeholder="Search events..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 bg-background border-border text-foreground h-12 text-base"
-        />
-      </div>
-
-      {/* Categories Filter - Top Horizontal */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <label className="text-sm font-semibold text-foreground">Categories</label>
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Clear Filters
-            </Button>
-          )}
+        <div className="flex items-center gap-2">
+          <Calendar className="w-6 h-6 text-red-500 dark:text-red-400" />
+          <h1 className="text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight">Discover Events</h1>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {categories.map((cat) => {
-            const isSelected = selectedCategory === cat
-            const colors = cat !== 'ALL' && cat !== 'HCDC' ? CATEGORY_COLORS[cat] : null
-
-            return (
-              <Button
-                key={cat}
-                variant={isSelected ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedCategory(cat)}
-                className={`
-                  ${isSelected && colors
-                    ? `${colors.bg} ${colors.text} border-0 hover:opacity-90`
-                    : isSelected
-                      ? 'bg-secondary text-secondary-foreground'
-                      : colors
-                        ? `${colors.border} border-2 bg-white dark:bg-card text-foreground hover:bg-muted`
-                        : 'border-border text-foreground'}
-                  font-medium transition-all
-                `}
-              >
-                {cat === 'HCDC' ? 'HCDC EVENTS' : cat}
-              </Button>
-            )
-          })}
-        </div>
+        <p className="text-neutral-500 dark:text-neutral-400">Explore and register for upcoming academic and extracurricular activities.</p>
       </div>
 
-      {/* Main Layout: Semesters (Left) | Events (Center) | Months (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
-        {/* Semesters Filter - Left Column */}
-        <div className="lg:col-span-2 space-y-2 order-2 lg:order-1">
-          <label className="text-sm font-semibold text-foreground block">Semesters</label>
-          <div className="space-y-1">
-            {semesters.map((sem) => (
-              <button
-                key={sem}
-                onClick={() => setSelectedSemester(sem)}
-                className={`
-                  w-full text-left px-4 py-2 rounded-md transition-all
-                  ${selectedSemester === sem
-                    ? 'bg-secondary text-secondary-foreground font-semibold'
-                    : 'text-foreground hover:bg-muted'}
-                  flex items-center gap-2
-                `}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Filters - Sticky */}
+        <div className="lg:col-span-3 space-y-6 lg:sticky lg:top-6">
+          {/* Search */}
+          <Card className="p-4 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
+              <Search className="w-4 h-4 text-red-500" />
+              Search
+            </h3>
+            <div className="relative">
+              <Input
+                placeholder="Search events..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-3 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 focus:ring-red-500"
+              />
+            </div>
+          </Card>
+
+          {/* Filters */}
+          <Card className="p-4 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+                <Filter className="w-4 h-4 text-red-500" />
+                Filters
+              </h3>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 h-6 px-2">
+                  Reset
+                </Button>
+              )}
+            </div>
+
+            {/* School Year */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">School Year</label>
+              <select
+                value={selectedSchoolYear}
+                onChange={(e) => setSelectedSchoolYear(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
               >
-                <span className={`w-2 h-2 rounded-full ${selectedSemester === sem ? 'bg-secondary-foreground' : 'bg-muted-foreground'}`} />
-                {sem}
-              </button>
-            ))}
-          </div>
+                {availableSchoolYears.map((sy) => (
+                  <option key={sy} value={sy}>{sy === 'ALL' ? 'All Years' : sy}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Semester */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Semester</label>
+              <div className="space-y-1">
+                {semesters.map((sem) => (
+                  <button
+                    key={sem}
+                    onClick={() => setSelectedSemester(sem)}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all flex items-center gap-2
+                      ${selectedSemester === sem ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-medium' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800'}
+                    `}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${selectedSemester === sem ? 'bg-red-500' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
+                    {sem === 'ALL' ? 'All Semesters' : sem}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Month */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Month</label>
+              <div className="space-y-1">
+                <button
+                  onClick={() => setSelectedMonth('ALL')}
+                  className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all flex items-center gap-2
+                    ${selectedMonth === 'ALL' ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-medium' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800'}
+                  `}
+                >
+                  <div className={`w-2 h-2 rounded-full ${selectedMonth === 'ALL' ? 'bg-red-500' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
+                  All Months
+                </button>
+                {isMonthsOpen && months.filter(m => m !== 'ALL').map((month) => (
+                  <button
+                    key={month}
+                    onClick={() => setSelectedMonth(month)}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all ml-1
+                      ${selectedMonth === month ? 'text-red-600 dark:text-red-400 font-medium' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'}
+                    `}
+                  >
+                    {month}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Card>
         </div>
 
-        {/* Events Tabs - Center Column */}
-        <div className="lg:col-span-8 space-y-6 order-1 lg:order-2">
+        {/* Main Content */}
+        <div className="lg:col-span-9 space-y-6">
+          {/* Categories */}
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => {
+              const isSelected = selectedCategory === cat
+              const colors = cat !== 'ALL' && cat !== 'HCDC' ? CATEGORY_COLORS[cat] : null
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`
+                    px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border
+                    ${isSelected
+                      ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-neutral-900 dark:border-white shadow-lg scale-105'
+                      : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:border-red-500 dark:hover:border-red-500 hover:text-red-500 dark:hover:text-red-500'}
+                  `}
+                >
+                  {cat === 'HCDC' ? 'HCDC EVENTS' : cat}
+                </button>
+              )
+            })}
+          </div>
+
           <Tabs defaultValue="upcoming" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="upcoming">Upcoming Events ({upcomingEvents.length})</TabsTrigger>
-              <TabsTrigger value="past">Past Events ({pastEvents.length})</TabsTrigger>
+            <TabsList className="w-full max-w-[400px] mb-6 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-full border border-neutral-200 dark:border-neutral-800">
+              <TabsTrigger
+                value="upcoming"
+                className="rounded-full data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:shadow-sm transition-all"
+              >
+                Upcoming ({upcomingEvents.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="past"
+                className="rounded-full data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:shadow-sm transition-all"
+              >
+                Past Events ({pastEvents.length})
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="upcoming" className="space-y-6">
+            <TabsContent value="upcoming" className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
               {Object.keys(upcomingEventsByMonth).length === 0 ? (
-                <Card className="p-12 border border-border bg-card text-center">
-                  <p className="text-muted-foreground">No upcoming events found matching your filters</p>
-                </Card>
+                <div className="text-center py-20 bg-white dark:bg-neutral-900/50 rounded-3xl border border-neutral-200 dark:border-neutral-800 border-dashed">
+                  <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Calendar className="w-8 h-8 text-neutral-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">No upcoming events found</h3>
+                  <p className="text-neutral-500 dark:text-neutral-400 max-w-sm mx-auto mt-2">
+                    Try adjusting your search terms or filters to find what you're looking for.
+                  </p>
+                  <Button onClick={clearFilters} variant="outline" className="mt-6">
+                    Clear all filters
+                  </Button>
+                </div>
               ) : (
                 Object.entries(upcomingEventsByMonth).map(([month, monthEvents]) => (
                   <div key={month} className="space-y-4">
-                    <h3 className="text-xl font-bold text-foreground border-b border-border pb-2">
-                      {month}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {monthEvents.map((event) => {
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">{month}</h2>
+                      <div className="h-px flex-1 bg-gradient-to-r from-neutral-200 dark:from-neutral-800 to-transparent" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {monthEvents.map((event, idx) => {
                         const eventCategory = getCategoryFromEvent(event)
                         const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
                         const hasAccess = canAccessEvent(event.category || 'HCDC', event.department)
-                        const eventDate = event.date ? new Date(event.date) : null
-                        const formattedDate = eventDate
-                          ? eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                          : 'TBA'
-
-                        const yearOfCourse = getYearOfCourse(event)
+                        const isRegistered = registeredEvents.has(String(event.id))
 
                         return (
-                          <Card
+                          <div
                             key={event.id}
-                            className="overflow-hidden border border-border bg-card hover:shadow-lg transition-all cursor-pointer group"
-                            onClick={() => router.push(`/participant/event/${event.id}`)}
+                            className="group relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:shadow-xl hover:shadow-red-500/10 hover:border-red-500/30 transition-all duration-300 flex flex-col h-full"
                           >
-                            {/* Banner Image */}
-                            {(event.coverImage || event.cover_image) ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={event.coverImage || event.cover_image || ''}
-                                alt={event.name || event.title || 'Event cover'}
-                                className="w-full aspect-video object-cover"
-                              />
-                            ) : (
-                              <div className="w-full aspect-video bg-gradient-to-br from-secondary/20 to-primary/20" />
-                            )}
+                            {/* Image */}
+                            <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => router.push(`/participant/event/${event.id}`)}>
+                              {(event.coverImage || event.cover_image) ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={event.coverImage || event.cover_image || ''}
+                                  alt={event.name || event.title}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                />
+                              ) : (
+                                <div className={`w-full h-full bg-gradient-to-br ${colors.gradient} opacity-20`} />
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
-                            <div className="p-4 space-y-3">
-                              {/* Category Tag and Year */}
-                              <div className="flex items-center justify-between">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text}`}>
+                              <div className="absolute top-3 left-3 flex gap-2">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md bg-black/30 border border-white/20`}>
                                   {eventCategory}
                                 </span>
-                                <span className="text-xs text-muted-foreground font-medium">
-                                  {yearOfCourse}
-                                </span>
                               </div>
 
-                              {/* Event Title */}
-                              <h3 className="font-bold text-lg text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                                {event.name || event.title || 'Untitled Event'}
-                              </h3>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleBookmark(event.id) }}
+                                className="absolute top-3 right-3 p-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all"
+                              >
+                                <Bookmark className={`w-4 h-4 ${bookmarked.has(String(event.id)) ? 'fill-white' : ''}`} />
+                              </button>
+                            </div>
 
-                              {/* Date & Time */}
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Calendar className="w-4 h-4 shrink-0" />
-                                <span>{formattedDate}</span>
-                                {(event.startTime || event.start_time) && (
-                                  <>
-                                    <span>•</span>
-                                    <span>{event.startTime || event.start_time}</span>
-                                    {(event.endTime || event.end_time) && (
-                                      <span>- {event.endTime || event.end_time}</span>
-                                    )}
-                                  </>
-                                )}
-                              </div>
+                            {/* Content */}
+                            <div className="p-5 flex-1 flex flex-col">
+                              <div className="mb-4 flex-1">
+                                <h3
+                                  className="text-lg font-bold text-neutral-900 dark:text-white line-clamp-2 mb-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors cursor-pointer"
+                                  onClick={() => router.push(`/participant/event/${event.id}`)}
+                                >
+                                  {event.name || event.title || 'Untitled Event'}
+                                </h3>
 
-                              {/* Venue */}
-                              {(event.venue || event.location) && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <MapPin className="w-4 h-4 shrink-0" />
-                                  <span className="line-clamp-1">{event.venue || event.location}</span>
+                                <div className="space-y-2">
+                                  {event.date && (
+                                    <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                      <Calendar className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
+                                      <span>{new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                    </div>
+                                  )}
+                                  {(event.venue || event.location) && (
+                                    <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                      <MapPin className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
+                                      <span className="line-clamp-1">{event.venue || event.location}</span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                              </div>
 
-                              {/* Actions */}
-                              <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
-                                {registeredEvents.has(String(event.id)) ? (
+                              {/* Footer Actions */}
+                              <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 flex gap-3">
+                                {isRegistered ? (
                                   <>
-                                    <Button
-                                      className="flex-1 bg-muted text-foreground"
-                                      disabled
-                                      size="sm"
-                                    >
+                                    <Button className="flex-1 bg-green-500 hover:bg-green-600 text-white border-0" disabled>
                                       Registered
                                     </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleUnregisterEvent(event)}
-                                    >
-                                      Unregister
+                                    <Button variant="outline" size="icon" onClick={() => handleUnregisterEvent(event)} className="border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-900/20">
+                                      <X className="w-4 h-4" />
                                     </Button>
                                   </>
                                 ) : (
                                   <Button
-                                    className={`flex-1 ${hasAccess ? 'bg-secondary hover:bg-secondary/90 text-secondary-foreground' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                    className={`flex-1 ${hasAccess ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg shadow-red-500/20' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
                                     onClick={() => handleJoinEvent(event)}
                                     disabled={!hasAccess}
-                                    size="sm"
                                   >
                                     {hasAccess ? 'Join Event' : 'Restricted'}
                                   </Button>
                                 )}
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => toggleBookmark(event.id)}
-                                  title={bookmarked.has(String(event.id)) ? 'Remove bookmark' : 'Bookmark event'}
-                                  className="shrink-0"
-                                >
-                                  <Bookmark
-                                    className={`w-5 h-5 ${bookmarked.has(String(event.id)) ? 'fill-primary text-primary' : ''}`}
-                                  />
-                                </Button>
                               </div>
                             </div>
-                          </Card>
+                          </div>
                         )
                       })}
                     </div>
@@ -685,83 +712,57 @@ export default function ParticipantEvents() {
               )}
             </TabsContent>
 
-            <TabsContent value="past" className="space-y-6">
-              {pastEvents.length === 0 ? (
-                <Card className="p-12 border border-border bg-card text-center">
-                  <p className="text-muted-foreground">No past events found</p>
-                </Card>
+            <TabsContent value="past" className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+              {Object.keys(pastEventsByMonth).length === 0 ? (
+                <div className="text-center py-20 bg-white dark:bg-neutral-900/50 rounded-3xl border border-neutral-200 dark:border-neutral-800 border-dashed">
+                  <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Calendar className="w-8 h-8 text-neutral-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">No past events found</h3>
+                </div>
               ) : (
                 Object.entries(pastEventsByMonth).map(([month, monthEvents]) => (
                   <div key={month} className="space-y-4">
-                    <h3 className="text-xl font-bold text-muted-foreground border-b border-border pb-2">
-                      {month}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-2xl font-bold text-neutral-500 dark:text-neutral-500 tracking-tight">{month}</h2>
+                      <div className="h-px flex-1 bg-gradient-to-r from-neutral-200 dark:from-neutral-800 to-transparent" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {monthEvents.map((event) => {
                         const eventCategory = getCategoryFromEvent(event)
                         const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
-                        const eventDate = event.date ? new Date(event.date) : null
-                        const formattedDate = eventDate
-                          ? eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                          : 'TBA'
-
-                        const yearOfCourse = getYearOfCourse(event)
 
                         return (
-                          <Card
+                          <div
                             key={event.id}
-                            className="overflow-hidden border border-border bg-card opacity-75 hover:opacity-100 hover:shadow-lg transition-all cursor-pointer group relative"
+                            className="group relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:shadow-lg transition-all duration-300 opacity-75 hover:opacity-100 cursor-pointer"
                             onClick={() => router.push(`/participant/event/${event.id}`)}
                           >
-                            {/* Banner Image with Event Ended Badge */}
-                            <div className="relative">
+                            <div className="relative h-48 overflow-hidden">
                               {(event.coverImage || event.cover_image) ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={event.coverImage || event.cover_image || ''}
-                                  alt={event.name || event.title || 'Event cover'}
-                                  className="w-full aspect-video object-cover grayscale group-hover:grayscale-0 transition-all"
+                                  alt={event.name || event.title}
+                                  className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
                                 />
                               ) : (
-                                <div className="w-full aspect-video bg-gradient-to-br from-muted/20 to-muted/40" />
+                                <div className="w-full h-full bg-neutral-200 dark:bg-neutral-800" />
                               )}
-                              {/* Event Ended Badge */}
-                              <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm">
-                                EVENT ENDED
+                              <div className="absolute top-2 right-2 bg-neutral-900/80 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase backdrop-blur-md">
+                                Ended
                               </div>
                             </div>
 
-                            <div className="p-4 space-y-3">
-                              {/* Category Tag and Year */}
-                              <div className="flex items-center justify-between">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text} opacity-80`}>
-                                  {eventCategory}
-                                </span>
-                                <span className="text-xs text-muted-foreground font-medium">
-                                  {yearOfCourse}
-                                </span>
-                              </div>
-
-                              {/* Event Title */}
-                              <h3 className="font-bold text-lg text-muted-foreground line-clamp-2 group-hover:text-foreground transition-colors">
+                            <div className="p-5">
+                              <h3 className="text-lg font-bold text-neutral-900 dark:text-white line-clamp-2 mb-2">
                                 {event.name || event.title || 'Untitled Event'}
                               </h3>
-
-                              {/* Date & Time */}
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Calendar className="w-4 h-4 shrink-0" />
-                                <span>{formattedDate}</span>
-                              </div>
-
-                              {/* Venue */}
-                              {(event.venue || event.location) && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <MapPin className="w-4 h-4 shrink-0" />
-                                  <span className="line-clamp-1">{event.venue || event.location}</span>
-                                </div>
-                              )}
+                              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                                {event.date && new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })}
+                              </p>
                             </div>
-                          </Card>
+                          </div>
                         )
                       })}
                     </div>
@@ -771,103 +772,7 @@ export default function ParticipantEvents() {
             </TabsContent>
           </Tabs>
         </div>
-
-        {/* Months Filter - Right Column */}
-        <div className="lg:col-span-2 space-y-4 order-3 hidden lg:block">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground block">School Year</label>
-            <select
-              value={selectedSchoolYear}
-              onChange={(e) => setSelectedSchoolYear(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
-            >
-              {availableSchoolYears.map((sy) => (
-                <option key={sy} value={sy}>
-                  {sy === 'ALL' ? 'All School Years' : sy}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <button
-              onClick={() => setIsMonthsOpen(!isMonthsOpen)}
-              className="w-full flex items-center justify-between text-sm font-semibold text-foreground"
-            >
-              <span>Months</span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${isMonthsOpen ? 'rotate-180' : 'rotate-0'}`} />
-            </button>
-            {isMonthsOpen && (
-              <div className="space-y-1 max-h-[600px] overflow-y-auto">
-                {months.map((month) => (
-                  <button
-                    key={month}
-                    onClick={() => setSelectedMonth(month)}
-                    className={`
-                      w-full text-left px-4 py-2 rounded-full transition-all text-sm
-                      ${selectedMonth === month
-                        ? 'bg-secondary text-secondary-foreground font-semibold'
-                        : 'text-foreground hover:bg-muted'}
-                    `}
-                  >
-                    {month}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
       </div>
-
-      {/* Success Modal - Join Event */}
-      {showJoinSuccess && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 border border-border bg-card w-full max-w-md mx-4">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Registration Successful!</h2>
-            <p className="text-muted-foreground mb-6">
-              You have successfully registered for the event. You can check your status in the "My Events" page.
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowJoinSuccess(false)}
-              >
-                Close
-              </Button>
-              <Button
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                onClick={() => {
-                  setShowJoinSuccess(false)
-                  if (joiningEventId) {
-                    router.push(`/participant/event/${joiningEventId}`)
-                  }
-                }}
-              >
-                View Event Details
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Success Modal - Unregister */}
-      {showUnregisterSuccess && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 border border-border bg-card w-full max-w-md mx-4">
-            <h2 className="text-xl font-bold text-foreground mb-4">Unregistered Successfully</h2>
-            <p className="text-muted-foreground mb-6">
-              You have been removed from the event registration list.
-            </p>
-            <div className="flex justify-end">
-              <Button
-                variant="default"
-                onClick={() => setShowUnregisterSuccess(false)}
-              >
-                Okay
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }

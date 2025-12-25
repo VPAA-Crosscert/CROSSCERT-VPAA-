@@ -3,10 +3,11 @@
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Calendar, MapPin, CheckCircle, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, CheckCircle, AlertCircle, Ticket, QrCode, Star, Clock, Check, ChevronRight } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState, useEffect } from 'react'
 import { api, apiCall, getAuthenticatedUserEmail } from '@/lib/api-config'
+import { Badge } from '@/components/ui/badge'
 
 type Registration = {
   id: number
@@ -34,8 +35,40 @@ type EventWithRegistration = {
   location?: string
   venue?: string
   status?: string
+  coverImage?: string
+  cover_image?: string
   registration: Registration
 }
+
+const StatusStep = ({
+  active,
+  completed,
+  label,
+  icon: Icon
+}: {
+  active: boolean;
+  completed: boolean;
+  label: string;
+  icon: any
+}) => (
+  <div className={`flex flex-col items-center gap-1 ${active ? 'text-red-600 dark:text-red-400' : completed ? 'text-green-600 dark:text-green-400' : 'text-neutral-300 dark:text-neutral-700'}`}>
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300
+      ${active
+        ? 'border-red-600 bg-red-50 text-red-600 dark:bg-red-900/20 dark:border-red-500 scale-110 shadow-lg shadow-red-500/20'
+        : completed
+          ? 'border-green-600 bg-green-50 text-green-600 dark:bg-green-900/20 dark:border-green-500'
+          : 'border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900'
+      }
+    `}>
+      {completed ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+    </div>
+    <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+  </div>
+)
+
+const StatusLine = ({ completed }: { completed: boolean }) => (
+  <div className={`h-0.5 w-8 md:w-12 transition-all duration-500 ${completed ? 'bg-green-500' : 'bg-neutral-200 dark:bg-neutral-800'}`} />
+)
 
 export default function MyEvents() {
   const router = useRouter()
@@ -46,7 +79,6 @@ export default function MyEvents() {
 
   useEffect(() => {
     const fetchMyEvents = async () => {
-      // Get authenticated user's email from API session (not localStorage)
       const userEmail = await getAuthenticatedUserEmail()
       if (!userEmail) {
         setError('Please sign in to view your events.')
@@ -54,126 +86,60 @@ export default function MyEvents() {
         return
       }
 
-      console.log('[My Events] Authenticated user email:', userEmail)
-
       try {
-        // Fetch user's registrations
-        // api.registrations() already ends with /, so we use ? not /?
         const baseUrl = api.registrations().endsWith('/')
           ? api.registrations().slice(0, -1)
           : api.registrations()
         const registrationsUrl = `${baseUrl}/?email=${encodeURIComponent(userEmail)}`
-        console.log('[My Events] ========================================')
-        console.log('[My Events] Fetching user registrations')
-        console.log('[My Events] User email:', userEmail)
-        console.log('[My Events] Registrations URL:', registrationsUrl)
 
         const regsRes = await apiCall.get(registrationsUrl)
-        console.log('[My Events] Response status:', regsRes.status, regsRes.statusText)
 
         if (!regsRes.ok) {
-          console.error('[My Events] ❌ Failed to fetch registrations:', regsRes.status, regsRes.statusText)
-          let errorText = ''
-          try {
-            const errorData = await regsRes.json()
-            console.error('[My Events] Error response:', errorData)
-            errorText = errorData.detail || errorData.error || 'Unable to load your registrations.'
-          } catch {
-            errorText = `Unable to load your registrations: ${regsRes.status} ${regsRes.statusText}`
-          }
-          throw new Error(errorText)
+          throw new Error('Unable to load your registrations.')
         }
 
         const regsData = await regsRes.json()
-        console.log('[My Events] Raw registrations data:', regsData)
 
         let registrations: Registration[] = Array.isArray(regsData)
           ? regsData
           : (regsData.results || regsData.data || [])
 
-        // CLIENT-SIDE FILTER: Ensure we only show registrations for the authenticated user
-        // This is a safety measure in case backend filtering fails
-        registrations = registrations.filter(reg => {
-          const matches = reg.email.toLowerCase() === userEmail.toLowerCase()
-          if (!matches) {
-            console.warn(`[My Events] ⚠️ Filtered out registration with wrong email: ${reg.email} (expected: ${userEmail})`)
-          }
-          return matches
-        })
-
-        console.log('[My Events] ✅ Found registrations (after filtering):', registrations.length)
-        console.log('[My Events] Registration IDs:', registrations.map(r => ({
-          id: r.id,
-          event: r.event,
-          email: r.email,
-          qr_code_value: r.qr_code_value
-        })))
+        registrations = registrations.filter(reg =>
+          reg.email.toLowerCase() === userEmail.toLowerCase()
+        )
 
         if (registrations.length === 0) {
           setLoading(false)
           return
         }
 
-        // Fetch event details for each registration
         const eventIds = [...new Set(registrations.map(r => r.event))]
-        console.log('[My Events] Unique event IDs to fetch:', eventIds)
         const eventsMap = new Map<number, EventWithRegistration>()
 
         for (const eventId of eventIds) {
           try {
             const eventUrl = api.eventById(eventId)
-            console.log(`[My Events] Fetching event ${eventId} from:`, eventUrl)
             const eventRes = await apiCall.get(eventUrl)
-            console.log(`[My Events] Event ${eventId} response status:`, eventRes.status)
 
             if (eventRes.ok) {
               const eventData = await eventRes.json()
-              console.log(`[My Events] ✅ Event ${eventId} data:`, {
-                id: eventData.id,
-                title: eventData.title,
-                date: eventData.date,
-              })
-
               const registration = registrations.find(r => r.event === eventId && r.email.toLowerCase() === userEmail.toLowerCase())
-              console.log(`[My Events] Registration for event ${eventId}:`, {
-                id: registration?.id,
-                email: registration?.email,
-                qr_code_value: registration?.qr_code_value,
-                is_present: registration?.is_present,
-                is_checked_out: registration?.is_checked_out,
-              })
 
               if (registration) {
-                // Double-check: ensure registration email matches authenticated user
-                if (registration.email.toLowerCase() !== userEmail.toLowerCase()) {
-                  console.warn(`[My Events] ⚠️ Registration email mismatch! Registration: ${registration.email}, User: ${userEmail}`)
-                  continue // Skip this registration
-                }
-
                 eventsMap.set(eventId, {
                   ...eventData,
                   registration,
                 })
-                console.log(`[My Events] ✅ Added event ${eventId} to map`)
-              } else {
-                console.warn(`[My Events] ⚠️ No registration found for event ${eventId} with email ${userEmail}`)
               }
-            } else {
-              console.error(`[My Events] ❌ Failed to fetch event ${eventId}:`, eventRes.status, eventRes.statusText)
             }
           } catch (err) {
-            console.error(`[My Events] ❌ Error fetching event ${eventId}:`, err)
+            console.error(`[My Events] Error fetching event ${eventId}:`, err)
           }
         }
 
-        console.log('[My Events] Events map size:', eventsMap.size)
-
         const allEvents = Array.from(eventsMap.values())
-        console.log('[My Events] Total events with details:', allEvents.length)
-
-        // Separate upcoming and past events
         const now = new Date()
-        console.log('[My Events] Current date/time:', now.toISOString())
+
         const upcoming: EventWithRegistration[] = []
         const past: EventWithRegistration[] = []
 
@@ -182,29 +148,17 @@ export default function MyEvents() {
           const status = (event.status || '').toLowerCase()
           const isCompleted = status === 'completed' || status === 'concluded'
 
-          console.log(`[My Events] Event ${event.id} date:`, eventDate.toISOString(), 'vs now:', now.toISOString(), 'status:', status)
-
           if (isCompleted) {
             past.push(event)
-            console.log(`[My Events] Event ${event.id} is past (completed status)`)
           } else if (eventDate >= now) {
             upcoming.push(event)
-            console.log(`[My Events] Event ${event.id} is upcoming`)
           } else {
             past.push(event)
-            console.log(`[My Events] Event ${event.id} is past (date)`)
           }
         })
 
-        // Sort upcoming by date (earliest first)
         upcoming.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-
-        // Sort past by date (most recent first)
         past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-        console.log('[My Events] Upcoming events count:', upcoming.length)
-        console.log('[My Events] Past events count:', past.length)
-        console.log('[My Events] ========================================')
 
         setUpcomingEvents(upcoming)
         setPastEvents(past)
@@ -221,195 +175,215 @@ export default function MyEvents() {
   }, [])
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 p-6 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
       {/* Header */}
-      <div>
+      <div className="space-y-4">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
+          className="flex items-center gap-2 text-neutral-500 hover:text-red-500 dark:text-neutral-400 dark:hover:text-red-400 transition-colors group"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="font-medium">Back</span>
         </button>
-        <h1 className="text-3xl font-bold text-foreground">My Events</h1>
-        <p className="text-muted-foreground mt-1">Manage your registered and past events</p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Ticket className="w-6 h-6 text-red-500 dark:text-red-400 fill-red-500 dark:fill-red-400" />
+            <h1 className="text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight">My Events</h1>
+          </div>
+          <p className="text-neutral-500 dark:text-neutral-400">Track your registrations, attendance, and feedback</p>
+        </div>
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="upcoming" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-          <TabsTrigger value="past">Past Events</TabsTrigger>
+        <TabsList className="w-full max-w-[400px] mb-8 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-full border border-neutral-200 dark:border-neutral-800">
+          <TabsTrigger
+            value="upcoming"
+            className="rounded-full data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:shadow-sm transition-all"
+          >
+            Running & Upcoming ({upcomingEvents.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="past"
+            className="rounded-full data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:shadow-sm transition-all"
+          >
+            History ({pastEvents.length})
+          </TabsTrigger>
         </TabsList>
 
-        {/* Upcoming Events */}
-        <TabsContent value="upcoming" className="space-y-4">
+        <TabsContent value="upcoming" className="space-y-6">
           {loading ? (
-            <Card className="p-8 border border-border bg-card text-center">
-              <p className="text-muted-foreground">Loading your events...</p>
-            </Card>
+            <div className="flex justify-center p-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+            </div>
           ) : error ? (
-            <Card className="p-8 border border-border bg-card text-center">
-              <p className="text-destructive">{error}</p>
+            <Card className="p-8 border-red-200 bg-red-50 text-red-900 flex flex-col items-center">
+              <AlertCircle className="w-8 h-8 mb-2" />
+              <p>{error}</p>
             </Card>
           ) : upcomingEvents.length === 0 ? (
-            <Card className="p-8 border border-border bg-card text-center">
-              <p className="text-muted-foreground">No upcoming events</p>
-            </Card>
+            <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-neutral-900/50 rounded-3xl border border-neutral-200 dark:border-neutral-800 border-dashed text-center">
+              <div className="w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-6">
+                <Ticket className="w-10 h-10 text-neutral-400" />
+              </div>
+              <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">No Upcoming Events</h3>
+              <p className="text-neutral-500 dark:text-neutral-400 max-w-sm mx-auto mb-8">
+                You haven't registered for any upcoming events yet.
+              </p>
+              <Button
+                className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg shadow-red-500/30 px-8"
+                onClick={() => router.push('/participant/events')}
+              >
+                Browse Events
+              </Button>
+            </div>
           ) : (
-            upcomingEvents.map((event) => {
-              const eventDate = new Date(event.date)
-              const formattedDate = eventDate.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-              const startTime = event.start_time || event.startTime || ''
-              const location = event.location || event.venue || 'TBA'
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {upcomingEvents.map((event) => {
+                const eventDate = new Date(event.date)
+                const formattedDate = eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                const startTime = event.start_time || event.startTime || ''
 
-              return (
-                <Card key={event.id} className="p-4 border border-border bg-card">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-foreground">
-                          {event.title || event.name || 'Untitled Event'}
-                        </h3>
-                        {event.registration.is_present && event.registration.is_checked_out && event.registration.has_evaluated && (
-                          <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 dark:border-green-800 animate-pulse">
-                            COMPLETED
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          {formattedDate} {startTime && `• ${startTime}`}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4" />
-                          {location}
-                        </div>
+                // Status Logic
+                const isRegistered = true
+                const isCheckedIn = event.registration.is_present
+                const isCheckedOut = event.registration.is_checked_out
+                const hasEvaluated = event.registration.has_evaluated
+
+                return (
+                  <div
+                    key={event.id}
+                    className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-xl hover:shadow-red-500/5 transition-all duration-300 overflow-hidden flex flex-col md:flex-row"
+                  >
+                    {/* Left: Image & Date */}
+                    <div className="w-full md:w-48 h-48 md:h-auto relative bg-neutral-100 dark:bg-neutral-800">
+                      {(event.coverImage || event.cover_image) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={event.coverImage || event.cover_image || ''} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-red-500/20 to-rose-500/20" />
+                      )}
+                      <div className="absolute top-4 left-4 md:top-auto md:bottom-4 md:left-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md px-3 py-2 rounded-lg text-center shadow-lg border border-neutral-200 dark:border-neutral-700 min-w-[60px]">
+                        <div className="text-xs font-bold text-red-600 dark:text-red-400 uppercase">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</div>
+                        <div className="text-xl font-extrabold text-neutral-900 dark:text-white">{eventDate.getDate()}</div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push(`/participant/event/${event.id}/qrcode`)}
-                      >
-                        Show QR
-                      </Button>
-                      {event.registration.is_present && (
-                        <div className="flex items-center gap-1 text-xs text-green-600">
-                          <CheckCircle className="w-4 h-4" />
-                          Checked In
+
+                    {/* Right: Content */}
+                    <div className="flex-1 p-6 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-xl font-bold text-neutral-900 dark:text-white line-clamp-1 mb-1">
+                              {event.title || event.name || 'Untitled Event'}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-neutral-500 dark:text-neutral-400">
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="w-4 h-4 text-red-500" />
+                                <span>{startTime}</span>
+                              </div>
+                              {(event.location || event.venue) && (
+                                <div className="flex items-center gap-1.5">
+                                  <MapPin className="w-4 h-4 text-red-500" />
+                                  <span className="line-clamp-1">{event.location || event.venue}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      )}
-                      {event.registration.is_checked_out && (
-                        <div className="flex items-center gap-1 text-xs text-blue-600">
-                          <CheckCircle className="w-4 h-4" />
-                          Checked Out
+
+                        {/* Status Stepper */}
+                        <div className="flex items-center justify-between px-2 pt-2 pb-4 border-b border-neutral-100 dark:border-neutral-800">
+                          <StatusStep active={!isCheckedIn} completed={isCheckedIn} label="Reg" icon={Ticket} />
+                          <StatusLine completed={isCheckedIn} />
+                          <StatusStep active={isCheckedIn && !isCheckedOut} completed={isCheckedOut} label="In" icon={QrCode} />
+                          <StatusLine completed={isCheckedOut} />
+                          <StatusStep active={isCheckedOut && !hasEvaluated} completed={hasEvaluated} label="Out" icon={CheckCircle} />
+                          <StatusLine completed={hasEvaluated} />
+                          <StatusStep active={false} completed={hasEvaluated} label="Done" icon={Star} />
                         </div>
-                      )}
-                      {event.registration.has_evaluated && (
-                        <div className="flex items-center gap-1 text-xs text-purple-600">
-                          <CheckCircle className="w-4 h-4" />
-                          Evaluated
-                        </div>
-                      )}
+                      </div>
+
+                      <div className="flex gap-3 pt-4">
+                        <Button
+                          className="flex-1 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-200"
+                          onClick={() => router.push(`/participant/event/${event.id}/qrcode`)}
+                        >
+                          <QrCode className="w-4 h-4 mr-2" />
+                          Show QR Code
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                          onClick={() => router.push(`/participant/event/${event.id}`)}
+                        >
+                          Details
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </Card>
-              )
-            })
+                )
+              })}
+            </div>
           )}
         </TabsContent>
 
-        {/* Past Events */}
-        <TabsContent value="past" className="space-y-4">
+        <TabsContent value="past" className="space-y-6">
           {loading ? (
-            <Card className="p-8 border border-border bg-card text-center">
-              <p className="text-muted-foreground">Loading your events...</p>
-            </Card>
-          ) : error ? (
-            <Card className="p-8 border border-border bg-card text-center">
-              <p className="text-destructive">{error}</p>
-            </Card>
+            <div className="flex justify-center p-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+            </div>
           ) : pastEvents.length === 0 ? (
-            <Card className="p-8 border border-border bg-card text-center">
-              <p className="text-muted-foreground">No past events</p>
-            </Card>
+            <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-neutral-900/50 rounded-3xl border border-neutral-200 dark:border-neutral-800 border-dashed text-center">
+              <div className="w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-6">
+                <Clock className="w-10 h-10 text-neutral-400" />
+              </div>
+              <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">No Past Events</h3>
+            </div>
           ) : (
-            pastEvents.map((event) => {
-              const eventDate = new Date(event.date)
-              const formattedDate = eventDate.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-              const location = event.location || event.venue || 'TBA'
-              const attended = event.registration.is_present
-              const evaluated = event.registration.has_evaluated
+            <div className="grid grid-cols-1 gap-4">
+              {pastEvents.map((event) => {
+                const eventDate = new Date(event.date)
+                const formattedDate = eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                const hasEvaluated = event.registration.has_evaluated
 
-              return (
-                <Card key={event.id} className="p-4 border border-border bg-card">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-foreground">
-                          {event.title || event.name || 'Untitled Event'}
-                        </h3>
-                        {event.registration.is_present && event.registration.is_checked_out && event.registration.has_evaluated && (
-                          <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 dark:border-green-800 animate-pulse">
-                            COMPLETED
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          {formattedDate}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4" />
-                          {location}
-                        </div>
-                      </div>
-                      <div className="flex gap-4 mt-3">
-                        <div className="flex items-center gap-1 text-xs">
-                          <CheckCircle className={`w-4 h-4 ${attended ? 'text-green-500' : 'text-muted-foreground'}`} />
-                          <span className={attended ? 'text-green-600 font-medium' : ''}>{attended ? 'Checked In' : 'Not Checked In'}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs">
-                          <CheckCircle className={`w-4 h-4 ${event.registration.is_checked_out ? 'text-blue-500' : 'text-muted-foreground'}`} />
-                          <span className={event.registration.is_checked_out ? 'text-blue-600 font-medium' : ''}>{event.registration.is_checked_out ? 'Checked Out' : 'Not Checked Out'}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs">
-                          <CheckCircle className={`w-4 h-4 ${evaluated ? 'text-purple-500' : 'text-orange-500'}`} />
-                          <span className={evaluated ? 'text-purple-600 font-medium' : ''}>{evaluated ? 'Evaluated' : 'Pending Evaluation'}</span>
-                        </div>
-                      </div>
+                return (
+                  <div
+                    key={event.id}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 flex flex-col md:flex-row items-center gap-6 hover:border-red-500/30 transition-all opacity-80 hover:opacity-100"
+                  >
+                    <div className="w-16 h-16 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center shrink-0">
+                      <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase">{eventDate.toLocaleDateString('en-US', { month: 'short' })}</span>
+                      <span className="text-xl font-bold text-neutral-900 dark:text-white">{eventDate.getDate()}</span>
                     </div>
-                    <div className="flex gap-2">
-                      {!evaluated && attended && (event.status === 'completed' || (event.status || '').toLowerCase() === 'completed') && (
+
+                    <div className="flex-1 text-center md:text-left">
+                      <h3 className="font-bold text-lg text-neutral-900 dark:text-white">{event.title || event.name}</h3>
+                      <p className="text-sm text-neutral-500 dark:text-neutral-400">{event.location || event.venue || 'No Location'}</p>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      {hasEvaluated ? (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-sm font-semibold border border-green-100 dark:border-green-900/30">
+                          <Star className="w-4 h-4 fill-current" />
+                          Evaluated
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-full text-sm font-semibold border border-orange-100 dark:border-orange-900/30">
+                          <Clock className="w-4 h-4" />
+                          Pending Evaluation
+                        </div>
+                      )}
+
+                      {!hasEvaluated ? (
                         <Button
-                          size="sm"
                           className="bg-orange-500 hover:bg-orange-600 text-white"
                           onClick={() => router.push(`/participant/event/${event.id}/evaluation`)}
                         >
-                          Evaluate
+                          Evaluate Now
                         </Button>
-                      )}
-                      {!evaluated && attended && event.status !== 'completed' && (event.status || '').toLowerCase() !== 'completed' && (
-                        <div className="text-xs text-muted-foreground flex items-center">
-                          <span>Evaluation pending event conclusion</span>
-                        </div>
-                      )}
-                      {evaluated && (
+                      ) : (
                         <Button
                           variant="outline"
-                          size="sm"
                           onClick={() => router.push(`/participant/certificates`)}
                         >
                           View Certificate
@@ -417,9 +391,9 @@ export default function MyEvents() {
                       )}
                     </div>
                   </div>
-                </Card>
-              )
-            })
+                )
+              })}
+            </div>
           )}
         </TabsContent>
       </Tabs>
