@@ -554,6 +554,16 @@ export default function ParticipantEventDetailPage() {
                     </Button>
 
                     <div className="grid grid-cols-2 gap-4">
+                      {['checked-in', 'checked-out', 'evaluated'].includes(registrationStatus) && (
+                        <Button
+                          variant="outline"
+                          className="col-span-2 h-12 rounded-xl border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-900 dark:text-white font-bold"
+                          onClick={() => setShowTicketModal(true)}
+                        >
+                          <QrCode className="w-4 h-4 mr-2" />
+                          View Ticket
+                        </Button>
+                      )}
                       <Button variant="outline" className="h-12 rounded-xl border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800" onClick={toggleBookmark}>
                         <Bookmark className={`w-4 h-4 mr-2 ${isBookmarked ? 'fill-current text-red-500 text-red-500' : 'text-neutral-500'}`} />
                         <span className="text-neutral-600 dark:text-neutral-300">{isBookmarked ? 'Saved' : 'Save'}</span>
@@ -604,6 +614,9 @@ export default function ParticipantEventDetailPage() {
 
               <div className="text-center space-y-1">
                 <p className="font-bold text-lg leading-tight">{event.name}</p>
+                {registrationData?.affiliation && (
+                  <p className="text-sm font-medium opacity-90 mt-1 uppercase tracking-wider">{registrationData.affiliation}</p>
+                )}
                 <div className="flex items-center justify-center gap-2 text-xs opacity-70 mt-2">
                   <span>{event.venue}</span>
                   <span>•</span>

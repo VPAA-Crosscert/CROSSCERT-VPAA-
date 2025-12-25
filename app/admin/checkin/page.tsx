@@ -155,6 +155,20 @@ export default function AdminCheckIn() {
       return
     }
 
+    // 1. Verify Event ID from QR (Format: REG-{eventId}-{email})
+    const qrParts = code.trim().split('-')
+    if (qrParts.length >= 3 && qrParts[0] === 'REG') {
+      const qrEventId = qrParts[1]
+      if (qrEventId !== selectedEvent) {
+        // Find event name
+        const correctEvent = events.find(e => e.id.toString() === qrEventId)
+        const eventName = correctEvent ? correctEvent.title : `Event #${qrEventId}` || 'another event'
+        showError(`It's the wrong QR, it's for the ${eventName} QR.`)
+        setTimeout(() => setIsProcessingScan(false), 2500)
+        return
+      }
+    }
+
     const event = events.find(e => e.id.toString() === selectedEvent)
     const isCompleted = event?.status?.toLowerCase() === 'completed'
 
@@ -170,6 +184,35 @@ export default function AdminCheckIn() {
       const data = await res.json()
 
       if (!res.ok) {
+        // Special Handling for "Already checked in"
+        if (data.message?.toLowerCase().includes('already checked in') || data.error?.toLowerCase().includes('already checked in') ||
+          data.message?.toLowerCase().includes('already present') || data.error?.toLowerCase().includes('already present')) {
+          // Treat as success
+          setParticipantName(`${data.participant_name ?? 'Participant'}`)
+          setShowSuccess(true)
+          setLastAction(action)
+
+          toast({
+            title: 'Already Checked In',
+            description: `${data.participant_name ?? 'Participant'} is already checked in.`,
+            className: 'bg-green-50 border-green-200 text-green-800'
+          })
+
+          setTimeout(() => {
+            setScannedCode('')
+            setShowSuccess(false)
+            setIsProcessingScan(false)
+          }, 2000)
+          return
+        }
+
+        // Special Handling for "Participant doesn't exist"
+        if (res.status === 404 || data.message?.toLowerCase().includes('not found') || data.error?.toLowerCase().includes('not found') || data.error?.toLowerCase().includes('does not exist')) {
+          showError("Participant doesn't exist.")
+          setTimeout(() => setIsProcessingScan(false), 2000)
+          return
+        }
+
         showError(data.error || data.message || `Unable to ${action} participant.`)
         setTimeout(() => setIsProcessingScan(false), 2000)
         return
@@ -613,7 +656,7 @@ export default function AdminCheckIn() {
                 variant="outline"
                 className="w-full font-semibold h-12 border-neutral-300 dark:border-neutral-700"
                 onClick={handleCheckOut}
-                disabled={events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() === 'completed'}
+                disabled={events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() !== 'completed' && events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() !== 'concluded'}
               >
                 <CheckCircle2 className="w-5 h-5 mr-2" />
                 Check Out Participant

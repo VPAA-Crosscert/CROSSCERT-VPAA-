@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Calendar, Users, CheckCircle, Award, Clock, MapPin, Activity, Search, ArrowUpRight } from 'lucide-react'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 import { getStoredEvents } from '@/lib/event-context'
 import { useState, useEffect } from 'react'
 import { adminApi, apiCall } from '@/lib/api-config'
@@ -261,36 +262,99 @@ export default function AdminDashboard() {
                     <p className="text-neutral-500 text-xs">Edit, update, or remove existing records</p>
                   </div>
                 </button>
+
+                {/* Participants Box - Added as requested */}
+                <button
+                  onClick={() => router.push('/admin/participants')} // Assuming /admin/participants or /admin/students exists, if not maybe just redirect to events with a filter? User said "add the participants box under...". 
+                  // Wait, looking at routes... I don't see "/admin/participants" in the file list earlier. I saw "admin/events". Maybe they mean "Manage Participants"? 
+                  // I'll assume /admin/participants for now or reuse /admin/events logic. 
+                  // Actually, user said "participants box under to match the height of analytics". 
+                  // If there is no specific participants page, I'll point to /admin/events (or just keep the button).
+                  // But checking quickActions earlier, it had path: '/admin/participants'. So I will use that.
+                  className="w-full flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-red-500/30 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-neutral-800 dark:text-neutral-200">View Participants</p>
+                    <p className="text-neutral-500 text-xs">Manage registration database</p>
+                  </div>
+                </button>
               </div>
 
-              {/* Column 2: Analytics Summary */}
-              <div className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col justify-between">
+              {/* Column 2: Analytics Snapshot (Graph) */}
+              <div className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col h-full min-h-[300px]">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-bold text-lg text-neutral-900 dark:text-white flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-emerald-500" /> Analytics Snapshot
+                    <Activity className="w-5 h-5 text-emerald-500" /> Registration Trends
                   </h4>
                   <Button variant="ghost" size="sm" onClick={() => router.push('/admin/insights')} className="text-xs text-neutral-500 hover:text-emerald-500">
-                    View All
+                    Full Report
                   </Button>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50">
-                    <span className="text-sm text-neutral-500">Avg. Attendance</span>
-                    <span className="font-bold text-neutral-900 dark:text-white">
-                      {stats.totalEvents > 0 ? ((stats.attendedToday / stats.totalParticipants || 0) * 100).toFixed(0) : 0}%
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50">
-                    <span className="text-sm text-neutral-500">Active Registrations</span>
-                    <span className="font-bold text-neutral-900 dark:text-white">
-                      {stats.totalParticipants}
-                    </span>
-                  </div>
-                  <div className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-full h-2 overflow-hidden mt-2">
-                    <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.random() * 40 + 40}%` }} />
-                  </div>
-                  <p className="text-xs text-center text-neutral-400 mt-2">Data updated in real-time</p>
+                <div className="flex-1 w-full relative">
+                  {/* Recharts Implementation: Stock Style */}
+                  {loading ? (
+                    <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-xs font-mono uppercase tracking-widest animate-pulse">Loading Analytics...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={upcomingEvents.concat(pastEvents).slice(0, 10).map(e => ({
+                        name: (e.name || e.title || '').substring(0, 10),
+                        full_name: e.name || e.title,
+                        registrations: e.registration_count || e.participants || 0,
+                        date: e.date
+                      }))}>
+                        <defs>
+                          <linearGradient id="colorReg" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis
+                          dataKey="name"
+                          stroke="#525252"
+                          fontSize={10}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          stroke="#525252"
+                          fontSize={10}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value: any) => `${value}`}
+                        />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '12px', color: '#fff' }}
+                          itemStyle={{ color: '#10b981' }}
+                          labelStyle={{ color: '#a3a3a3', marginBottom: '0.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                          cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '4 4' }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="registrations"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          fillOpacity={1}
+                          fill="url(#colorReg)"
+                          activeDot={{ r: 6, strokeWidth: 0, fill: '#fff' }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+
+                  {!loading && stats.totalParticipants === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center text-neutral-400 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
+                      <p className="text-sm">No data available</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
