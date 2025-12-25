@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, MapPin, Calendar, Bookmark, X, Search, ChevronDown, Sparkles, Filter } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Bookmark, X, Search, ChevronDown, Sparkles, Filter, Rocket } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
@@ -630,92 +630,103 @@ export default function ParticipantEvents() {
                         const borderColor = colors ? colors.border : 'border-neutral-200 dark:border-neutral-800'
 
                         return (
-                          <div
-                            key={event.id}
-                            className={`group relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-lg transition-all duration-300 ${!hasAccess ? 'opacity-75 grayscale-[0.5]' : ''}`}
-                          >
-                            {/* Image & Badge */}
-                            <div className="relative h-48 overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                              {(event.coverImage || event.cover_image) ? (
-                                <img
-                                  src={event.coverImage || event.cover_image}
-                                  alt={event.name || event.title}
-                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                />
-                              ) : (
-                                <div className={`w-full h-full bg-gradient-to-br ${colors.gradient}`} />
-                              )}
-                              <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
-
-                              <div className="absolute top-3 left-3 flex flex-wrap gap-2">
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md bg-black/30 border border-white/20`}>
-                                  {eventCategory}
-                                </span>
-                                {isRegistered && status && (
-                                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md border border-white/20 ${status === 'Completed' ? 'bg-green-500/80' :
-                                    status === 'Checked Out' ? 'bg-blue-500/80' :
-                                      status === 'Checked In' ? 'bg-indigo-500/80' :
-                                        'bg-amber-500/80'
-                                    }`}>
-                                    {status}
-                                  </span>
-                                )}
+                          <div key={event.id} className="relative group">
+                            {/* Live Badge Overlay - Now strictly outside the card */}
+                            {event.status === 'live' && (
+                              <div className="absolute -top-3 -right-3 z-30">
+                                <Badge className={`${colors.bg} text-white border-2 border-white dark:border-neutral-950 px-3 py-1 shadow-xl animate-pulse flex items-center gap-2 rounded-full`}>
+                                  <Rocket className="w-3 h-3 animate-bounce" />
+                                  EVENT STARTED
+                                </Badge>
                               </div>
+                            )}
 
-                              <button
-                                onClick={(e) => { e.stopPropagation(); toggleBookmark(event.id) }}
-                                className="absolute top-3 right-3 p-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all"
-                              >
-                                <Bookmark className={`w-4 h-4 ${bookmarked.has(String(event.id)) ? 'fill-white' : ''}`} />
-                              </button>
-                            </div>
+                            <div
+                              className={`relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-lg transition-all duration-300 ${!hasAccess ? 'opacity-75 grayscale-[0.5]' : ''}`}
+                            >
+                              {/* Image & Badge */}
+                              <div className="relative h-48 overflow-hidden bg-neutral-100 dark:bg-neutral-800">
+                                {(event.coverImage || event.cover_image) ? (
+                                  <img
+                                    src={event.coverImage || event.cover_image}
+                                    alt={event.name || event.title}
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                  />
+                                ) : (
+                                  <div className={`w-full h-full bg-gradient-to-br ${colors.gradient}`} />
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
-                            {/* Content */}
-                            <div className="p-5 flex-1 flex flex-col">
-                              <div className="mb-4 flex-1">
-                                <h3
-                                  className="text-lg font-bold text-neutral-900 dark:text-white line-clamp-2 mb-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors cursor-pointer"
-                                  onClick={() => router.push(`/participant/event/${event.id}`)}
-                                >
-                                  {event.name || event.title || 'Untitled Event'}
-                                </h3>
-
-                                <div className="space-y-2">
-                                  {event.date && (
-                                    <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-                                      <Calendar className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
-                                      <span>{new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                                    </div>
-                                  )}
-                                  {(event.venue || event.location) && (
-                                    <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-                                      <MapPin className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
-                                      <span className="line-clamp-1">{event.venue || event.location}</span>
-                                    </div>
+                                <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+                                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md bg-black/30 border border-white/20`}>
+                                    {eventCategory}
+                                  </span>
+                                  {isRegistered && status && (
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md border border-white/20 ${status === 'Completed' ? 'bg-green-500/80' :
+                                      status === 'Checked Out' ? 'bg-blue-500/80' :
+                                        status === 'Checked In' ? 'bg-indigo-500/80' :
+                                          'bg-amber-500/80'
+                                      }`}>
+                                      {status}
+                                    </span>
                                   )}
                                 </div>
+
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleBookmark(event.id) }}
+                                  className="absolute top-3 right-3 p-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all z-10"
+                                >
+                                  <Bookmark className={`w-4 h-4 ${bookmarked.has(String(event.id)) ? 'fill-white' : ''}`} />
+                                </button>
                               </div>
 
-                              {/* Footer Actions */}
-                              <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 flex gap-3">
-                                {isRegistered ? (
-                                  <>
-                                    <Button className="flex-1 bg-green-500 hover:bg-green-600 text-white border-0" disabled>
-                                      Registered
-                                    </Button>
-                                    <Button variant="outline" size="icon" onClick={() => handleUnregisterEvent(event)} className="border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-900/20">
-                                      <X className="w-4 h-4" />
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <Button
-                                    className={`flex-1 ${hasAccess ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg shadow-red-500/20' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
-                                    onClick={() => handleJoinEvent(event)}
-                                    disabled={!hasAccess}
+                              {/* Content */}
+                              <div className="p-5 flex-1 flex flex-col">
+                                <div className="mb-4 flex-1">
+                                  <h3
+                                    className="text-lg font-bold text-neutral-900 dark:text-white line-clamp-2 mb-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors cursor-pointer"
+                                    onClick={() => router.push(`/participant/event/${event.id}`)}
                                   >
-                                    {hasAccess ? 'Join Event' : 'Restricted'}
-                                  </Button>
-                                )}
+                                    {event.name || event.title || 'Untitled Event'}
+                                  </h3>
+
+                                  <div className="space-y-2">
+                                    {event.date && (
+                                      <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                        <Calendar className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
+                                        <span>{new Date(event.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                      </div>
+                                    )}
+                                    {(event.venue || event.location) && (
+                                      <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                        <MapPin className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
+                                        <span className="line-clamp-1">{event.venue || event.location}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Footer Actions */}
+                                <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 flex gap-3">
+                                  {isRegistered ? (
+                                    <>
+                                      <Button className="flex-1 bg-green-500 hover:bg-green-600 text-white border-0" disabled>
+                                        Registered
+                                      </Button>
+                                      <Button variant="outline" size="icon" onClick={() => handleUnregisterEvent(event)} className="border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-900/20">
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Button
+                                      className={`flex-1 ${hasAccess ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg shadow-red-500/20' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
+                                      onClick={() => handleJoinEvent(event)}
+                                      disabled={!hasAccess}
+                                    >
+                                      {hasAccess ? 'Join Event' : 'Restricted'}
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>

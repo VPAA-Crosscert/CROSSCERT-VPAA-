@@ -322,7 +322,51 @@ export default function ParticipantEventDetailPage() {
       img.src = url
     }
   }
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white animate-pulse">Loading event experience...</div>
+  if (loading) return (
+    <div className="min-h-screen bg-neutral-950 animate-in fade-in duration-700">
+      {/* Hero Skeleton */}
+      <div className="relative w-full h-[65vh] md:h-[80vh] overflow-hidden bg-neutral-900/20">
+        <div className="absolute inset-0 bg-neutral-900/40 animate-pulse" />
+        <div className="absolute inset-0 flex flex-col justify-end pb-12 md:pb-24 px-6 md:px-12 max-w-[1700px] mx-auto">
+          <div className="space-y-6">
+            {/* Badges */}
+            <div className="flex gap-3">
+              <div className="h-8 w-24 bg-neutral-800 rounded-full animate-pulse" />
+              <div className="h-8 w-32 bg-neutral-800 rounded-full animate-pulse" />
+            </div>
+            {/* Title */}
+            <div className="h-16 md:h-24 w-3/4 max-w-4xl bg-neutral-800/80 rounded-3xl animate-pulse backdrop-blur-md" />
+            <div className="h-16 md:h-24 w-1/2 max-w-2xl bg-neutral-800/80 rounded-3xl animate-pulse backdrop-blur-md" />
+            {/* Meta */}
+            <div className="flex gap-4 pt-4">
+              <div className="h-12 w-48 bg-neutral-800/50 rounded-xl animate-pulse" />
+              <div className="h-12 w-48 bg-neutral-800/50 rounded-xl animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Skeleton */}
+      <div className="max-w-[1700px] mx-auto px-6 md:px-12 -mt-16 relative z-10 pb-24">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Main Content Skeleton */}
+          <div className="lg:col-span-8 flex flex-col gap-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-24 bg-neutral-900/50 rounded-2xl animate-pulse border border-neutral-800/50" />
+              ))}
+            </div>
+            <div className="h-96 bg-neutral-900/50 rounded-[2.5rem] animate-pulse border border-neutral-800/50" />
+          </div>
+
+          {/* Ticket Skeleton */}
+          <div className="lg:col-span-4">
+            <div className="h-[600px] bg-neutral-900/50 rounded-3xl animate-pulse border border-neutral-800/50" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
   if (!event) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">Event not found</div>
 
   const eventCategory = event ? getCategoryFromEvent(event) : 'HCDC'
@@ -424,22 +468,22 @@ export default function ParticipantEventDetailPage() {
                   <span>{event.location}</span>
                 </div>
               </div>
-
-              {/* Live Countdown Circle */}
-              {timeLeft && (
-                <div className="hidden lg:flex items-center justify-center relative w-40 h-40 rounded-full border border-white/20 bg-black/20 backdrop-blur-xl animate-in fade-in zoom-in duration-1000 delay-300">
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-white">{timeLeft.days}</div>
-                    <div className="text-[10px] uppercase tracking-widest text-white/60 font-bold mb-1">Days Left</div>
-                    <div className="text-xs text-white/80 font-mono">{timeLeft.hours}h {timeLeft.minutes}m</div>
-                  </div>
-                  <svg className="absolute inset-0 w-full h-full -rotate-90">
-                    <circle cx="80" cy="80" r="78" stroke="white" strokeWidth="1" fill="none" className="opacity-10" />
-                    <circle cx="80" cy="80" r="78" stroke="white" strokeWidth="2" fill="none" strokeDasharray="490" strokeDashoffset="100" className="opacity-30" />
-                  </svg>
-                </div>
-              )}
             </div>
+
+            {/* Live Countdown Circle - Moved to Right Side */}
+            {timeLeft && (
+              <div className="hidden lg:flex items-center justify-center relative w-40 h-40 rounded-full border border-white/20 bg-black/20 backdrop-blur-xl animate-in fade-in zoom-in duration-1000 delay-300">
+                <div className="text-center">
+                  <div className="text-3xl font-black text-white">{timeLeft.days}</div>
+                  <div className="text-[10px] uppercase tracking-widest text-white/60 font-bold mb-1">Days Left</div>
+                  <div className="text-xs text-white/80 font-mono">{timeLeft.hours}h {timeLeft.minutes}m</div>
+                </div>
+                <svg className="absolute inset-0 w-full h-full -rotate-90">
+                  <circle cx="80" cy="80" r="78" stroke="white" strokeWidth="1" fill="none" className="opacity-10" />
+                  <circle cx="80" cy="80" r="78" stroke="white" strokeWidth="2" fill="none" strokeDasharray="490" strokeDashoffset="100" className="opacity-30" />
+                </svg>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -516,7 +560,6 @@ export default function ParticipantEventDetailPage() {
 
               <div className="flex flex-col gap-6">
 
-
                 {/* Certificate Preview Tile */}
                 <Card className="p-6 border-none shadow-xl bg-neutral-900 text-white rounded-[2rem] flex flex-col justify-center relative overflow-hidden">
                   <div className={`absolute -right-10 -bottom-10 w-32 h-32 rounded-full ${colors.bg} blur-3xl opacity-30`} />
@@ -553,22 +596,18 @@ export default function ParticipantEventDetailPage() {
                     <div className="flex justify-between items-start z-10">
                       <QrCode className="w-8 h-8 opacity-80" />
                       <div className="flex items-center gap-2">
-                        {(event.isPublic || (event as any).is_public) && (
-                          <Badge className="bg-white/10 backdrop-blur-md text-white border-white/20 px-3 py-1.5">
-                            <Users className="w-3 h-3 mr-2" />
-                            Public Event
-                          </Badge>
-                        )}
                         {/* LIVE BADGE */}
-                        {event.status === 'live' && (
+                        {event.status === 'live' ? (
                           <Badge className="bg-red-600/90 hover:bg-red-600 text-white border-none px-4 py-1.5 animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]">
                             <Rocket className="w-3 h-3 mr-2 animate-bounce" />
                             EVENT STARTED
                           </Badge>
+                        ) : (
+                          <Badge className="bg-amber-500/90 text-white border-none px-4 py-1.5">
+                            <Clock className="w-3 h-3 mr-2" />
+                            NOT STARTED
+                          </Badge>
                         )}
-                        <Badge className="bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-md">
-                          {event.isPaidEvent ? `₱${event.ticketPrice}` : 'FREE ACCESS'}
-                        </Badge>
                       </div>
                     </div>
                     <div className="z-10">
