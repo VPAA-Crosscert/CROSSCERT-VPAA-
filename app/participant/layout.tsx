@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ParticipantSidebar } from '@/components/participant-sidebar'
 import { ParticipantTopbar } from '@/components/participant-topbar'
+import { CrosscertLogo } from '@/components/crosscert-logo'
 
 export default function ParticipantLayout({
   children,
@@ -32,6 +33,7 @@ export default function ParticipantLayout({
           {children}
         </main>
       </div>
+      <CrosscertLogo />
     </div>
   )
 }

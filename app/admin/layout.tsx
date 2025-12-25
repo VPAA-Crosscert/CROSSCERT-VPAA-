@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { AdminSidebar } from '@/components/admin-sidebar'
 import { AdminTopbar } from '@/components/admin-topbar'
+import { CrosscertLogo } from '@/components/crosscert-logo'
 
 export default function AdminLayout({
   children,
@@ -32,6 +33,7 @@ export default function AdminLayout({
           {children}
         </main>
       </div>
+      <CrosscertLogo />
     </div>
   )
 }

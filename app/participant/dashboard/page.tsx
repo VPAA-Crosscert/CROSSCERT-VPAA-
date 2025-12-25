@@ -87,14 +87,7 @@ export default function ParticipantDashboard() {
         console.log('[Participant Dashboard] Total events before filtering:', eventsList.length)
 
         const publicUpcomingEvents = eventsList
-          .filter(event => {
-            // Check both is_public (backend) and isPublic (frontend) properties
-            const isPublic = (event.is_public !== false) && (event.isPublic !== false)
-            if (!isPublic) {
-              console.log(`[Participant Dashboard] Event ${event.id} filtered out (not public)`)
-            }
-            return isPublic
-          })
+          .filter(event => event.isPublic !== false) // Match events page logic
           .filter(event => {
             if (!event.date) {
               console.log(`[Participant Dashboard] Event ${event.id} has no date, including it`)

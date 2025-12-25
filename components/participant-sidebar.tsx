@@ -24,12 +24,16 @@ export function ParticipantSidebar() {
     ? '/hcdc white.png'
     : '/hcdc red.png'
 
+  const crosscertLogoSrc = mounted && (resolvedTheme === 'dark' || theme === 'dark')
+    ? '/crosscert-typo-white.png'
+    : '/crosscert-typo-black.png'
+
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/participant/dashboard', color: 'text-blue-500' },
-    { icon: Calendar, label: 'Events', href: '/participant/events', color: 'text-purple-500' },
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/participant/dashboard', color: 'text-red-500' },
+    { icon: Calendar, label: 'Events', href: '/participant/events', color: 'text-orange-500' },
     { icon: Bookmark, label: 'Bookmarks', href: '/participant/bookmarks', color: 'text-yellow-500' },
     { icon: CalendarCheck, label: 'My Events', href: '/participant/my-events', color: 'text-green-500' },
-    { icon: Award, label: 'Certificates', href: '/participant/certificates', color: 'text-orange-500' },
+    { icon: Award, label: 'Certificates', href: '/participant/certificates', color: 'text-purple-500' },
     { icon: Settings, label: 'Settings', href: '/participant/settings', color: 'text-neutral-500' },
   ]
 
@@ -41,11 +45,16 @@ export function ParticipantSidebar() {
     router.push('/')
   }
 
+  // Handle search - filter menu items
+  const filteredMenuItems = menuItems.filter(item =>
+    item.label.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
     <>
       {/* Mobile Toggle Button */}
       <button
-        className="md:hidden fixed top-4 left-4 z-50 p-3 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all hover:scale-105"
+        className="md:hidden fixed top-4 left-4 z-50 p-3 rounded-xl bg-gradient-to-br from-red-600 to-rose-600 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all hover:scale-105"
         onClick={() => setIsMobileOpen(!isMobileOpen)}
         aria-label="Toggle menu"
       >
@@ -71,7 +80,7 @@ export function ParticipantSidebar() {
               />
             )}
             {!mounted && (
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-lg">C</span>
               </div>
             )}
@@ -81,19 +90,19 @@ export function ParticipantSidebar() {
         {/* Search */}
         <div className="p-4">
           <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-blue-500 transition-colors" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-red-500 transition-colors" />
             <Input
               placeholder="Quick search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
             />
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
             return (
@@ -102,7 +111,7 @@ export function ParticipantSidebar() {
                 className={`
                   w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all
                   ${active
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/30'
+                    ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-500/30'
                     : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                   }
                   group relative overflow-hidden
@@ -121,10 +130,10 @@ export function ParticipantSidebar() {
 
         {/* Footer */}
         <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 space-y-3">
-          <div className="px-4 py-3 rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200 dark:border-blue-800">
+          <div className="px-4 py-3 rounded-xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/30 dark:to-rose-950/30 border border-red-200 dark:border-red-800">
             <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">Participant</span>
+              <Sparkles className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <span className="text-xs font-semibold text-red-600 dark:text-red-400">Participant</span>
             </div>
             <p className="text-xs text-neutral-600 dark:text-neutral-400">Explore events & earn certificates</p>
           </div>
@@ -135,6 +144,20 @@ export function ParticipantSidebar() {
             <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
             <span>Logout</span>
           </button>
+
+          {/* CROSSCERT Logo */}
+          {mounted && (
+            <div className="flex items-center justify-center pt-2">
+              <Image
+                src={crosscertLogoSrc}
+                alt="CROSSCERT"
+                width={120}
+                height={24}
+                className="w-auto h-5 object-contain opacity-50 hover:opacity-100 transition-opacity"
+                priority
+              />
+            </div>
+          )}
         </div>
       </aside>
 
@@ -163,7 +186,7 @@ export function ParticipantSidebar() {
               />
             )}
             {!mounted && (
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-lg">C</span>
               </div>
             )}
@@ -180,19 +203,19 @@ export function ParticipantSidebar() {
         {/* Search */}
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
           <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-blue-500 transition-colors" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-red-500 transition-colors" />
             <Input
               placeholder="Quick search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
             />
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="p-4 space-y-1 flex-1">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
             return (
@@ -201,7 +224,7 @@ export function ParticipantSidebar() {
                 className={`
                   w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all
                   ${active
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/30'
+                    ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-500/30'
                     : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                   }
                   group relative overflow-hidden
@@ -223,10 +246,10 @@ export function ParticipantSidebar() {
 
         {/* Footer */}
         <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 space-y-3">
-          <div className="px-4 py-3 rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200 dark:border-blue-800">
+          <div className="px-4 py-3 rounded-xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/30 dark:to-rose-950/30 border border-red-200 dark:border-red-800">
             <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">Participant</span>
+              <Sparkles className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <span className="text-xs font-semibold text-red-600 dark:text-red-400">Participant</span>
             </div>
             <p className="text-xs text-neutral-600 dark:text-neutral-400">Explore events & earn certificates</p>
           </div>
@@ -240,6 +263,20 @@ export function ParticipantSidebar() {
             <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
             <span>Logout</span>
           </button>
+
+          {/* CROSSCERT Logo */}
+          {mounted && (
+            <div className="flex items-center justify-center pt-2">
+              <Image
+                src={crosscertLogoSrc}
+                alt="CROSSCERT"
+                width={120}
+                height={24}
+                className="w-auto h-5 object-contain opacity-50 hover:opacity-100 transition-opacity"
+                priority
+              />
+            </div>
+          )}
         </div>
       </aside>
 

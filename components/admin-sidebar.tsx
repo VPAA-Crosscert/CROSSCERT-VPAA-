@@ -24,6 +24,10 @@ export function AdminSidebar() {
     ? '/hcdc white.png'
     : '/hcdc red.png'
 
+  const crosscertLogoSrc = mounted && (resolvedTheme === 'dark' || theme === 'dark')
+    ? '/crosscert-typo-white.png'
+    : '/crosscert-typo-black.png'
+
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard', color: 'text-red-500' },
     { icon: Calendar, label: 'Events', href: '/admin/events', color: 'text-orange-500' },
@@ -42,6 +46,11 @@ export function AdminSidebar() {
     await logout()
     router.push('/')
   }
+
+  // Handle search - filter menu items
+  const filteredMenuItems = menuItems.filter(item =>
+    item.label.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <>
@@ -95,7 +104,7 @@ export function AdminSidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
             return (
@@ -137,6 +146,20 @@ export function AdminSidebar() {
             <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
             <span>Logout</span>
           </button>
+
+          {/* CROSSCERT Logo */}
+          {mounted && (
+            <div className="flex items-center justify-center pt-2">
+              <Image
+                src={crosscertLogoSrc}
+                alt="CROSSCERT"
+                width={120}
+                height={24}
+                className="w-auto h-5 object-contain opacity-50 hover:opacity-100 transition-opacity"
+                priority
+              />
+            </div>
+          )}
         </div>
       </aside>
 
@@ -194,7 +217,7 @@ export function AdminSidebar() {
 
         {/* Navigation */}
         <nav className="p-4 space-y-1 flex-1">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
             return (
@@ -242,6 +265,20 @@ export function AdminSidebar() {
             <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
             <span>Logout</span>
           </button>
+
+          {/* CROSSCERT Logo */}
+          {mounted && (
+            <div className="flex items-center justify-center pt-2">
+              <Image
+                src={crosscertLogoSrc}
+                alt="CROSSCERT"
+                width={120}
+                height={24}
+                className="w-auto h-5 object-contain opacity-50 hover:opacity-100 transition-opacity"
+                priority
+              />
+            </div>
+          )}
         </div>
       </aside>
 

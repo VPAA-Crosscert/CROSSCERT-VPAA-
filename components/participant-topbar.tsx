@@ -10,17 +10,22 @@ export function ParticipantTopbar() {
   const router = useRouter()
   const pathname = usePathname()
   const [mounted, setMounted] = useState(false)
-  const [userName, setUserName] = useState('Participant')
+  const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
 
   useEffect(() => {
     setMounted(true)
     // Get user info from localStorage
-    const storedName = localStorage.getItem('userName')
+    const storedFirstName = localStorage.getItem('userFirstName')
+    const storedLastName = localStorage.getItem('userLastName')
     const storedEmail = localStorage.getItem('userEmail')
-    if (storedName) {
-      setUserName(storedName)
+
+    if (storedFirstName && storedLastName) {
+      setUserName(`${storedFirstName} ${storedLastName}`)
+    } else if (storedFirstName) {
+      setUserName(storedFirstName)
     }
+
     if (storedEmail) {
       setUserEmail(storedEmail)
     }
@@ -40,8 +45,8 @@ export function ParticipantTopbar() {
         <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
           {getPageTitle()}
         </h2>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          Welcome back, {userName}
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+          {userName && userEmail ? `${userName} • ${userEmail}` : userName || userEmail || 'Welcome'}
         </p>
       </div>
 
@@ -57,7 +62,7 @@ export function ParticipantTopbar() {
           >
             <Bell className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
           </Button>
-          <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+          <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
         </div>
 
         {/* User Profile */}
@@ -65,17 +70,23 @@ export function ParticipantTopbar() {
           className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all group"
           onClick={() => router.push('/participant/settings')}
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30 group-hover:shadow-xl group-hover:shadow-blue-500/40 transition-all">
-            {userEmail ? (
-              <span className="text-sm font-bold">{userEmail.charAt(0).toUpperCase()}</span>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-600 to-rose-600 flex items-center justify-center text-white shadow-lg shadow-red-500/30 group-hover:shadow-xl group-hover:shadow-red-500/40 transition-all">
+            {userEmail || userName ? (
+              <span className="text-sm font-bold">
+                {(userName || userEmail).charAt(0).toUpperCase()}
+              </span>
             ) : (
               <User className="w-4 h-4" />
             )}
           </div>
-          {mounted && (
-            <div className="hidden sm:block text-left">
-              <p className="text-sm font-semibold text-neutral-900 dark:text-white">{userName}</p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">Participant</p>
+          {mounted && (userName || userEmail) && (
+            <div className="hidden sm:block text-left max-w-[150px]">
+              <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
+                {userName || 'Participant'}
+              </p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                {userEmail}
+              </p>
             </div>
           )}
         </button>
