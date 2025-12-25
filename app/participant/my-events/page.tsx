@@ -3,11 +3,12 @@
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Calendar, MapPin, CheckCircle, AlertCircle, Ticket, QrCode, Star, Clock, Check, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, CheckCircle, AlertCircle, Ticket, QrCode, Star, Clock, Check, ChevronRight, Award } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState, useEffect } from 'react'
 import { api, apiCall, getAuthenticatedUserEmail } from '@/lib/api-config'
 import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/components/ui/use-toast'
 
 type Registration = {
   id: number
@@ -83,6 +84,7 @@ const StatusLine = ({ completed }: { completed: boolean }) => (
 
 export default function MyEvents() {
   const router = useRouter()
+  const { toast } = useToast()
   const [upcomingEvents, setUpcomingEvents] = useState<EventWithRegistration[]>([])
   const [pastEvents, setPastEvents] = useState<EventWithRegistration[]>([])
   const [loading, setLoading] = useState(true)
@@ -194,15 +196,16 @@ export default function MyEvents() {
     }
   }, [])
 
-  const handleMarkAsDone = (eventId: number) => {
+  const handleMarkAsDone = (eventId: number, eventName: string) => {
     const newCompleted = new Set(completedEvents)
     newCompleted.add(String(eventId))
     setCompletedEvents(newCompleted)
     localStorage.setItem('completedEvents', JSON.stringify(Array.from(newCompleted)))
 
-    // The useEffect with [completedEvents] dependency will handle moving the event
-    // No need to manually update upcomingEvents and pastEvents here directly.
-    // Re-triggering fetchMyEvents or re-filtering based on the new completedEvents state is more robust.
+    toast({
+      title: "Event Completed",
+      description: `Marked ${eventName} as done. See it in the past events.`,
+    })
   }
 
   return (
@@ -370,7 +373,7 @@ export default function MyEvents() {
                         {hasEvaluated && (
                           <Button
                             className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => handleMarkAsDone(event.id)}
+                            onClick={() => handleMarkAsDone(event.id, event.title || event.name || 'Event')}
                           >
                             <Check className="w-4 h-4 mr-2" />
                             Mark as Done

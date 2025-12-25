@@ -631,18 +631,11 @@ export default function ParticipantEvents() {
 
                         return (
                           <div key={event.id} className="relative group">
-                            {/* Live Badge Overlay - Now strictly outside the card */}
-                            {event.status === 'live' && (
-                              <div className="absolute -top-3 -right-3 z-30">
-                                <Badge className={`${colors.bg} text-white border-2 border-white dark:border-neutral-950 px-3 py-1 shadow-xl animate-pulse flex items-center gap-2 rounded-full`}>
-                                  <Rocket className="w-3 h-3 animate-bounce" />
-                                  EVENT STARTED
-                                </Badge>
-                              </div>
-                            )}
+
 
                             <div
-                              className={`relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-lg transition-all duration-300 ${!hasAccess ? 'opacity-75 grayscale-[0.5]' : ''}`}
+                              onClick={() => router.push(`/participant/event/${event.id}`)}
+                              className={`relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer ${!hasAccess ? 'opacity-75 grayscale-[0.5]' : ''}`}
                             >
                               {/* Image & Badge */}
                               <div className="relative h-48 overflow-hidden bg-neutral-100 dark:bg-neutral-800">
@@ -683,12 +676,20 @@ export default function ParticipantEvents() {
                               {/* Content */}
                               <div className="p-5 flex-1 flex flex-col">
                                 <div className="mb-4 flex-1">
-                                  <h3
-                                    className="text-lg font-bold text-neutral-900 dark:text-white line-clamp-2 mb-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors cursor-pointer"
-                                    onClick={() => router.push(`/participant/event/${event.id}`)}
-                                  >
-                                    {event.name || event.title || 'Untitled Event'}
-                                  </h3>
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <h3
+                                      className="text-lg font-bold text-neutral-900 dark:text-white line-clamp-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors cursor-pointer"
+                                      onClick={() => router.push(`/participant/event/${event.id}`)}
+                                    >
+                                      {event.name || event.title || 'Untitled Event'}
+                                    </h3>
+                                    {event.status === 'live' && (
+                                      <Badge className={`${colors.bg} text-white border border-white/20 px-2 py-1 shadow-sm flex items-center gap-1 rounded-lg text-[10px] whitespace-nowrap shrink-0`}>
+                                        <Rocket className="w-3 h-3 animate-bounce" />
+                                        STARTED
+                                      </Badge>
+                                    )}
+                                  </div>
 
                                   <div className="space-y-2">
                                     {event.date && (

@@ -40,6 +40,7 @@ class Event(models.Model):
         ('draft', 'Draft'),
         ('scheduled', 'Scheduled'),
         ('live', 'Live'),
+        ('paused', 'Paused'),
         ('completed', 'Completed'),
     ]
 

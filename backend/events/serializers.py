@@ -99,6 +99,19 @@ class EventRegistrationSerializer(serializers.ModelSerializer):
             'is_checked_out',
         ]
 
+    def validate(self, data):
+        """
+        Check that the event is accepting registrations.
+        """
+        event = data['event']
+        if event.status == 'paused':
+            raise serializers.ValidationError("Registration is currently paused for this event.")
+        if event.status == 'draft':
+            raise serializers.ValidationError("This event is not yet open for registration.")
+        if event.status == 'completed':
+            raise serializers.ValidationError("This event has already ended.")
+        return data
+
     def get_is_checked_out(self, obj):
         """Return True if the participant has a check-in record with a check_out_at timestamp."""
         try:

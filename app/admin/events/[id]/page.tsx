@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield, X, Search, FileDown, Printer, CheckCircle2, Rocket } from 'lucide-react'
+import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield, X, Search, FileDown, Printer, CheckCircle2, Rocket, Pause, Play } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { getEventById, Event } from '@/lib/event-context'
 import { api, apiCall, adminApi } from '@/lib/api-config'
@@ -67,6 +67,8 @@ export default function AdminEventDetailPage() {
 
   // Start Event Modal (Moved here to avoid Hook error)
   const [showStartSuccessModal, setShowStartSuccessModal] = useState(false)
+  const [showPauseConfirm, setShowPauseConfirm] = useState(false)
+  const [showResumeConfirm, setShowResumeConfirm] = useState(false)
 
   const handleStartEvent = async () => {
     if (!event) return
@@ -82,6 +84,40 @@ export default function AdminEventDetailPage() {
     } catch (e) {
       console.error(e)
       alert('Error starting event')
+    }
+  }
+
+  const handlePauseEvent = async () => {
+    if (!event) return
+    try {
+      const response = await apiCall.patch(adminApi.eventById(event.id), { status: 'paused' })
+      if (response.ok) {
+        const updated = await response.json()
+        setEvent(updated)
+        setShowPauseConfirm(false)
+      } else {
+        alert('Failed to pause event')
+      }
+    } catch (e) {
+      console.error(e)
+      alert('Error pausing event')
+    }
+  }
+
+  const handleResumeEvent = async () => {
+    if (!event) return
+    try {
+      const response = await apiCall.patch(adminApi.eventById(event.id), { status: 'live' })
+      if (response.ok) {
+        const updated = await response.json()
+        setEvent(updated)
+        setShowResumeConfirm(false)
+      } else {
+        alert('Failed to resume event')
+      }
+    } catch (e) {
+      console.error(e)
+      alert('Error resuming event')
     }
   }
 
@@ -246,13 +282,58 @@ export default function AdminEventDetailPage() {
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white animate-pulse">Loading event experience...</div>
+  if (loading) return (
+    <div className="min-h-screen bg-neutral-950 animate-in fade-in duration-700">
+      {/* Hero Skeleton */}
+      <div className="relative w-full h-[60vh] md:h-[75vh] overflow-hidden bg-neutral-900/20">
+        <div className="absolute inset-0 bg-neutral-900/40 animate-pulse" />
+        <div className="absolute inset-0 flex flex-col justify-end pb-12 md:pb-24 px-6 md:px-12 max-w-[1700px] mx-auto">
+          <div className="space-y-6">
+            {/* Badges */}
+            <div className="flex gap-3">
+              <div className="h-8 w-24 bg-neutral-800 rounded-full animate-pulse" />
+              <div className="h-8 w-32 bg-neutral-800 rounded-full animate-pulse" />
+            </div>
+            {/* Title */}
+            <div className="h-16 md:h-24 w-3/4 max-w-4xl bg-neutral-800/80 rounded-3xl animate-pulse backdrop-blur-md" />
+            <div className="h-16 md:h-24 w-1/2 max-w-2xl bg-neutral-800/80 rounded-3xl animate-pulse backdrop-blur-md" />
+            {/* Meta */}
+            <div className="flex gap-4 pt-4">
+              <div className="h-12 w-48 bg-neutral-800/50 rounded-xl animate-pulse" />
+              <div className="h-12 w-48 bg-neutral-800/50 rounded-xl animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Skeleton */}
+      <div className="max-w-[1700px] mx-auto px-6 md:px-12 -mt-16 relative z-10 pb-24">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Main Content Skeleton */}
+          <div className="lg:col-span-8 flex flex-col gap-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-24 bg-neutral-900/50 rounded-2xl animate-pulse border border-neutral-800/50" />
+              ))}
+            </div>
+            <div className="h-96 bg-neutral-900/50 rounded-[2.5rem] animate-pulse border border-neutral-800/50" />
+          </div>
+
+          {/* Admin Tools Skeleton */}
+          <div className="lg:col-span-4">
+            <div className="h-96 bg-neutral-900/50 rounded-3xl animate-pulse border border-neutral-800/50" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
   if (!event) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">Event not found</div>
 
   const eventCategory = event ? getCategoryFromEvent(event) : 'HCDC'
   const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
   const isConcluded = event?.status?.toLowerCase() === 'completed' || event?.status?.toLowerCase() === 'concluded'
   const isStarted = event?.status?.toLowerCase() === 'live'
+  const isPaused = event?.status?.toLowerCase() === 'paused'
 
 
 
@@ -515,7 +596,7 @@ export default function AdminEventDetailPage() {
 
                       {/* Start / Edit Row */}
                       <div className="flex items-center gap-3">
-                        {!isConcluded && !isStarted && (
+                        {!isConcluded && !isStarted && !isPaused && (
                           <Button
                             onClick={handleStartEvent}
                             className="flex-1 h-14 text-sm font-bold shadow-lg shadow-green-500/20 bg-green-600 hover:bg-green-700 text-white rounded-2xl animate-pulse hover:animate-none transition-all"
@@ -524,11 +605,28 @@ export default function AdminEventDetailPage() {
                           </Button>
                         )}
                         {isStarted && !isConcluded && (
+                          <div className="flex items-center gap-2 flex-1">
+                            <Button
+                              disabled
+                              className="flex-1 h-14 text-sm font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-400 rounded-2xl border border-neutral-200 dark:border-neutral-700"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-2" /> In Progress
+                            </Button>
+                            <Button
+                              onClick={() => setShowPauseConfirm(true)}
+                              className="w-14 h-14 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20"
+                              title="Pause Event"
+                            >
+                              <Pause className="w-5 h-5" />
+                            </Button>
+                          </div>
+                        )}
+                        {isPaused && !isConcluded && (
                           <Button
-                            disabled
-                            className="flex-1 h-14 text-sm font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-400 rounded-2xl border border-neutral-200 dark:border-neutral-700"
+                            onClick={() => setShowResumeConfirm(true)}
+                            className="flex-1 h-14 text-sm font-bold bg-green-600 hover:bg-green-700 text-white rounded-2xl shadow-lg shadow-green-500/20"
                           >
-                            <CheckCircle2 className="w-4 h-4 mr-2" /> Event In Progress
+                            <Play className="w-4 h-4 mr-2" /> Resume Event
                           </Button>
                         )}
                         {isConcluded && (
@@ -598,6 +696,71 @@ export default function AdminEventDetailPage() {
               </div>
 
               {/* Confirmation Modals */}
+              {/* PAUSE CONFIRM MODAL */}
+              {showPauseConfirm && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+                  <Card className="max-w-md w-full p-6 bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border-none">
+                    <div className="flex flex-col items-center text-center gap-4">
+                      <div className="p-4 bg-amber-100 text-amber-600 rounded-full">
+                        <Pause className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-2xl font-bold text-neutral-900 dark:text-white">Pause Event?</h3>
+                      <p className="text-neutral-500">
+                        This will temporarily disable registrations. The event will remain visible, but users cannot checking in or out.
+                      </p>
+                      <div className="flex gap-3 w-full mt-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setShowPauseConfirm(false)}
+                          className="flex-1 h-12 rounded-xl"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handlePauseEvent}
+                          className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-lg shadow-amber-500/20"
+                        >
+                          Pause Event
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {/* RESUME CONFIRM MODAL */}
+              {showResumeConfirm && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+                  <Card className="max-w-md w-full p-6 bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border-none">
+                    <div className="flex flex-col items-center text-center gap-4">
+                      <div className="p-4 bg-green-100 text-green-600 rounded-full">
+                        <Play className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-2xl font-bold text-neutral-900 dark:text-white">Resume Event?</h3>
+                      <p className="text-neutral-500">
+                        This will re-enable registrations and allow participants to check in/out.
+                      </p>
+                      <div className="flex gap-3 w-full mt-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setShowResumeConfirm(false)}
+                          className="flex-1 h-12 rounded-xl"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleResumeEvent}
+                          className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg shadow-green-500/20"
+                        >
+                          Resume Event
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {/* Confirmation Modals (Existing Conclude/Delete) */}
               {showDeleteConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
                   <Card className="max-w-md w-full p-8 text-center m-4 rounded-[2rem]">

@@ -598,7 +598,7 @@ export default function ParticipantEventDetailPage() {
                       <div className="flex items-center gap-2">
                         {/* LIVE BADGE */}
                         {event.status === 'live' ? (
-                          <Badge className="bg-red-600/90 hover:bg-red-600 text-white border-none px-4 py-1.5 animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+                          <Badge className="bg-red-600/90 hover:bg-red-600 text-white border-none px-4 py-1.5 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
                             <Rocket className="w-3 h-3 mr-2 animate-bounce" />
                             EVENT STARTED
                           </Badge>
@@ -646,16 +646,24 @@ export default function ParticipantEventDetailPage() {
 
                     <Button
                       onClick={handleMainAction}
-                      disabled={registrationStatus === 'none' && (event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'completed')}
-                      className={`w-full h-14 text-lg font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all duration-200 ${registrationStatus === 'none' && (event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'completed')
+                      disabled={registrationStatus === 'none' && (event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'completed' || event.status?.toLowerCase() === 'paused')}
+                      className={`w-full h-14 text-lg font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all duration-200 ${registrationStatus === 'none' && (event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'completed' || event.status?.toLowerCase() === 'paused')
                         ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none hover:scale-100' // Disabled style
                         : activeButtonColor(registrationStatus, colors)
                         }`}
                     >
                       {registrationStatus === 'none' && (event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'completed')
                         ? 'Event Ended'
-                        : buttonLabel}
+                        : registrationStatus === 'none' && event.status?.toLowerCase() === 'paused'
+                          ? 'Registration Paused'
+                          : buttonLabel}
                     </Button>
+
+                    {registrationStatus === 'none' && event.status?.toLowerCase() === 'paused' && (
+                      <div className="p-3 bg-amber-50 text-amber-600 rounded-xl text-sm flex items-center gap-2 text-center justify-center font-medium">
+                        Registration is temporarily paused.
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                       {['checked-in', 'checked-out', 'evaluated'].includes(registrationStatus) && (

@@ -250,7 +250,24 @@ class EventDetailView(LoginRequiredMixin, DetailView):
 class CheckInViewSet(viewsets.ModelViewSet):
     """ViewSet for Check-In management."""
     queryset = CheckIn.objects.all()
+    queryset = CheckIn.objects.all()
     serializer_class = CheckInSerializer
+
+    def get_queryset(self):
+        """Filter check-ins by event or registration if provided."""
+        queryset = CheckIn.objects.all()
+        
+        # Filter by event ID (registration__event)
+        event_id = self.request.query_params.get('registration__event', None)
+        if event_id:
+            queryset = queryset.filter(registration__event_id=event_id)
+            
+        # Filter by registration ID
+        registration_id = self.request.query_params.get('registration', None)
+        if registration_id:
+            queryset = queryset.filter(registration_id=registration_id)
+            
+        return queryset
 
     @action(detail=False, methods=['post'])
     def check_in(self, request):

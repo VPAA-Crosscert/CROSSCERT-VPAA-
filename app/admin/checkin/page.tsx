@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { ArrowLeft, QrCode, BarChart3, Camera, X, CheckCircle2, AlertCircle, Scan, TrendingUp, Users, Zap, Calendar } from 'lucide-react'
+import { ArrowLeft, QrCode, BarChart3, Camera, X, CheckCircle2, AlertCircle, Scan, TrendingUp, Users, Zap, Calendar, Clock } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,10 +40,30 @@ export default function AdminCheckIn() {
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorModalMessage, setErrorModalMessage] = useState('')
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [showNotStartedModal, setShowNotStartedModal] = useState(false)
 
-
-
-
+  // -- Modal for Event Not Started --
+  const NotStartedModal = () => (
+    showNotStartedModal ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="bg-white dark:bg-neutral-900 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl scale-100 animate-in zoom-in-95 duration-300 text-center border border-neutral-200 dark:border-neutral-800">
+          <div className="w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mx-auto mb-6">
+            <Clock className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+          </div>
+          <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Event Not Started Yet</h3>
+          <p className="text-neutral-500 dark:text-neutral-400 mb-6">
+            You cannot check in participants for this event because it has not started yet.
+          </p>
+          <Button
+            onClick={() => setShowNotStartedModal(false)}
+            className="w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-bold rounded-xl py-6"
+          >
+            Okay, got it
+          </Button>
+        </div>
+      </div>
+    ) : null
+  )
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -59,6 +79,7 @@ export default function AdminCheckIn() {
               .map((evt) => ({
                 id: evt.id,
                 title: evt.title || evt.name || `Event #${evt.id}`,
+                status: evt.status,
               }))
             setEvents(validEvents)
             setEventsLoading(false)
@@ -159,30 +180,38 @@ export default function AdminCheckIn() {
   }, [selectedEvent, fetchEventStats])
 
   const showError = (message: string) => {
-    // Close success modal if open to prevent glitching
     setShowSuccess(false)
     setErrorModalMessage(message)
     setShowErrorModal(true)
   }
 
   const handleAutoScan = useCallback(async (code: string) => {
+    // Block scanning if:
+    // 1. Is already processing
+    // 2. Success modal is open
+    // 3. Error modal is open
+    // 4. Not Started modal is open
+    if (isProcessingScan || showSuccess || showErrorModal || showNotStartedModal) {
+      return
+    }
+
     if (!selectedEvent) {
       showError('Please select an event first')
-      setTimeout(() => setIsProcessingScan(false), 1000)
       return
     }
 
     if (!scannedCode || !code.trim()) {
-      setTimeout(() => setIsProcessingScan(false), 500)
       return
     }
+
+    setIsProcessingScan(true)
+    setScannedCode(code)
 
     // 1. Verify Event ID from QR (Format: REG-{eventId}-{email})
     const qrParts = code.trim().split('-')
     if (qrParts.length >= 3 && qrParts[0] === 'REG') {
       const qrEventId = qrParts[1]
       if (qrEventId !== selectedEvent) {
-        // Find event name
         const correctEvent = events.find(e => e.id.toString() === qrEventId)
         const eventName = correctEvent ? correctEvent.title : `Event #${qrEventId}` || 'another event'
         showError(`It's the wrong QR, it's for the ${eventName} QR.`)
@@ -209,17 +238,14 @@ export default function AdminCheckIn() {
         // Special Handling for "Already checked in"
         if (data.message?.toLowerCase().includes('already checked in') || data.error?.toLowerCase().includes('already checked in') ||
           data.message?.toLowerCase().includes('already present') || data.error?.toLowerCase().includes('already present')) {
-          // Treat as success
           setParticipantName(`${data.participant_name ?? 'Participant'}`)
           setShowSuccess(true)
           setLastAction(action)
-
           toast({
             title: 'Already Checked In',
             description: `${data.participant_name ?? 'Participant'} is already checked in.`,
             className: 'bg-green-50 border-green-200 text-green-800'
           })
-
           setTimeout(() => {
             setScannedCode('')
             setShowSuccess(false)
@@ -228,7 +254,6 @@ export default function AdminCheckIn() {
           return
         }
 
-        // Special Handling for "Participant doesn't exist"
         if (res.status === 404 || data.message?.toLowerCase().includes('not found') || data.error?.toLowerCase().includes('not found') || data.error?.toLowerCase().includes('does not exist')) {
           showError("Participant doesn't exist.")
           setTimeout(() => setIsProcessingScan(false), 2000)
@@ -242,7 +267,7 @@ export default function AdminCheckIn() {
 
       setParticipantName(`${data.participant_name ?? 'Participant'}`)
       await fetchEventStats()
-      setShowErrorModal(false) // Close error modal if open
+      setShowErrorModal(false)
       setShowSuccess(true)
       setLastAction(action)
 
@@ -260,94 +285,11 @@ export default function AdminCheckIn() {
       showError(`Network error while processing ${action}.`)
       setTimeout(() => setIsProcessingScan(false), 2000)
     }
-  }, [selectedEvent, events, scannedCode, fetchEventStats])
-
-  useEffect(() => {
-    if (cameraActive && streamRef.current && videoRef.current) {
-      const video = videoRef.current
-      const stream = streamRef.current
-
-      video.srcObject = stream
-
-      video.onloadedmetadata = () => {
-        if (video) {
-          video.play().catch(() => {
-            // Silently handle play errors
-          })
-        }
-      }
-
-      if (canvasRef.current && video) {
-        const canvas = canvasRef.current
-        const context = canvas.getContext('2d', { willReadFrequently: true })
-
-        if (context) {
-          const updateCanvasSize = () => {
-            if (video.videoWidth && video.videoHeight) {
-              canvas.width = video.videoWidth
-              canvas.height = video.videoHeight
-            }
-          }
-
-          video.addEventListener('loadedmetadata', updateCanvasSize)
-          video.addEventListener('resize', updateCanvasSize)
-          updateCanvasSize()
-
-          const startScanning = setTimeout(() => {
-            scanIntervalRef.current = setInterval(() => {
-              const isReady = video.readyState === video.HAVE_ENOUGH_DATA
-              const hasValidSize = canvas.width > 0 && canvas.height > 0
-              const notProcessing = !isProcessingScan
-
-              if (isReady && notProcessing && hasValidSize) {
-                try {
-                  context.drawImage(video, 0, 0, canvas.width, canvas.height)
-                  const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-
-                  try {
-                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                      inversionAttempts: 'dontInvert'
-                    })
-
-                    if (code && code.data) {
-                      setIsProcessingScan(true)
-                      setScannedCode(code.data)
-                      handleAutoScan(code.data)
-                    }
-                  } catch (qrErr) {
-                    // QR decoding failed
-                  }
-                } catch (err) {
-                  // Silently handle scanning errors
-                }
-              }
-            }, 200)
-          }, 500)
-
-          return () => {
-            clearTimeout(startScanning)
-          }
-        }
-      }
-    }
-
-    return () => {
-      if (scanIntervalRef.current) {
-        clearInterval(scanIntervalRef.current)
-        scanIntervalRef.current = null
-      }
-    }
-  }, [cameraActive, isProcessingScan, handleAutoScan])
+  }, [selectedEvent, events, scannedCode, fetchEventStats, isProcessingScan, showSuccess, showErrorModal, showNotStartedModal])
 
   const startCamera = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showError('Your browser does not support camera access. Please use a modern browser like Chrome, Firefox, or Edge.')
-      return
-    }
-
-    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    if (!isSecure) {
-      showError('Camera access requires HTTPS. Please access this page over HTTPS or use localhost.')
+      showError('Your browser does not support camera access.')
       return
     }
 
@@ -375,21 +317,7 @@ export default function AdminCheckIn() {
         setCameraActive(true)
       }
     } catch (err: any) {
-      let errorMessage = 'Unable to access camera. '
-
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMessage += 'Please allow camera access in your browser settings and try again.'
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        errorMessage += 'No camera found on your device.'
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        errorMessage += 'Camera is already in use by another application.'
-      } else if (err.name === 'OverconstrainedError') {
-        errorMessage += 'Camera does not support the required settings.'
-      } else {
-        errorMessage += 'Please check your camera permissions and try again.'
-      }
-
-      showError(errorMessage + '\n\nYou can still use manual code entry below.')
+      showError('Unable to access camera. Please check permissions.')
     }
   }
 
@@ -410,98 +338,77 @@ export default function AdminCheckIn() {
     setIsProcessingScan(false)
   }
 
-  const handleScan = async () => {
-    if (!selectedEvent) {
-      showError('Please select an event first')
-      return
-    }
+  // Camera handling effect
+  useEffect(() => {
+    if (cameraActive && streamRef.current && videoRef.current) {
+      const video = videoRef.current
+      const stream = streamRef.current
 
-    if (!scannedCode.trim()) {
-      showError('Please enter a code or scan a QR code')
-      return
-    }
+      video.srcObject = stream
 
-    const event = events.find(e => e.id.toString() === selectedEvent)
-    const isCompleted = event?.status?.toLowerCase() === 'completed'
-
-    const action = isCompleted ? 'check-out' : 'check-in'
-    const endpoint = isCompleted
-      ? `${api.checkIns()}check-out-by-code/`
-      : `${api.checkIns()}check-in-by-code/`
-
-    try {
-      const res = await apiCall.post(endpoint, {
-        code: scannedCode.trim(),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        showError(data.error || data.message || `Unable to ${action} participant.`)
-        return
+      video.onloadedmetadata = () => {
+        if (video) {
+          video.play().catch(() => { })
+        }
       }
 
-      setParticipantName(`${data.participant_name ?? 'Participant'}`)
-      await fetchEventStats()
-      setShowSuccess(true)
-      setLastAction(action)
+      if (canvasRef.current && video) {
+        const canvas = canvasRef.current
+        const context = canvas.getContext('2d', { willReadFrequently: true })
 
-      toast({
-        title: `${action === 'check-in' ? 'Check-in' : 'Check-out'} Successful`,
-        description: `${data.participant_name ?? 'Participant'} has been ${action === 'check-in' ? 'checked in' : 'checked out'}.`,
-      })
+        if (context) {
+          const updateCanvasSize = () => {
+            if (video.videoWidth && video.videoHeight) {
+              canvas.width = video.videoWidth
+              canvas.height = video.videoHeight
+            }
+          }
 
-      setTimeout(() => {
-        setScannedCode('')
-        setShowSuccess(false)
-      }, 2000)
-    } catch (err) {
-      showError(`Network error while processing ${action}.`)
-    }
-  }
+          video.addEventListener('loadedmetadata', updateCanvasSize)
+          video.addEventListener('resize', updateCanvasSize)
+          updateCanvasSize()
 
-  const handleCheckOut = async () => {
-    if (!selectedEvent) {
-      showError('Please select an event first')
-      return
-    }
+          const startScanning = setTimeout(() => {
+            scanIntervalRef.current = setInterval(() => {
+              const isReady = video.readyState === video.HAVE_ENOUGH_DATA
+              const hasValidSize = canvas.width > 0 && canvas.height > 0
+              const notProcessing = !isProcessingScan
+              const canScan = !showSuccess && !showErrorModal && !showNotStartedModal
 
-    const event = events.find(e => e.id.toString() === selectedEvent)
-    const normalizedStatus = (event?.status || '').toLowerCase()
-    if (normalizedStatus !== 'completed') {
-      showError('You can only check out participants after the event has been concluded.')
-      return
-    }
+              if (isReady && hasValidSize && notProcessing && canScan) {
+                try {
+                  context.drawImage(video, 0, 0, canvas.width, canvas.height)
+                  const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+                  const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: 'dontInvert',
+                  })
 
-    if (!scannedCode.trim()) {
-      showError('Please enter a code or scan a QR code')
-      return
-    }
+                  if (code && code.data && code.data.trim() !== '') {
+                    handleAutoScan(code.data)
+                  }
+                } catch (e) {
+                  // ignore
+                }
+              }
+            }, 500)
+          }, 1000)
 
-    try {
-      const res = await apiCall.post(`${api.checkIns()}check-out-by-code/`, {
-        code: scannedCode.trim(),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        showError(data.error || data.message || 'Unable to check out participant.')
-        return
+          return () => {
+            clearTimeout(startScanning)
+            if (scanIntervalRef.current) clearInterval(scanIntervalRef.current)
+            video.removeEventListener('loadedmetadata', updateCanvasSize)
+            video.removeEventListener('resize', updateCanvasSize)
+          }
+        }
       }
-
-      setParticipantName(`${data.participant_name ?? 'Participant'}`)
-      setShowSuccess(true)
-      setLastAction('check-out')
-
-      toast({
-        title: 'Check-out Successful',
-        description: `${data.participant_name ?? 'Participant'} has been checked out.`,
-      })
-
-      setTimeout(() => {
-        setScannedCode('')
-        setShowSuccess(false)
-      }, 2000)
-    } catch (err) {
-      showError('Network error while checking out participant.')
+    } else {
+      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current)
     }
+  }, [cameraActive, handleAutoScan, isProcessingScan, showSuccess, showErrorModal, showNotStartedModal])
+
+  const handleManualScan = () => {
+    // Reuse auto scan logic for now, but triggered manually
+    handleAutoScan(scannedCode)
   }
 
   const attendanceRate = totalExpected > 0 ? Math.min(100, Math.round((checkedInCount / totalExpected) * 100)) : 0
@@ -547,25 +454,85 @@ export default function AdminCheckIn() {
             {eventsError && (
               <p className="text-sm text-red-600 dark:text-red-400 mb-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">{eventsError}</p>
             )}
-            <select
-              value={selectedEvent}
-              onChange={(e) => setSelectedEvent(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white font-medium focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-              disabled={eventsLoading}
-            >
-              <option value="">
-                {eventsLoading
-                  ? 'Loading events...'
-                  : events.length === 0
-                    ? 'No events available'
-                    : '-- Choose an event --'}
-              </option>
-              {Array.isArray(events) && events.map((event) => (
-                <option key={event.id} value={event.id.toString()}>
-                  {event.title}
-                </option>
-              ))}
-            </select>
+
+            <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {eventsLoading ? (
+                <div className="text-center py-8 text-neutral-500">Loading events...</div>
+              ) : events.length === 0 ? (
+                <div className="text-center py-8 text-neutral-500">No events found.</div>
+              ) : (
+                events.map((event) => {
+                  const isSelected = selectedEvent === event.id.toString()
+                  const status = event.status?.toLowerCase() || 'scheduled'
+                  const isLive = status === 'live'
+                  const isCompleted = status === 'completed' || status === 'done' || status === 'past'
+
+                  return (
+                    <div
+                      key={event.id}
+                      onClick={() => {
+                        if (isLive || isCompleted) {
+                          setSelectedEvent(event.id.toString())
+                        } else {
+                          setShowNotStartedModal(true)
+                        }
+                      }}
+                      className={`
+                        group relative p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between
+                        ${isSelected
+                          ? 'border-red-500 bg-red-50 dark:bg-red-900/10 shadow-md'
+                          : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-red-300 dark:hover:border-red-700'
+                        }
+                      `}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`
+                          w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg
+                          ${isLive
+                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                            : isCompleted
+                              ? 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+                              : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                          }
+                        `}>
+                          {event.title?.charAt(0) || 'E'}
+                        </div>
+                        <div>
+                          <h3 className={`font-bold ${isSelected ? 'text-red-900 dark:text-red-100' : 'text-neutral-900 dark:text-white'}`}>
+                            {event.title}
+                          </h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`
+                              text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wide
+                              ${isLive
+                                ? 'bg-red-600 text-white animate-pulse'
+                                : isCompleted
+                                  ? 'bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400'
+                                  : 'bg-blue-600 text-white'
+                              }
+                            `}>
+                              {isLive ? 'LIVE' : isCompleted ? 'ENDED' : 'UPCOMING'}
+                            </span>
+                            {isSelected && <span className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Selected</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Interaction Hint */}
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        {isLive || isCompleted ? (
+                          <Button size="sm" variant={isSelected ? "default" : "outline"} className={isSelected ? 'bg-red-600 hover:bg-red-700' : ''}>
+                            {isSelected ? 'Scanning' : 'Select'}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-neutral-400 font-medium">Not Started</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </Card>
 
           {/* QR Scanner */}
@@ -598,122 +565,75 @@ export default function AdminCheckIn() {
                     <div className="relative border-4 border-red-500 rounded-2xl animate-pulse" style={{
                       width: '280px',
                       height: '280px',
-                      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)'
                     }}>
-                      <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-red-500 rounded-tl-lg" />
-                      <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-red-500 rounded-tr-lg" />
-                      <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-red-500 rounded-bl-lg" />
-                      <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-red-500 rounded-br-lg" />
-                      {/* Scanning Line */}
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent animate-scan" />
+                      <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-red-500 -mt-1 -ml-1" />
+                      <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-red-500 -mt-1 -mr-1" />
+                      <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-red-500 -mb-1 -ml-1" />
+                      <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-red-500 -mb-1 -mr-1" />
                     </div>
+                    {/* Scanning Line */}
+                    <div className="absolute w-[280px] h-1 bg-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-scan" />
+                  </div>
+                  {/* Status Indicator */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 border border-white/10">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-white text-sm font-medium">Scanning active...</span>
                   </div>
                 </div>
-                <canvas ref={canvasRef} className="hidden" />
                 <Button
-                  variant="outline"
-                  className="w-full border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   onClick={stopCamera}
+                  variant="outline"
+                  className="w-full border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  <X className="w-4 h-4 mr-2" />
                   Stop Camera
                 </Button>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400 text-center flex items-center justify-center gap-2">
-                  <Zap className="w-4 h-4 text-yellow-500" />
-                  Position the QR code within the frame. Scanning automatically...
-                </p>
-                {isProcessingScan && (
-                  <div className="flex items-center justify-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Processing QR code...</p>
-                  </div>
-                )}
+                {/* Hidden Canvas for Processing */}
+                <canvas ref={canvasRef} className="hidden" />
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 flex items-center justify-center" style={{ minHeight: '300px' }}>
-                  <div className="text-center space-y-3">
-                    <div className="w-16 h-16 mx-auto rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                      <Camera className="w-8 h-8 text-neutral-400 dark:text-neutral-500" />
-                    </div>
-                    <p className="text-neutral-500 dark:text-neutral-400 font-medium">Camera not active</p>
-                    <p className="text-sm text-neutral-400 dark:text-neutral-500">Click below to start scanning</p>
-                  </div>
+              <div className="flex flex-col items-center justify-center h-[300px] border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl bg-neutral-50 dark:bg-neutral-900/50">
+                <div className="w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mb-4">
+                  <Camera className="w-8 h-8 text-neutral-400" />
                 </div>
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">Camera is Inactive</h3>
+                <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-6 max-w-xs text-center">
+                  Click the button below to start scanning QR codes for check-in
+                </p>
                 <Button
-                  className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white gap-2 shadow-lg shadow-red-500/30 h-12"
                   onClick={startCamera}
+                  className="bg-red-600 hover:bg-red-700 text-white min-w-[200px]"
+                  disabled={!selectedEvent}
                 >
-                  <Camera className="w-5 h-5" />
-                  Start Camera
+                  <Scan className="w-4 h-4 mr-2" />
+                  Start Scanning
                 </Button>
               </div>
             )}
 
-            {/* Manual Input */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none pl-4">
-                <QrCode className="w-5 h-5 text-neutral-400" />
+            {/* Manual Check-in */}
+            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter ticket code manually..."
+                  value={scannedCode}
+                  onChange={(e) => setScannedCode(e.target.value)}
+                  className="bg-white dark:bg-neutral-900"
+                />
+                <Button onClick={handleManualScan} disabled={!selectedEvent || !scannedCode}>
+                  Check In
+                </Button>
               </div>
-              <Input
-                placeholder="Or paste scanned code here..."
-                value={scannedCode}
-                onChange={(e) => setScannedCode(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleScan()}
-                className="pl-12 h-12 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-base focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
-                autoFocus
-              />
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col gap-3 pt-2">
-              <Button
-                className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-semibold h-12 shadow-lg shadow-red-500/30"
-                onClick={handleScan}
-                disabled={events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() === 'completed'}
-              >
-                <CheckCircle2 className="w-5 h-5 mr-2" />
-                Check In Participant
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full font-semibold h-12 border-neutral-300 dark:border-neutral-700"
-                onClick={handleCheckOut}
-                disabled={events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() !== 'completed' && events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() !== 'concluded'}
-              >
-                <CheckCircle2 className="w-5 h-5 mr-2" />
-                Check Out Participant
-              </Button>
             </div>
           </Card>
-
-          {/* Success Feedback */}
-          {showSuccess && (
-            <Card className="p-6 border-2 border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 shadow-lg shadow-green-500/20 animate-in slide-in-from-bottom duration-300">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg animate-bounce">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <div>
-                  <p className="font-bold text-lg text-green-900 dark:text-green-100">{participantName}</p>
-                  <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                    {lastAction === 'check-out' ? '✓ Successfully checked out' : '✓ Successfully checked in'}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
         </div>
 
-        {/* Enhanced Stats Sidebar */}
-        <div className="space-y-4">
-          <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm sticky top-6 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className="font-bold text-lg text-neutral-900 dark:text-white">Live Stats</h3>
-            </div>
+        {/* Stats Panel (Right Side) */}
+        <div className="space-y-6">
+          <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm shadow-sm h-full">
+            <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-6 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-red-500" />
+              Live Stats
+            </h2>
 
             <div className="space-y-4">
               {/* Checked In */}
@@ -774,34 +694,47 @@ export default function AdminCheckIn() {
         </div>
       </div>
 
-      {/* Enhanced Error Modal */}
+      {/* Modals */}
+      <NotStartedModal />
+
+      {/* Success Modal */}
+      {showSuccess && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <div className="rounded-3xl p-8 bg-white dark:bg-neutral-900 w-full max-w-sm mx-4 shadow-2xl border border-neutral-200 dark:border-neutral-800 text-center scale-100 animate-in zoom-in-95 duration-300">
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${lastAction === 'check-out' ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-green-100 dark:bg-green-900/30'
+              }`}>
+              <CheckCircle2 className={`w-10 h-10 ${lastAction === 'check-out' ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'
+                }`} />
+            </div>
+            <h3 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
+              {lastAction === 'check-out' ? 'Check-Out' : 'Check-In'} Complete
+            </h3>
+            <p className="text-lg text-neutral-600 dark:text-neutral-300 font-medium mb-1">
+              {participantName}
+            </p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">
+              Successfully processing...
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
       {showErrorModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-          <Card className="p-8 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 w-full max-w-md mx-4 shadow-2xl">
-            <div className="space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0 animate-shake">
-                  <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg text-neutral-900 dark:text-white mb-2">Error</h3>
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400 whitespace-pre-line">{errorModalMessage}</p>
-                </div>
-                <button
-                  onClick={() => setShowErrorModal(false)}
-                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <Button
-                className="w-full bg-red-600 hover:bg-red-700 text-white"
-                onClick={() => setShowErrorModal(false)}
-              >
-                OK
-              </Button>
+          <div className="rounded-3xl p-8 bg-white dark:bg-neutral-900 w-full max-w-sm mx-4 shadow-2xl border border-neutral-200 dark:border-neutral-800 text-center scale-100 animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-6 animate-shake">
+              <AlertCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
             </div>
-          </Card>
+            <h3 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">Error</h3>
+            <p className="text-neutral-600 dark:text-neutral-300 mb-6">{errorModalMessage}</p>
+            <Button
+              className="w-full bg-red-600 hover:bg-red-700 text-white rounded-xl py-6"
+              onClick={() => setShowErrorModal(false)}
+            >
+              Try Again
+            </Button>
+          </div>
         </div>
       )}
 
