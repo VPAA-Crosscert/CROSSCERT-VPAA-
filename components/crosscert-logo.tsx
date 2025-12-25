@@ -23,9 +23,9 @@ export function CrosscertLogo() {
             <Image
                 src={logoSrc}
                 alt="CROSSCERT"
-                width={140}
-                height={28}
-                className="w-auto h-6 object-contain opacity-30 hover:opacity-60 transition-opacity pointer-events-auto"
+                width={700}
+                height={140}
+                className="w-auto h-16 object-contain opacity-30 hover:opacity-70 transition-opacity pointer-events-auto"
                 priority
             />
         </div>

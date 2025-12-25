@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Calendar, Award, Clock, Zap } from 'lucide-react'
+import { Calendar, Award, Clock, Zap, TrendingUp, Users, Sparkles, MapPin, ArrowRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getStoredEvents } from '@/lib/event-context'
 import { api, apiCall, getAuthenticatedUserEmail } from '@/lib/api-config'
@@ -23,12 +23,17 @@ type DashboardEvent = {
   coverImage?: string
   is_public?: boolean
   isPublic?: boolean
+  category?: string
+  department?: string
+  status?: string
 }
 
 export default function ParticipantDashboard() {
   const router = useRouter()
   const [upcomingEvents, setUpcomingEvents] = useState<DashboardEvent[]>([])
+  const [pastEvents, setPastEvents] = useState<DashboardEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [userName, setUserName] = useState('')
   const [stats, setStats] = useState({
     eventsJoined: 0,
     pendingEvaluations: 0,
@@ -36,131 +41,115 @@ export default function ParticipantDashboard() {
   })
 
   useEffect(() => {
+    const storedFirstName = localStorage.getItem('userFirstName')
+    const storedLastName = localStorage.getItem('userLastName')
+    if (storedFirstName && storedLastName) {
+      setUserName(`${storedFirstName} ${storedLastName}`)
+    } else if (storedFirstName) {
+      setUserName(storedFirstName)
+    }
+
     const fetchEvents = async () => {
       try {
-        // Fetch from API first (prioritize backend data)
         const eventsUrl = api.events().endsWith('/') ? api.events() : `${api.events()}/`
-        console.log('[Participant Dashboard] Fetching events from:', eventsUrl)
         const res = await apiCall.get(eventsUrl)
-
-        console.log('[Participant Dashboard] Response status:', res.status, res.statusText)
 
         let eventsList: DashboardEvent[] = []
 
         if (!res.ok) {
-          console.warn('[Participant Dashboard] Unable to load events from API. Status:', res.status, res.statusText)
-          // Fallback to localStorage if API fails
-          const storedEvents = getStoredEvents()
-          eventsList = storedEvents as DashboardEvent[]
-          console.log('[Participant Dashboard] Using localStorage fallback, events count:', eventsList.length)
+          eventsList = getStoredEvents() as DashboardEvent[]
         } else {
           let data: unknown = []
           try {
             data = await res.json()
-            console.log('[Participant Dashboard] Raw API response:', data)
           } catch {
-            console.error('[Participant Dashboard] Events API did not return JSON.')
-            const storedEvents = getStoredEvents()
-            eventsList = storedEvents as DashboardEvent[]
+            eventsList = getStoredEvents() as DashboardEvent[]
           }
 
-          // Handle paginated response from Django REST Framework
           if (Array.isArray(data)) {
             eventsList = data as DashboardEvent[]
-            console.log('[Participant Dashboard] Direct array response, events count:', eventsList.length)
           } else if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
             eventsList = data.results as DashboardEvent[]
-            console.log('[Participant Dashboard] Paginated response (results), events count:', eventsList.length)
           } else if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
             eventsList = data.data as DashboardEvent[]
-            console.log('[Participant Dashboard] Paginated response (data), events count:', eventsList.length)
           } else {
-            console.warn('[Participant Dashboard] Unknown response format, falling back to localStorage')
-            const storedEvents = getStoredEvents()
-            eventsList = storedEvents as DashboardEvent[]
+            eventsList = getStoredEvents() as DashboardEvent[]
           }
         }
 
-        // Filter for public events and upcoming events
         const now = new Date()
-        console.log('[Participant Dashboard] Current date/time:', now.toISOString())
-        console.log('[Participant Dashboard] Total events before filtering:', eventsList.length)
+        now.setHours(0, 0, 0, 0)
 
-        const publicUpcomingEvents = eventsList
-          .filter(event => event.isPublic !== false) // Match events page logic
-          .filter(event => {
-            if (!event.date) {
-              console.log(`[Participant Dashboard] Event ${event.id} has no date, including it`)
-              return true // Include events without dates
-            }
-            const eventDate = new Date(event.date)
-            const isUpcoming = eventDate >= now
-            console.log(`[Participant Dashboard] Event ${event.id} date: ${eventDate.toISOString()}, isUpcoming: ${isUpcoming}`)
-            return isUpcoming // Only upcoming or today's events
-          })
-          .sort((a, b) => {
-            const dateA = a.date ? new Date(a.date).getTime() : 0
-            const dateB = b.date ? new Date(b.date).getTime() : 0
-            return dateA - dateB // Earliest first
-          })
+        const publicEvents = eventsList.filter(event => event.isPublic !== false)
 
-        console.log('[Participant Dashboard] Upcoming public events after filtering:', publicUpcomingEvents.length)
-        console.log('[Participant Dashboard] Event IDs:', publicUpcomingEvents.map(e => ({ id: e.id, title: e.title || e.name, date: e.date })))
+        const upcoming = publicEvents.filter(event => {
+          // Check status first - if completed/concluded, it's past
+          const status = (event.status || '').toLowerCase()
+          if (status === 'completed' || status === 'concluded') {
+            return false // Not upcoming
+          }
 
-        const top3Events = publicUpcomingEvents.slice(0, 3)
-        console.log('[Participant Dashboard] Top 3 events to display:', top3Events.length)
-        setUpcomingEvents(top3Events)
+          if (!event.date) return true
+          const eventDate = new Date(event.date)
+          eventDate.setHours(0, 0, 0, 0)
+          return eventDate >= now
+        }).sort((a, b) => {
+          const dateA = a.date ? new Date(a.date).getTime() : 0
+          const dateB = b.date ? new Date(b.date).getTime() : 0
+          return dateA - dateB
+        }).slice(0, 3)
 
-        // Fetch user stats
+        const past = publicEvents.filter(event => {
+          // Check status first - if completed/concluded, it's past
+          const status = (event.status || '').toLowerCase()
+          if (status === 'completed' || status === 'concluded') {
+            return true // Definitely past
+          }
+
+          if (!event.date) return false
+          const eventDate = new Date(event.date)
+          eventDate.setHours(0, 0, 0, 0)
+          return eventDate < now
+        }).sort((a, b) => {
+          const dateA = a.date ? new Date(a.date).getTime() : 0
+          const dateB = b.date ? new Date(b.date).getTime() : 0
+          return dateB - dateA
+        }).slice(0, 3)
+
+        setUpcomingEvents(upcoming)
+        setPastEvents(past)
+
         const userEmail = await getAuthenticatedUserEmail()
         if (userEmail) {
           try {
-            // Fetch registrations
-            const baseUrl = api.registrations().endsWith('/')
-              ? api.registrations().slice(0, -1)
-              : api.registrations()
+            const baseUrl = api.registrations().endsWith('/') ? api.registrations().slice(0, -1) : api.registrations()
             const regsUrl = `${baseUrl}/?email=${encodeURIComponent(userEmail)}`
             const regsRes = await apiCall.get(regsUrl)
 
             if (regsRes.ok) {
               const regsData = await regsRes.json()
-              const registrations = Array.isArray(regsData)
-                ? regsData
-                : (regsData.results || regsData.data || [])
-
+              const registrations = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
               const eventsJoined = registrations.length
-              const pendingEvaluations = registrations.filter((reg: any) =>
-                reg.is_present && !reg.has_evaluated
-              ).length
+              const pendingEvaluations = registrations.filter((reg: any) => reg.is_present && !reg.has_evaluated).length
 
-              // Fetch certificates
-              const certsUrl = api.certificates().endsWith('/')
-                ? api.certificates()
-                : `${api.certificates()}/`
+              const certsUrl = api.certificates().endsWith('/') ? api.certificates() : `${api.certificates()}/`
               const certsRes = await apiCall.get(`${certsUrl}?email=${encodeURIComponent(userEmail)}`)
 
               let certificatesEarned = 0
               if (certsRes.ok) {
                 const certsData = await certsRes.json()
-                const certificates = Array.isArray(certsData)
-                  ? certsData
-                  : (certsData.results || certsData.data || [])
+                const certificates = Array.isArray(certsData) ? certsData : (certsData.results || certsData.data || [])
                 certificatesEarned = certificates.length
               }
 
-              setStats({
-                eventsJoined,
-                pendingEvaluations,
-                certificatesEarned,
-              })
+              setStats({ eventsJoined, pendingEvaluations, certificatesEarned })
             }
           } catch (err) {
-            console.error('[Participant Dashboard] Error fetching stats:', err)
+            console.error('Error fetching stats:', err)
           }
         }
       } catch (err) {
-        console.error('[Participant Dashboard] Error fetching events:', err)
-        // Fallback to localStorage on error
+        console.error('Error fetching events:', err)
         const storedEvents = getStoredEvents()
         setUpcomingEvents(storedEvents.slice(0, 3) as DashboardEvent[])
       } finally {
@@ -171,55 +160,51 @@ export default function ParticipantDashboard() {
     fetchEvents()
   }, [])
 
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good Morning'
+    if (hour < 18) return 'Good Afternoon'
+    return 'Good Evening'
+  }
+
   const statsData = [
-    {
-      label: 'Upcoming Events',
-      value: upcomingEvents.length.toString(),
-      icon: Clock,
-      color: 'text-blue-500',
-    },
-    {
-      label: 'Events Joined',
-      value: stats.eventsJoined.toString(),
-      icon: Calendar,
-      color: 'text-purple-500',
-    },
-    {
-      label: 'Pending Evaluations',
-      value: stats.pendingEvaluations.toString(),
-      icon: Zap,
-      color: 'text-orange-500',
-    },
-    {
-      label: 'Certificates Earned',
-      value: stats.certificatesEarned.toString(),
-      icon: Award,
-      color: 'text-green-500',
-    },
+    { label: 'Upcoming Events', value: upcomingEvents.length.toString(), icon: Clock, color: 'from-red-500 to-rose-500', iconColor: 'text-red-500', bgColor: 'bg-red-50 dark:bg-red-950/30' },
+    { label: 'Events Joined', value: stats.eventsJoined.toString(), icon: Calendar, color: 'from-orange-500 to-amber-500', iconColor: 'text-orange-500', bgColor: 'bg-orange-50 dark:bg-orange-950/30' },
+    { label: 'Pending Evaluations', value: stats.pendingEvaluations.toString(), icon: Zap, color: 'from-yellow-500 to-orange-500', iconColor: 'text-yellow-600', bgColor: 'bg-yellow-50 dark:bg-yellow-950/30' },
+    { label: 'Certificates Earned', value: stats.certificatesEarned.toString(), icon: Award, color: 'from-green-500 to-emerald-500', iconColor: 'text-green-500', bgColor: 'bg-green-50 dark:bg-green-950/30' },
   ]
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 p-6 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Welcome Back!</h1>
-          <p className="text-muted-foreground mt-1">Here's your activity summary</p>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-6 h-6 text-red-500 dark:text-red-400" />
+          <h1 className="text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight">
+            {getGreeting()}{userName ? `, ${userName}` : ''}!
+          </h1>
         </div>
+        <p className="text-neutral-500 dark:text-neutral-400">Here's your activity summary and upcoming events</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statsData.map((stat) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statsData.map((stat, index) => {
           const Icon = stat.icon
           return (
-            <Card key={stat.label} className="p-6 border border-border bg-card">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{stat.value}</p>
+            <Card key={stat.label} className="relative overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm hover:shadow-lg transition-all duration-300 group">
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className={`p-3 rounded-xl ${stat.bgColor} group-hover:scale-110 transition-transform duration-300`}>
+                    <Icon className={`w-6 h-6 ${stat.iconColor}`} />
+                  </div>
+                  <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${stat.color} opacity-5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500`} />
                 </div>
-                <Icon className={`w-8 h-8 ${stat.color}`} />
+                <div>
+                  <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-1">{stat.label}</p>
+                  <p className="text-4xl font-bold text-neutral-900 dark:text-white">{stat.value}</p>
+                </div>
               </div>
             </Card>
           )
@@ -227,84 +212,154 @@ export default function ParticipantDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <Card className="p-6 border border-border bg-card">
-        <h2 className="text-xl font-semibold text-foreground mb-4">Quick Actions</h2>
+      <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+        <div className="flex items-center gap-2 mb-6">
+          <TrendingUp className="w-5 h-5 text-red-500 dark:text-red-400" />
+          <h2 className="text-xl font-bold text-neutral-900 dark:text-white">Quick Actions</h2>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button
-            className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-            onClick={() => router.push('/participant/events')}
-          >
-            Browse Events
+          <Button className="h-auto py-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all group" onClick={() => router.push('/participant/events')}>
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <span className="font-semibold">Browse Events</span>
+            </div>
           </Button>
-          <Button
-            variant="outline"
-            className="border-border text-foreground"
-            onClick={() => router.push('/participant/my-events')}
-          >
-            My Events
+          <Button variant="outline" className="h-auto py-4 border-2 border-neutral-200 dark:border-neutral-700 hover:border-red-500 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all group" onClick={() => router.push('/participant/my-events')}>
+            <div className="flex items-center gap-3">
+              <Users className="w-5 h-5 text-neutral-600 dark:text-neutral-400 group-hover:text-red-500 group-hover:scale-110 transition-all" />
+              <span className="font-semibold text-neutral-700 dark:text-neutral-300 group-hover:text-red-600 dark:group-hover:text-red-400">My Events</span>
+            </div>
           </Button>
-          <Button
-            variant="outline"
-            className="border-border text-foreground"
-            onClick={() => router.push('/participant/certificates')}
-          >
-            My Certificates
+          <Button variant="outline" className="h-auto py-4 border-2 border-neutral-200 dark:border-neutral-700 hover:border-red-500 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all group" onClick={() => router.push('/participant/certificates')}>
+            <div className="flex items-center gap-3">
+              <Award className="w-5 h-5 text-neutral-600 dark:text-neutral-400 group-hover:text-red-500 group-hover:scale-110 transition-all" />
+              <span className="font-semibold text-neutral-700 dark:text-neutral-300 group-hover:text-red-600 dark:group-hover:text-red-400">My Certificates</span>
+            </div>
           </Button>
         </div>
       </Card>
 
-      {/* Upcoming Events */}
-      <Card className="p-6 border border-border bg-card">
-        <h2 className="text-xl font-semibold text-foreground mb-4">Upcoming Events</h2>
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading events...</p>
-        ) : upcomingEvents.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingEvents.map((event) => {
-              const isEventEnded = (event.date && new Date(event.date) < new Date() && new Date(event.date).getDate() !== new Date().getDate()) || (event as any).status === 'completed'
+      {/* Events Grid - Two Columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Upcoming Events - Left */}
+        <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-red-500 dark:text-red-400" />
+              <h2 className="text-xl font-bold text-neutral-900 dark:text-white">Upcoming Events</h2>
+            </div>
+            {upcomingEvents.length > 0 && (
+              <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20" onClick={() => router.push('/participant/events')}>
+                View All <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            )}
+          </div>
 
-              return (
-                <div key={event.id} className="border border-border rounded-lg overflow-hidden bg-background hover:shadow-sm transition-shadow cursor-pointer relative" onClick={() => router.push(`/participant/event/${event.id}`)}>
-                  {(event.coverImage || event.cover_image) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={event.coverImage || event.cover_image || ''} alt={event.name || event.title || 'Event cover'} className="w-full h-36 object-cover" />
-                  ) : (
-                    <div className="w-full h-36 bg-gradient-to-br from-secondary/20 to-primary/20" />
-                  )}
-                  {isEventEnded && (
-                    <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground text-[10px] font-bold px-2 py-1 rounded-full shadow-sm backdrop-blur-sm">
-                      EVENT ENDED
-                    </div>
-                  )}
-                  <div className="p-4 space-y-2">
-                    <h3 className="text-lg font-semibold text-foreground line-clamp-1">{event.name || event.title || 'Untitled Event'}</h3>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 shrink-0" />
-                        <span>{event.date || 'TBA'}</span>
-                      </div>
-                      {(event.startTime || event.start_time) && (event.endTime || event.end_time) && (
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 shrink-0" />
-                          <span>{event.startTime || event.start_time} - {event.endTime || event.end_time}</span>
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-24 bg-neutral-200 dark:bg-neutral-800 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : upcomingEvents.length > 0 ? (
+            <div className="space-y-3">
+              {upcomingEvents.map((event) => (
+                <div key={event.id} className="group flex gap-3 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:shadow-lg hover:border-red-500 dark:hover:border-red-500 transition-all cursor-pointer" onClick={() => router.push(`/participant/event/${event.id}`)}>
+                  <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                    {(event.coverImage || event.cover_image) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={event.coverImage || event.cover_image || ''} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-red-500/20 to-rose-500/20" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-sm text-neutral-900 dark:text-white line-clamp-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors mb-1">
+                      {event.name || event.title || 'Untitled Event'}
+                    </h3>
+                    <div className="space-y-0.5 text-xs text-neutral-600 dark:text-neutral-400">
+                      {event.date && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-red-500" />
+                          <span>{new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                         </div>
                       )}
                       {(event.venue || event.location) && (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 shrink-0" />
-                          <span>{event.venue || event.location}</span>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-red-500" />
+                          <span className="truncate">{event.venue || event.location}</span>
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
-              )
-            })}
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Calendar className="w-12 h-12 mx-auto text-neutral-300 dark:text-neutral-700 mb-3" />
+              <p className="text-neutral-500 dark:text-neutral-400">No upcoming events</p>
+            </div>
+          )}
+        </Card>
+
+        {/* Past Events - Right */}
+        <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />
+              <h2 className="text-xl font-bold text-neutral-900 dark:text-white">Past Events</h2>
+            </div>
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No upcoming events yet</p>
-        )}
-      </Card>
+
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-24 bg-neutral-200 dark:bg-neutral-800 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : pastEvents.length > 0 ? (
+            <div className="space-y-3">
+              {pastEvents.map((event) => (
+                <div key={event.id} className="group flex gap-3 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 opacity-70 hover:opacity-100 hover:shadow-lg transition-all cursor-pointer" onClick={() => router.push(`/participant/event/${event.id}`)}>
+                  <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                    {(event.coverImage || event.cover_image) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={event.coverImage || event.cover_image || ''} alt="" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300" />
+                    ) : (
+                      <div className="w-full h-full bg-neutral-300 dark:bg-neutral-700" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors mb-1">
+                      {event.name || event.title || 'Untitled Event'}
+                    </h3>
+                    <div className="space-y-0.5 text-xs text-neutral-500 dark:text-neutral-500">
+                      {event.date && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          <span>{new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                      )}
+                      {(event.venue || event.location) && (
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          <span className="truncate">{event.venue || event.location}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Clock className="w-12 h-12 mx-auto text-neutral-300 dark:text-neutral-700 mb-3" />
+              <p className="text-neutral-500 dark:text-neutral-400">No past events</p>
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   )
 }
