@@ -605,23 +605,13 @@ export default function ParticipantEventDetailPage() {
                   level="H"
                   includeMargin={true}
                 />
-                <div className="absolute inset-0 bg-white/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-2xl backdrop-blur-sm">
-                  <p className="text-neutral-900 font-bold text-sm">Scan to Check-in</p>
-                </div>
               </div>
               <p className="font-mono text-center text-white/80 opacity-50 text-xs mb-2">TICKET ID</p>
               <p className="font-mono text-center text-xl font-bold tracking-widest mb-6">{registrationData?.qr_code_value || 'PENDING'}</p>
 
               <div className="text-center space-y-1">
                 <p className="font-bold text-lg leading-tight">{event.name}</p>
-                {registrationData?.affiliation && (
-                  <p className="text-sm font-medium opacity-90 mt-1 uppercase tracking-wider">{registrationData.affiliation}</p>
-                )}
-                <div className="flex items-center justify-center gap-2 text-xs opacity-70 mt-2">
-                  <span>{event.venue}</span>
-                  <span>•</span>
-                  <span>{event.startTime}</span>
-                </div>
+
               </div>
             </div>
 
@@ -643,7 +633,7 @@ export default function ParticipantEventDetailPage() {
                   <div>
                     <p className="text-xs uppercase tracking-wider text-neutral-400 font-bold mb-1">Attendee</p>
                     <p className="font-semibold text-lg">{registrationData?.first_name} {registrationData?.last_name}</p>
-                    <p className="text-sm text-neutral-500">{registrationData?.email}</p>
+                    <p className="text-xs text-neutral-500">{registrationData?.email}</p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-wider text-neutral-400 font-bold mb-1">Affiliation</p>
@@ -656,11 +646,11 @@ export default function ParticipantEventDetailPage() {
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <p className="text-xs uppercase tracking-wider text-neutral-400 font-bold mb-1">Venue</p>
-                    <p className="font-medium">{event.venue}</p>
+                    <p className="font-medium">{event.venue || event.location}</p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-wider text-neutral-400 font-bold mb-1">Time</p>
-                    <p className="font-medium">{event.startTime} - {event.endTime}</p>
+                    <p className="font-medium">{event.startTime || event.start_time} - {event.endTime || event.end_time || '-'}</p>
                   </div>
                 </div>
 
