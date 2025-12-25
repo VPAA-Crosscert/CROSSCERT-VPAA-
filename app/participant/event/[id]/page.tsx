@@ -46,6 +46,11 @@ const getCategoryFromEvent = (event: Event): string => {
   return deptAbbr || 'HCDC'
 }
 
+function activeButtonColor(status: string, colors: any) {
+  if (status === 'none') return `${colors.bg} text-white hover:opacity-90`
+  return 'bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200'
+}
+
 export default function ParticipantEventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
@@ -371,33 +376,23 @@ export default function ParticipantEventDetailPage() {
                   <Calendar className="w-5 h-5 text-white" />
                   <span>{new Date(event.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                 </div>
-                <div className="hidden md:block w-px h-8 bg-white/20" />
-                <div className="flex items-center gap-3 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10">
-                  <Clock className="w-5 h-5 text-white" />
-                  <span>{event.startTime || event.start_time} - {event.endTime || event.end_time}</span>
-                </div>
-                <div className="hidden md:block w-px h-8 bg-white/20" />
-                <div className="flex items-center gap-3 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10">
-                  <MapPin className="w-5 h-5 text-white" />
-                  <span>{event.venue || event.location}</span>
-                </div>
               </div>
-            </div>
 
-            {/* Live Countdown Circle */}
-            {timeLeft && (
-              <div className="hidden lg:flex items-center justify-center relative w-40 h-40 rounded-full border border-white/20 bg-black/20 backdrop-blur-xl animate-in fade-in zoom-in duration-1000 delay-300">
-                <div className="text-center">
-                  <div className="text-3xl font-black text-white">{timeLeft.days}</div>
-                  <div className="text-[10px] uppercase tracking-widest text-white/60 font-bold mb-1">Days Left</div>
-                  <div className="text-xs text-white/80 font-mono">{timeLeft.hours}h {timeLeft.minutes}m</div>
+              {/* Live Countdown Circle */}
+              {timeLeft && (
+                <div className="hidden lg:flex items-center justify-center relative w-40 h-40 rounded-full border border-white/20 bg-black/20 backdrop-blur-xl animate-in fade-in zoom-in duration-1000 delay-300">
+                  <div className="text-center">
+                    <div className="text-3xl font-black text-white">{timeLeft.days}</div>
+                    <div className="text-[10px] uppercase tracking-widest text-white/60 font-bold mb-1">Days Left</div>
+                    <div className="text-xs text-white/80 font-mono">{timeLeft.hours}h {timeLeft.minutes}m</div>
+                  </div>
+                  <svg className="absolute inset-0 w-full h-full -rotate-90">
+                    <circle cx="80" cy="80" r="78" stroke="white" strokeWidth="1" fill="none" className="opacity-10" />
+                    <circle cx="80" cy="80" r="78" stroke="white" strokeWidth="2" fill="none" strokeDasharray="490" strokeDashoffset="100" className="opacity-30" />
+                  </svg>
                 </div>
-                <svg className="absolute inset-0 w-full h-full -rotate-90">
-                  <circle cx="80" cy="80" r="78" stroke="white" strokeWidth="1" fill="none" className="opacity-10" />
-                  <circle cx="80" cy="80" r="78" stroke="white" strokeWidth="2" fill="none" strokeDasharray="490" strokeDashoffset="100" className="opacity-30" />
-                </svg>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -684,9 +679,4 @@ export default function ParticipantEventDetailPage() {
 
     </div>
   )
-}
-
-function activeButtonColor(status: string, colors: any) {
-  if (status === 'none') return `${colors.bg} text-white hover:opacity-90`
-  return 'bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200'
 }

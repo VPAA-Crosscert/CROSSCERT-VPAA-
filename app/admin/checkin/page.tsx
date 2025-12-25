@@ -42,14 +42,7 @@ export default function AdminCheckIn() {
 
 
 
-  // Auto-fill prefix for easier manual entry
-  useEffect(() => {
-    if (selectedEvent) {
-      setScannedCode(`REG-${selectedEvent}-`)
-    } else {
-      setScannedCode('')
-    }
-  }, [selectedEvent])
+
 
   useEffect(() => {
     const fetchEvents = async () => {
