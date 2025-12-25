@@ -49,7 +49,13 @@ export default function SignIn() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Login failed')
+        const errorData = await response.json()
+        if (response.status === 401 && errorData.detail === 'No active account found with the given credentials') {
+          setError('Nonexistent account. Sign up')
+          setIsLoading(false)
+          return
+        }
+        setError(errorData.error || 'Login failed')
         setIsLoading(false)
         return
       }

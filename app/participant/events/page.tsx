@@ -64,8 +64,11 @@ export default function ParticipantEvents() {
   const [showUnregisterSuccess, setShowUnregisterSuccess] = useState(false)
   const [unregisterEventId, setUnregisterEventId] = useState<string | number | null>(null)
 
+  const [isLoading, setIsLoading] = useState(true)
+
   useEffect(() => {
     const fetchEvents = async () => {
+      setIsLoading(true)
       try {
         const dept = await fetchUserDepartment()
         setUserDepartment(dept)
@@ -129,6 +132,8 @@ export default function ParticipantEvents() {
           const arr: any[] = JSON.parse(storedBookmarks)
           setBookmarked(new Set(arr.map((v) => String(v))))
         }
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -350,7 +355,7 @@ export default function ParticipantEvents() {
     const eventId = String(event.id)
     const access = canAccessEvent(event.category || 'HCDC', event.department)
     if (!access) {
-      alert(`This event is restricted to ${event.department || 'a specific department'}.`)
+      alert(`This event is exclusive only for ${event.department || 'a specific department'}.`)
       return
     }
     const userEmail = await getAuthenticatedUserEmail()
@@ -587,7 +592,16 @@ export default function ParticipantEvents() {
             </div>
 
             <TabsContent value="upcoming" className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-              {Object.keys(upcomingEventsByMonth).length === 0 ? (
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-24 space-y-4">
+                  <div className="relative">
+                    <div className="w-12 h-12 border-4 border-neutral-200 dark:border-neutral-800 border-t-red-500 rounded-full animate-spin" />
+                  </div>
+                  <p className="text-neutral-500 dark:text-neutral-400 font-medium animate-pulse">
+                    Fetching events...
+                  </p>
+                </div>
+              ) : Object.keys(upcomingEventsByMonth).length === 0 ? (
                 <div className="text-center py-20 bg-white dark:bg-neutral-900/50 rounded-3xl border border-neutral-200 dark:border-neutral-800 border-dashed">
                   <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Calendar className="w-8 h-8 text-neutral-400" />

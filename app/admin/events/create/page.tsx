@@ -372,7 +372,7 @@ export default function CreateEventPage() {
         start_time: startTime,
         end_time: endTime,
         location: venue,
-        capacity: hasCapacityLimit ? Number(capacity) : 1000,
+        capacity: hasCapacityLimit ? Number(capacity) : 1000000,
         status: 'scheduled',
         speakers: speakers ? speakers.split(',').map(s => s.trim()).filter(Boolean) : [],
         timezone,

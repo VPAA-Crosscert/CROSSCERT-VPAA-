@@ -192,7 +192,7 @@ export default function ParticipantEventDetailPage() {
     }
 
     if (!hasAccess) {
-      setErrorMessage(`This event is restricted to ${event.department} students.`)
+      setErrorMessage(`This event is exclusive only for ${event.department} students.`)
       return
     }
 
@@ -373,10 +373,23 @@ export default function ParticipantEventDetailPage() {
               </h1>
 
               {/* Meta Data Row */}
-              <div className="flex flex-wrap items-center gap-6 text-white/80 font-medium text-lg pt-4">
+              <div className="flex flex-wrap items-center gap-4 text-white/90 font-medium text-lg pt-4">
+                {/* Date */}
                 <div className="flex items-center gap-3 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10">
                   <Calendar className="w-5 h-5 text-white" />
                   <span>{new Date(event.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                </div>
+
+                {/* Time */}
+                <div className="flex items-center gap-3 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10">
+                  <Clock className="w-5 h-5 text-white" />
+                  <span>{event.start_time?.slice(0, 5)} - {event.end_time?.slice(0, 5)}</span>
+                </div>
+
+                {/* Venue */}
+                <div className="flex items-center gap-3 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10">
+                  <MapPin className="w-5 h-5 text-white" />
+                  <span>{event.location}</span>
                 </div>
               </div>
 
@@ -547,9 +560,15 @@ export default function ParticipantEventDetailPage() {
 
                     <Button
                       onClick={handleMainAction}
-                      className={`w-full h-14 text-lg font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all duration-200 ${activeButtonColor(registrationStatus, colors)}`}
+                      disabled={registrationStatus === 'none' && (event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'completed')}
+                      className={`w-full h-14 text-lg font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all duration-200 ${registrationStatus === 'none' && (event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'completed')
+                        ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none hover:scale-100' // Disabled style
+                        : activeButtonColor(registrationStatus, colors)
+                        }`}
                     >
-                      {buttonLabel}
+                      {registrationStatus === 'none' && (event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'completed')
+                        ? 'Event Ended'
+                        : buttonLabel}
                     </Button>
 
                     <div className="grid grid-cols-2 gap-4">
