@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, CheckCircle, Star, Filter } from 'lucide-react'
+import { Search, CheckCircle, Star, Filter, ArrowLeft, MessageSquare, Quote, ThumbsUp, Medal, GraduationCap, Building2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { api, apiCall, adminApi } from '@/lib/api-config'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -44,7 +44,6 @@ export default function AdminEvaluations() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch events and evaluations
         const [eventsRes, evaluationsRes] = await Promise.all([
           apiCall.get(adminApi.events()),
           apiCall.get(api.evaluations()),
@@ -57,7 +56,6 @@ export default function AdminEvaluations() {
         const eventsData = await eventsRes.json()
         const evaluationsData = await evaluationsRes.json()
 
-        // Handle paginated responses
         const eventsList: EventRecord[] = Array.isArray(eventsData)
           ? eventsData
           : (eventsData.results || eventsData.data || [])
@@ -66,29 +64,32 @@ export default function AdminEvaluations() {
           ? evaluationsData
           : (evaluationsData.results || evaluationsData.data || [])
 
-        // Fetch registration details for each evaluation to get event info
         const enrichedEvaluations = await Promise.all(
           evaluationsList.map(async (evaluation) => {
             try {
-              const regRes = await apiCall.get(`${api.registrations()}/${evaluation.registration}/`)
+              const regRes = await apiCall.get(`${api.registrations()}${evaluation.registration}/`)
               if (regRes.ok) {
                 const reg = await regRes.json()
-                // Fetch event details
                 const eventRes = await apiCall.get(api.eventById(reg.event))
                 if (eventRes.ok) {
                   const event = await eventRes.json()
                   return {
                     ...evaluation,
-                    event_title: event.title,
+                    event_title: event.title || event.name || 'Untitled Event',
                     event_id: event.id,
-                    participant_name: `${reg.first_name} ${reg.last_name}`,
+                    participant_name: `${reg.first_name || ''} ${reg.last_name || ''}`.trim() || 'Unknown Participant',
                   }
                 }
               }
             } catch (err) {
               console.warn(`Could not fetch details for evaluation ${evaluation.id}:`, err)
             }
-            return evaluation
+            // Return with default values if fetch failed
+            return {
+              ...evaluation,
+              event_title: evaluation.event_title || 'Unknown Event',
+              participant_name: evaluation.participant_name || evaluation.name || 'Unknown Participant',
+            }
           })
         )
 
@@ -116,42 +117,119 @@ export default function AdminEvaluations() {
     return matchesSearch && matchesEvent
   })
 
-  // Group by event
-  const evaluationsByEvent = filteredEvaluations.reduce((acc, evaluation) => {
-    const eventId = evaluation.event_id || 'unknown'
-    if (!acc[eventId]) {
-      acc[eventId] = []
-    }
-    acc[eventId].push(evaluation)
-    return acc
-  }, {} as Record<string, EvaluationRecord[]>)
+  const calculateAverage = (field: keyof EvaluationRecord) => {
+    if (evaluations.length === 0) return 0
+    const sum = evaluations.reduce((acc, curr) => acc + (Number(curr[field]) || 0), 0)
+    return (sum / evaluations.length).toFixed(1)
+  }
+
+  const avgOverall = calculateAverage('overall_rating')
+  const avgContent = calculateAverage('content_rating')
+  const avgInstructor = calculateAverage('instructor_rating')
+  const avgFacilities = calculateAverage('facilities_rating')
+
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex gap-0.5">
+        {[...Array(5)].map((_, i) => (
+          <Star
+            key={i}
+            className={`w-3.5 h-3.5 ${i < rating ? 'fill-yellow-400 text-yellow-400' : 'fill-neutral-200 dark:fill-neutral-800 text-neutral-200 dark:text-neutral-800'}`}
+          />
+        ))}
+      </div>
+    )
+  }
 
   return (
-    <div className="p-4 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Event Evaluations</h1>
-        <p className="text-muted-foreground mt-1">View and manage participant evaluations</p>
+    <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 p-6 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <button
+              onClick={() => router.back()}
+              className="p-2 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors text-neutral-500"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight">Evaluations</h1>
+          </div>
+          <p className="text-neutral-500 dark:text-neutral-400 ml-12">Feedback and ratings from event participants.</p>
+        </div>
       </div>
 
-      {/* Filters */}
-      <Card className="p-4 border border-border bg-card">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+              <Medal className="w-5 h-5" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Overall Rating</span>
+          </div>
+          <div className="flex items-end gap-3">
+            <span className="text-3xl font-bold text-neutral-900 dark:text-white">{avgOverall}</span>
+            <span className="text-sm font-medium text-neutral-400 mb-1">/ 5.0</span>
+          </div>
+        </div>
+        <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
+              <MessageSquare className="w-5 h-5" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Content</span>
+          </div>
+          <div className="flex items-end gap-3">
+            <span className="text-3xl font-bold text-neutral-900 dark:text-white">{avgContent}</span>
+            <span className="text-sm font-medium text-neutral-400 mb-1">/ 5.0</span>
+          </div>
+        </div>
+        <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Instructor</span>
+          </div>
+          <div className="flex items-end gap-3">
+            <span className="text-3xl font-bold text-neutral-900 dark:text-white">{avgInstructor}</span>
+            <span className="text-sm font-medium text-neutral-400 mb-1">/ 5.0</span>
+          </div>
+        </div>
+        <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Facilities</span>
+          </div>
+          <div className="flex items-end gap-3">
+            <span className="text-3xl font-bold text-neutral-900 dark:text-white">{avgFacilities}</span>
+            <span className="text-sm font-medium text-neutral-400 mb-1">/ 5.0</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters Bar */}
+      <Card className="p-4 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm sticky top-4 z-20 backdrop-blur-md bg-white/80 dark:bg-neutral-900/80">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-3 w-4 h-4 text-neutral-400" />
             <Input
-              placeholder="Search by name, email, or event..."
+              placeholder="Search by name, email, feedback..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-background border-border"
+              className="pl-10 bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 px-3 py-2 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md">
+            <Filter className="w-4 h-4 text-neutral-500" />
             <select
               value={selectedEvent}
               onChange={(e) => setSelectedEvent(e.target.value)}
-              className="px-3 py-2 bg-background border border-border rounded-md text-foreground"
+              className="bg-transparent border-none text-sm font-medium text-neutral-700 dark:text-neutral-300 focus:ring-0 cursor-pointer min-w-[150px]"
             >
               <option value="all">All Events</option>
               {events.map((event) => (
@@ -164,125 +242,78 @@ export default function AdminEvaluations() {
         </div>
       </Card>
 
-      {/* Evaluations List */}
+      {/* Evaluations Grid */}
       {loading ? (
-        <Card className="p-8 border border-border bg-card text-center">
-          <p className="text-muted-foreground">Loading evaluations...</p>
-        </Card>
-      ) : error ? (
-        <Card className="p-8 border border-border bg-card text-center">
-          <p className="text-destructive">{error}</p>
-        </Card>
-      ) : filteredEvaluations.length === 0 ? (
-        <Card className="p-8 border border-border bg-card text-center">
-          <p className="text-muted-foreground">No evaluations found</p>
-        </Card>
-      ) : (
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="all">All Evaluations ({filteredEvaluations.length})</TabsTrigger>
-            <TabsTrigger value="by-event">By Event</TabsTrigger>
-          </TabsList>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-48 bg-neutral-200 dark:bg-neutral-800 rounded-2xl animate-pulse" />
+          ))}
+        </div>
+      ) : filteredEvaluations.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredEvaluations.map((evaluation) => (
+            <div key={evaluation.id} className="group bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-lg transition-all p-6 flex flex-col">
 
-          <TabsContent value="all" className="space-y-4">
-            {filteredEvaluations.map((evaluation) => (
-              <Card key={evaluation.id} className="p-4 border border-border bg-card">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-foreground mb-2">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                    {(evaluation.participant_name || evaluation.name).charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-neutral-900 dark:text-white line-clamp-1">
                       {evaluation.participant_name || evaluation.name}
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-2">{evaluation.email}</p>
-                    <p className="text-sm font-medium text-foreground mb-3">
-                      Event: {evaluation.event_title || 'Unknown Event'}
-                    </p>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Content</p>
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="font-semibold text-foreground">{evaluation.content_rating}/5</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Instructor</p>
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="font-semibold text-foreground">{evaluation.instructor_rating}/5</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Facilities</p>
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="font-semibold text-foreground">{evaluation.facilities_rating}/5</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Overall</p>
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="font-semibold text-foreground">{evaluation.overall_rating}/5</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {evaluation.feedback && (
-                      <div className="mt-4 p-3 bg-muted rounded-md">
-                        <p className="text-xs text-muted-foreground mb-1">Feedback</p>
-                        <p className="text-sm text-foreground">{evaluation.feedback}</p>
-                      </div>
-                    )}
-
-                    <p className="text-xs text-muted-foreground mt-3">
-                      Submitted: {new Date(evaluation.submitted_at).toLocaleString()}
-                    </p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{evaluation.year_level}</p>
                   </div>
                 </div>
-              </Card>
-            ))}
-          </TabsContent>
-
-          <TabsContent value="by-event" className="space-y-6">
-            {Object.entries(evaluationsByEvent).map(([eventId, eventEvaluations]) => {
-              const event = events.find(e => String(e.id) === eventId)
-              return (
-                <div key={eventId} className="space-y-3">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    {event?.title || `Event ${eventId}`} ({eventEvaluations.length} evaluations)
-                  </h3>
-                  {eventEvaluations.map((evaluation) => (
-                    <Card key={evaluation.id} className="p-4 border border-border bg-card">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-foreground mb-1">
-                            {evaluation.participant_name || evaluation.name}
-                          </h4>
-                          <p className="text-sm text-muted-foreground mb-3">{evaluation.email}</p>
-
-                          <div className="flex gap-4">
-                            <div className="flex items-center gap-1">
-                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm font-medium text-foreground">
-                                Overall: {evaluation.overall_rating}/5
-                              </span>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(evaluation.submitted_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+                <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 rounded-md border border-yellow-100 dark:border-yellow-900/30">
+                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm font-bold text-neutral-900 dark:text-white">{evaluation.overall_rating}</span>
                 </div>
-              )
-            })}
-          </TabsContent>
-        </Tabs>
+              </div>
+
+              <div className="border-t border-neutral-100 dark:border-neutral-800 pt-4 pb-4 mb-auto">
+                <div className="flex items-start gap-2 text-neutral-400 mb-2">
+                  <Quote className="w-4 h-4 shrink-0 mt-1" />
+                  <p className="text-sm text-neutral-600 dark:text-neutral-300 italic line-clamp-4">
+                    &quot;{evaluation.feedback || "No written feedback provided."}&quot;
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-neutral-500 dark:text-neutral-400">Content</span>
+                  {renderStars(evaluation.content_rating)}
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-neutral-500 dark:text-neutral-400">Instructor</span>
+                  {renderStars(evaluation.instructor_rating)}
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-neutral-500 dark:text-neutral-400">Facilities</span>
+                  {renderStars(evaluation.facilities_rating)}
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs">
+                <span className="bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 px-2 py-1 rounded truncate max-w-[150px]">
+                  {evaluation.event_title}
+                </span>
+                <span className="text-neutral-400">
+                  {new Date(evaluation.submitted_at).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-neutral-900 rounded-2xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 text-neutral-400">
+          <MessageSquare className="w-12 h-12 mb-4 opacity-20" />
+          <p>No evaluations found matching your filters.</p>
+        </div>
       )}
+
     </div>
   )
 }
-

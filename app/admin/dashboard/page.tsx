@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Calendar, Users, CheckCircle, Award, Clock, MapPin } from 'lucide-react'
+import { Calendar, Users, CheckCircle, Award, Clock, MapPin, Activity, Search, ArrowUpRight } from 'lucide-react'
 import { getStoredEvents } from '@/lib/event-context'
 import { useState, useEffect } from 'react'
 import { adminApi, apiCall } from '@/lib/api-config'
@@ -26,12 +26,15 @@ type DashboardEvent = {
   attended_count?: number
   certificates?: number
   registration_count?: number
+  created_at?: string
 }
 
 export default function AdminDashboard() {
   const router = useRouter()
-  const [events, setEvents] = useState<DashboardEvent[]>([])
-  const [loading, setLoading] = useState(true)
+  // Data State
+  const [upcomingEvents, setUpcomingEvents] = useState<DashboardEvent[]>([])
+  const [pastEvents, setPastEvents] = useState<DashboardEvent[]>([])
+  const [recentActivity, setRecentActivity] = useState<DashboardEvent[]>([])
   const [stats, setStats] = useState({
     totalEvents: 0,
     totalParticipants: 0,
@@ -39,93 +42,91 @@ export default function AdminDashboard() {
     certificatesIssued: 0,
   })
 
+  // UI State
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [greeting, setGreeting] = useState('Welcome back')
+
+  // Live Clock & Greeting
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    const hour = new Date().getHours()
+    if (hour < 12) setGreeting('Good morning')
+    else if (hour < 18) setGreeting('Good afternoon')
+    else setGreeting('Good evening')
+    return () => clearInterval(timer)
+  }, [])
+
+  // Fetch Data
   useEffect(() => {
     const fetchEvents = async () => {
       try {
         const eventsUrl = adminApi.events().endsWith('/') ? adminApi.events() : `${adminApi.events()}/`
-        console.log('[Dashboard] Fetching events from:', eventsUrl)
         const res = await apiCall.get(eventsUrl)
-
-        console.log('[Dashboard] Response status:', res.status, res.statusText)
-
         let eventsList: DashboardEvent[] = []
 
         if (!res.ok) {
-          console.warn('[Dashboard] Unable to load events from API. Status:', res.status, res.statusText)
-          const storedEvents = getStoredEvents()
-          eventsList = storedEvents as DashboardEvent[]
-          console.log('[Dashboard] Using localStorage fallback, events count:', eventsList.length)
+          eventsList = getStoredEvents() as DashboardEvent[]
         } else {
-          let data: unknown = []
           try {
-            data = await res.json()
-            console.log('[Dashboard] Raw API response:', data)
+            const data = await res.json()
+            if (Array.isArray(data)) eventsList = data as DashboardEvent[]
+            else if (data?.results && Array.isArray(data.results)) eventsList = data.results as DashboardEvent[]
+            else if (data?.data && Array.isArray(data.data)) eventsList = data.data as DashboardEvent[]
+            else eventsList = getStoredEvents() as DashboardEvent[]
           } catch {
-            console.error('[Dashboard] Events API did not return JSON.')
-            const storedEvents = getStoredEvents()
-            eventsList = storedEvents as DashboardEvent[]
-          }
-
-          if (Array.isArray(data)) {
-            eventsList = data as DashboardEvent[]
-            console.log('[Dashboard] Direct array response, events count:', eventsList.length)
-          } else if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
-            eventsList = data.results as DashboardEvent[]
-            console.log('[Dashboard] Paginated response (results), events count:', eventsList.length)
-          } else if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
-            eventsList = data.data as DashboardEvent[]
-            console.log('[Dashboard] Paginated response (data), events count:', eventsList.length)
-          } else {
-            console.warn('[Dashboard] Unknown response format, falling back to localStorage')
-            const storedEvents = getStoredEvents()
-            eventsList = storedEvents as DashboardEvent[]
+            eventsList = getStoredEvents() as DashboardEvent[]
           }
         }
 
-        console.log('[Dashboard] Final events list:', eventsList)
-        console.log('[Dashboard] Event IDs:', eventsList.map(e => ({ id: e.id, title: e.title || e.name })))
-
-        // Filter for upcoming events (today onward) and sort ascending by date
         const now = new Date()
-        now.setHours(0, 0, 0, 0)
+        const todayStr = now.toISOString().split('T')[0]
 
-        const upcomingEvents = eventsList.filter(event => {
-          if (!event.date) return false // Skip if no date
-          const eventDate = new Date(event.date)
-          // Handle string dates properly
-          const eventDateMidnight = new Date(eventDate)
-          eventDateMidnight.setHours(0, 0, 0, 0)
+        const getEventDateStr = (dateStr: string) => {
+          if (!dateStr) return ''
+          return new Date(dateStr).toISOString().split('T')[0]
+        }
 
+        const upcoming: DashboardEvent[] = []
+        const past: DashboardEvent[] = []
+
+        eventsList.forEach(event => {
+          if (!event.date) return
+
+          const eventDateStr = getEventDateStr(event.date)
           const status = ((event as any).status || '').toLowerCase()
           const isCompleted = status === 'completed' || status === 'concluded'
 
-          // Include today's events, exclude completed/concluded events
-          return eventDateMidnight >= now && !isCompleted
+          if (isCompleted || eventDateStr < todayStr) {
+            past.push(event)
+          } else {
+            upcoming.push(event)
+          }
         })
 
-        const sortedUpcoming = upcomingEvents.sort((a, b) => {
-          const dateA = a.date ? new Date(a.date).getTime() : 0
-          const dateB = b.date ? new Date(b.date).getTime() : 0
-          return dateA - dateB // Ascending order (earliest first)
+        // Sorting
+        upcoming.sort((a, b) => (a.date ? new Date(a.date).getTime() : 0) - (b.date ? new Date(b.date).getTime() : 0))
+        past.sort((a, b) => (b.date ? new Date(b.date).getTime() : 0) - (a.date ? new Date(a.date).getTime() : 0))
+
+        setUpcomingEvents(upcoming)
+        setPastEvents(past)
+
+        // Generate Activity Feed
+        const sortedByCreation = [...eventsList].sort((a, b) => {
+          const timeA = a.created_at ? new Date(a.created_at).getTime() : 0
+          const timeB = b.created_at ? new Date(b.created_at).getTime() : 0
+          return timeB - timeA
         })
+        setRecentActivity(sortedByCreation.slice(0, 5))
 
-        setEvents(sortedUpcoming.slice(0, 6)) // Show top 6 upcoming
-
-        const totalParticipants = eventsList.reduce((sum, event) => {
-          return sum + (event.participants || event.registration_count || 0)
+        // Stats
+        const totalParticipants = eventsList.reduce((sum, e) => sum + (e.participants || e.registration_count || 0), 0)
+        const attendedToday = eventsList.reduce((sum, e) => {
+          if (e.attended_count !== undefined) return sum + e.attended_count
+          return sum + (e.attended || 0)
         }, 0)
-
-        // Calculate attendedToday more robustly
-        // Use the explicit attended_count from deserializer if available
-        const attendedToday = eventsList.reduce((sum, event) => {
-          // If we have an explicit attended count from backend (new field), use it
-          if (event.attended_count !== undefined) return sum + event.attended_count
-          if (event.attended && event.attended > 0) return sum + event.attended
-
-          return sum + (event.attended || 0)
-        }, 0)
-
-        const certificatesIssued = eventsList.reduce((sum, event) => sum + (event.certificates || 0), 0)
+        const certificatesIssued = eventsList.reduce((sum, e) => sum + (e.certificates || 0), 0)
 
         setStats({
           totalEvents: eventsList.length,
@@ -134,178 +135,299 @@ export default function AdminDashboard() {
           certificatesIssued,
         })
       } catch (err) {
-        console.error('[Dashboard] Error fetching events:', err)
-        const storedEvents = getStoredEvents()
-        const eventsList = storedEvents as DashboardEvent[]
-        setEvents(eventsList.slice(0, 5))
-
-        const totalParticipants = eventsList.reduce((sum, event) => sum + (event.participants || 0), 0)
-        const attendedToday = eventsList.reduce((sum, event) => sum + (event.attended || 0), 0)
-        const certificatesIssued = eventsList.reduce((sum, event) => sum + (event.certificates || 0), 0)
-
-        setStats({
-          totalEvents: eventsList.length,
-          totalParticipants,
-          attendedToday,
-          certificatesIssued,
-        })
+        console.error('[Dashboard] Error:', err)
+        const fallback = getStoredEvents() as DashboardEvent[]
+        setUpcomingEvents(fallback.slice(0, 5))
       } finally {
         setLoading(false)
       }
     }
-
     fetchEvents()
   }, [])
 
+  // Filtering Logic
+  const filteredUpcoming = upcomingEvents.filter(e =>
+    (e.title || e.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (e.location || e.venue || '').toLowerCase().includes(searchQuery.toLowerCase())
+  )
+  const filteredPast = pastEvents.filter(e =>
+    (e.title || e.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (e.location || e.venue || '').toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   const statsArray = [
-    {
-      label: 'Total Events',
-      value: stats.totalEvents.toString(),
-      icon: Calendar,
-      color: 'text-blue-500',
-    },
-    {
-      label: 'Total Participants',
-      value: stats.totalParticipants.toString(),
-      icon: Users,
-      color: 'text-purple-500',
-    },
-    {
-      label: 'Attended Today',
-      value: stats.attendedToday.toString(),
-      icon: CheckCircle,
-      color: 'text-green-500',
-    },
-    {
-      label: 'Certificates Issued',
-      value: stats.certificatesIssued.toString(),
-      icon: Award,
-      color: 'text-red-500',
-    },
+    { label: 'Total Events', value: stats.totalEvents.toString(), icon: Calendar, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-100 dark:border-red-800' },
+    { label: 'Total Participants', value: stats.totalParticipants.toString(), icon: Users, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-100 dark:border-rose-800' },
+    { label: 'Attended Today', value: stats.attendedToday.toString(), icon: CheckCircle, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-100 dark:border-emerald-800' },
+    { label: 'Certificates Issued', value: stats.certificatesIssued.toString(), icon: Award, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-100 dark:border-amber-800' },
+  ]
+
+  const quickActions = [
+    { title: 'Create Event', desc: 'New seminar or workshop', icon: Calendar, path: '/admin/events/create', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' },
+    { title: 'Manage Events', desc: 'Edit existing records', icon: MapPin, path: '/admin/events', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+    { title: 'Participants', desc: 'Registration database', icon: Users, path: '/admin/participants', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/20' },
+    { title: 'Analytics', desc: 'Performance insights', icon: Activity, path: '/admin/insights', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
   ]
 
   return (
-    <div className="p-4 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Welcome to your admin panel</p>
+    <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 p-6 space-y-8 max-w-[1800px] mx-auto animate-in fade-in duration-500">
+
+      {/* 1. Top Section: Header & Live Clock */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
+        <div>
+          <h2 className="text-muted-foreground font-medium mb-1 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            System Operational
+          </h2>
+          <h1 className="text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
+            {greeting}, Administrator.
+          </h1>
+          <p className="text-neutral-500 dark:text-neutral-400 mt-2">Here is what&apos;s happening with your events today.</p>
+        </div>
+        <div className="text-right hidden md:block">
+          <p className="text-3xl font-mono font-bold text-neutral-700 dark:text-neutral-200 tabular-nums tracking-tight">
+            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+          <p className="text-neutral-400 dark:text-neutral-500 font-medium">
+            {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 2. Global Search Bar */}
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-muted-foreground group-focus-within:text-red-500 transition-colors" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search events, locations, or details..."
+          className="w-full pl-11 pr-4 py-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-neutral-900/50 backdrop-blur shadow-sm focus:shadow-md focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all outline-none text-lg text-foreground placeholder:text-muted-foreground"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {searchQuery && (
+          <div className="absolute right-4 top-4 text-xs font-medium text-muted-foreground bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded">
+            Filtering Results
+          </div>
+        )}
+      </div>
+
+      {/* 3. High-Impact Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {statsArray.map((stat) => {
           const Icon = stat.icon
           return (
-            <Card key={stat.label} className="p-6 border border-border bg-card">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="text-3xl font-bold text-foreground mt-2">{stat.value}</p>
+            <div key={stat.label} className={`relative overflow-hidden p-6 rounded-2xl bg-white dark:bg-neutral-900 border ${stat.border} shadow-sm hover:shadow-md transition-all group`}>
+              <div className={`absolute top-0 right-0 w-24 h-24 -mr-6 -mt-6 rounded-full ${stat.bg} group-hover:scale-110 transition-transform duration-500`} />
+              <div className="relative flex flex-col justify-between h-full">
+                <div className={`w-12 h-12 rounded-xl ${stat.bg} flex items-center justify-center mb-4 text-xl`}>
+                  <Icon className={`w-6 h-6 ${stat.color}`} />
                 </div>
-                <Icon className={`w-8 h-8 ${stat.color}`} />
+                <div>
+                  <h3 className="text-3xl font-bold text-neutral-800 dark:text-neutral-100 tracking-tight">{stat.value}</h3>
+                  <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mt-1">{stat.label}</p>
+                </div>
               </div>
-            </Card>
+            </div>
           )
         })}
       </div>
 
-      {/* Quick Actions */}
-      <Card className="p-6 border border-border bg-card">
-        <h2 className="text-xl font-semibold text-foreground mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            onClick={() => router.push('/admin/events/create')}
-          >
-            Create New Event
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => router.push('/admin/events')}
-          >
-            Manage Events
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => router.push('/admin/participants')}
-          >
-            View Participants
-          </Button>
-        </div>
-      </Card>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
 
-      {/* Upcoming Events */}
-      <Card className="p-6 border border-border bg-card">
-        <h2 className="text-xl font-semibold text-foreground mb-4">Upcoming Events</h2>
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading events...</p>
-        ) : events.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {events.map((event) => {
-              const isEventEnded = (event.date && new Date(event.date) < new Date() && new Date(event.date).getDate() !== new Date().getDate()) || (event as any).status === 'completed'
+        {/* LEFT COLUMN (2/3): Actions & Events */}
+        <div className="xl:col-span-2 space-y-8">
 
-              return (
-                <Card
-                  key={event.id}
-                  className="overflow-hidden border border-border bg-background hover:shadow-lg transition-all cursor-pointer group relative"
-                  onClick={() => router.push(`/admin/events/${event.id}`)}
-                >
-                  {(event.coverImage || event.cover_image) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={event.coverImage || event.cover_image || ''}
-                      alt={event.name || event.title || 'Event cover'}
-                      className="w-full h-40 object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-40 bg-gradient-to-br from-secondary/20 to-primary/20" />
-                  )}
-                  {isEventEnded && (
-                    <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground text-[10px] font-bold px-2 py-1 rounded-full shadow-sm backdrop-blur-sm">
-                      EVENT ENDED
+          {/* 4. Command Center (Quick Actions) */}
+          <section>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Command Center</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {quickActions.map((action) => {
+                const Icon = action.icon
+                return (
+                  <button
+                    key={action.title}
+                    onClick={() => router.push(action.path)}
+                    className="flex flex-col text-left p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-red-500/30 hover:translate-y-[-2px] transition-all group"
+                  >
+                    <div className={`w-10 h-10 rounded-lg ${action.bg} flex items-center justify-center mb-3 group-hover:bg-red-500 group-hover:text-white transition-colors`}>
+                      <Icon className={`w-5 h-5 ${action.color} group-hover:text-white transition-colors`} />
                     </div>
-                  )}
-                  <div className="p-4 space-y-3">
-                    <h3 className="text-lg font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                      {event.name || event.title || 'Untitled Event'}
-                    </h3>
-                    <div className="text-sm text-muted-foreground space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 shrink-0" />
-                        <span>{event.date || 'TBA'}</span>
+                    <span className="font-bold text-neutral-700 dark:text-neutral-200">{action.title}</span>
+                    <span className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">{action.desc}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* 5. Events Split View */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* Upcoming */}
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm overflow-hidden flex flex-col h-full">
+              <div className="p-5 border-b border-neutral-50 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/20 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <h3 className="font-bold text-neutral-800 dark:text-neutral-100">Upcoming Events</h3>
+                </div>
+                <span className="bg-white dark:bg-neutral-800 px-2.5 py-1 rounded-md text-xs font-bold text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 shadow-sm">
+                  {filteredUpcoming.length}
+                </span>
+              </div>
+              <div className="p-2 space-y-1 overflow-y-auto max-h-[500px] min-h-[300px]">
+                {loading ? (
+                  <div className="p-8 text-center text-muted-foreground">Loading specific data...</div>
+                ) : filteredUpcoming.length > 0 ? (
+                  filteredUpcoming.map(event => (
+                    <div
+                      key={event.id}
+                      onClick={() => router.push(`/admin/events/${event.id}`)}
+                      className="group flex items-center justify-between p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-transparent hover:border-neutral-100 dark:hover:border-neutral-700 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4 overflow-hidden">
+                        <div className="flex flex-col items-center justify-center w-12 h-12 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg shrink-0 border border-red-100 dark:border-red-900/50">
+                          <span className="text-[10px] font-bold uppercase">{event.date ? new Date(event.date).toLocaleDateString(undefined, { month: 'short' }) : 'TBA'}</span>
+                          <span className="text-lg font-bold leading-none">{event.date ? new Date(event.date).getDate() : '--'}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-semibold text-neutral-800 dark:text-neutral-200 truncate group-hover:text-red-500 transition-colors">
+                            {event.title || event.name || 'Untitled'}
+                          </h4>
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate flex items-center gap-1.5">
+                            <Clock className="w-3 h-3" />
+                            {event.startTime || 'All day'}
+                            {event.location && <span>• {event.location}</span>}
+                          </p>
+                        </div>
                       </div>
-                      {(event.startTime || event.start_time) && (event.endTime || event.end_time) && (
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 shrink-0" />
-                          <span>{event.startTime || event.start_time} - {event.endTime || event.end_time}</span>
-                        </div>
-                      )}
-                      {(event.venue || event.location) && (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 shrink-0" />
-                          <span className="line-clamp-1">{event.venue || event.location}</span>
-                        </div>
-                      )}
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ArrowUpRight className="w-4 h-4 text-neutral-400" />
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                    <Calendar className="w-8 h-8 opacity-20 mb-2" />
+                    <p>No upcoming events found</p>
                   </div>
-                </Card>
-              )
-            })}
+                )}
+              </div>
+            </div>
+
+            {/* Past */}
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm overflow-hidden flex flex-col h-full">
+              <div className="p-5 border-b border-neutral-50 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/20 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+                  <h3 className="font-bold text-neutral-800 dark:text-neutral-100">Past Events</h3>
+                </div>
+                <span className="bg-white dark:bg-neutral-800 px-2.5 py-1 rounded-md text-xs font-bold text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 shadow-sm">
+                  {filteredPast.length}
+                </span>
+              </div>
+              <div className="p-2 space-y-1 overflow-y-auto max-h-[500px] min-h-[300px]">
+                {filteredPast.length > 0 ? (
+                  filteredPast.map(event => (
+                    <div
+                      key={event.id}
+                      onClick={() => router.push(`/admin/events/${event.id}`)}
+                      className="group flex items-center justify-between p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-transparent hover:border-neutral-100 dark:hover:border-neutral-700 transition-all cursor-pointer opacity-70 hover:opacity-100"
+                    >
+                      <div className="flex items-center gap-4 overflow-hidden">
+                        <div className="min-w-0">
+                          <h4 className="font-medium text-neutral-700 dark:text-neutral-300 truncate group-hover:text-foreground">
+                            {event.title || event.name || 'Untitled'}
+                          </h4>
+                          <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate">
+                            {event.date} • {((event as any).status || 'Completed').toUpperCase()}
+                          </p>
+                        </div>
+                      </div>
+                      <CheckCircle className="w-4 h-4 text-green-500/50" />
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                    <p>No history available</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No upcoming events scheduled</p>
-            <Button
-              variant="link"
-              onClick={() => router.push('/admin/events/create')}
-              className="mt-2 text-primary"
-            >
-              Create an event
-            </Button>
+        </div>
+
+        {/* RIGHT COLUMN (1/3): Activity Feed & System */}
+        <div className="space-y-6">
+
+          {/* Activity Feed */}
+          <div className="bg-neutral-900 dark:bg-[#1f0a0a] text-white p-6 rounded-2xl shadow-xl relative overflow-hidden border border-neutral-800 dark:border-red-900/30">
+            {/* Red Glow for Dark Mode Accent */}
+            <div className="absolute top-0 right-0 p-32 bg-red-600/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+            <div className="relative z-10">
+              <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-red-400" />
+                Recent Activity
+              </h3>
+              <div className="space-y-6">
+                {recentActivity.length > 0 ? (
+                  recentActivity.map((event, i) => (
+                    <div key={i} className="flex gap-4 relative">
+                      <div className="flex flex-col items-center">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-500 mt-1.5" />
+                        {i !== recentActivity.length - 1 && <div className="w-0.5 grow bg-neutral-700/50 mt-1" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-neutral-200">
+                          New Event Added
+                        </p>
+                        <p className="text-xs text-neutral-400 mt-0.5 line-clamp-1">
+                          &quot;{event.title}&quot; was created.
+                        </p>
+                        <p className="text-xs text-neutral-500 mt-1">
+                          {event.created_at ? new Date(event.created_at).toLocaleDateString() : 'Recently'}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-neutral-500">No recent activity logged.</p>
+                )}
+              </div>
+              <Button variant="outline" className="w-full mt-6 bg-white/5 border-white/10 hover:bg-white/10 text-white text-xs border-dashed">
+                View Full Logs
+              </Button>
+            </div>
           </div>
-        )}
-      </Card >
-    </div >
+
+          {/* System Card */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 shadow-sm">
+            <h3 className="font-semibold text-neutral-800 dark:text-neutral-200 mb-3 text-sm uppercase tracking-wide">System Status</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-neutral-500 dark:text-neutral-400">Database</span>
+                <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-400"></span> Online
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-neutral-500 dark:text-neutral-400">Email Service</span>
+                <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-400"></span> Active
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-neutral-500 dark:text-neutral-400">Last Backup</span>
+                <span className="text-neutral-700 dark:text-neutral-300 font-medium">2 hours ago</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
   )
 }

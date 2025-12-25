@@ -2,44 +2,83 @@
 
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
-import { Bell } from 'lucide-react'
-import { useState } from 'react'
-import Image from 'next/image'
-import { useTheme } from 'next-themes'
+import { Bell, User } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 
 export function ParticipantTopbar() {
-  const [userEmail] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('userEmail') || 'user'
+  const router = useRouter()
+  const pathname = usePathname()
+  const [mounted, setMounted] = useState(false)
+  const [userName, setUserName] = useState('Participant')
+  const [userEmail, setUserEmail] = useState('')
+
+  useEffect(() => {
+    setMounted(true)
+    // Get user info from localStorage
+    const storedName = localStorage.getItem('userName')
+    const storedEmail = localStorage.getItem('userEmail')
+    if (storedName) {
+      setUserName(storedName)
     }
-    return 'user'
-  })
-  const { resolvedTheme } = useTheme()
+    if (storedEmail) {
+      setUserEmail(storedEmail)
+    }
+  }, [])
+
+  // Get page title from pathname
+  const getPageTitle = () => {
+    const segments = pathname.split('/').filter(Boolean)
+    if (segments.length < 2) return 'Dashboard'
+    const page = segments[segments.length - 1]
+    return page.charAt(0).toUpperCase() + page.slice(1).replace(/-/g, ' ')
+  }
 
   return (
-    <div className="h-16 sm:h-20 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 flex items-center justify-between px-3 sm:px-4 md:px-6 gap-2 sm:gap-4">
-      <div className="flex items-center gap-2">
-        <Image
-          src={resolvedTheme === 'dark' ? '/crosscert-typo-white.png' : '/crosscert-typo-black.png'}
-          alt="CROSSCERT"
-          width={200}
-          height={48}
-          className="h-16 sm:h-20 w-auto object-contain"
-          priority
-        />
+    <div className="h-16 border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-neutral-900/60 flex items-center justify-between px-6 sticky top-0 z-20">
+      <div className="flex-1 min-w-0">
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
+          {getPageTitle()}
+        </h2>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          Welcome back, {userName}
+        </p>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      <div className="flex items-center gap-3 flex-shrink-0">
         <ThemeToggle />
-        <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
-          <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-        </Button>
-        <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-muted">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs sm:text-sm font-bold shrink-0">
-            {userEmail.charAt(0).toUpperCase()}
-          </div>
-          <span className="text-xs sm:text-sm text-foreground hidden sm:inline truncate max-w-[120px] md:max-w-none">{userEmail}</span>
+
+        {/* Notifications */}
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+          >
+            <Bell className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+          </Button>
+          <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
         </div>
+
+        {/* User Profile */}
+        <button
+          className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all group"
+          onClick={() => router.push('/participant/settings')}
+        >
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30 group-hover:shadow-xl group-hover:shadow-blue-500/40 transition-all">
+            {userEmail ? (
+              <span className="text-sm font-bold">{userEmail.charAt(0).toUpperCase()}</span>
+            ) : (
+              <User className="w-4 h-4" />
+            )}
+          </div>
+          {mounted && (
+            <div className="hidden sm:block text-left">
+              <p className="text-sm font-semibold text-neutral-900 dark:text-white">{userName}</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Participant</p>
+            </div>
+          )}
+        </button>
       </div>
     </div>
   )

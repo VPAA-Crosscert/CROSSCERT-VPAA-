@@ -20,7 +20,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <link rel="icon" href="/crosscert-logo.png" type="image/png" />
       </head>
-      <body className={`${geistSans.className} font-sans`}>
+      <body className={`${geistSans.className} font-sans`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           {children}
         </ThemeProvider>
@@ -30,5 +30,5 @@ export default function RootLayout({
 }
 
 export const metadata = {
-      generator: 'v0.app'
-    };
+  generator: 'v0.app'
+};

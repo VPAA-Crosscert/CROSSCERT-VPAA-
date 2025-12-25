@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Edit, Trash2, Eye, Calendar, MapPin, Search, ChevronDown } from 'lucide-react'
+import { Plus, Edit, Trash2, Eye, Calendar, MapPin, Search, ChevronDown, X, Sparkles, Filter } from 'lucide-react'
 import { adminApi, apiCall } from '@/lib/api-config'
 
 type AdminEvent = {
@@ -38,15 +38,15 @@ const DEPARTMENT_ABBR = {
   'School of Teacher Education': 'STE',
 }
 
-const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  'CCJE': { bg: 'bg-red-500', border: 'border-red-500', text: 'text-white' },
-  'CET': { bg: 'bg-orange-500', border: 'border-orange-500', text: 'text-white' },
-  'CHATME': { bg: 'bg-gray-500', border: 'border-gray-500', text: 'text-white' },
-  'HUSOCOM': { bg: 'bg-fuchsia-500', border: 'border-fuchsia-500', text: 'text-white' },
-  'COME': { bg: 'bg-sky-500', border: 'border-sky-500', text: 'text-white' },
-  'SBME': { bg: 'bg-yellow-500', border: 'border-yellow-500', text: 'text-black' },
-  'STE': { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-white' },
-  'HCDC': { bg: 'bg-primary', border: 'border-primary', text: 'text-primary-foreground' },
+const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; glow: string }> = {
+  'CCJE': { bg: 'bg-red-500', border: 'border-red-500', text: 'text-white', glow: 'shadow-red-500/50' },
+  'CET': { bg: 'bg-orange-500', border: 'border-orange-500', text: 'text-white', glow: 'shadow-orange-500/50' },
+  'CHATME': { bg: 'bg-neutral-500', border: 'border-neutral-500', text: 'text-white', glow: 'shadow-neutral-500/50' },
+  'HUSOCOM': { bg: 'bg-fuchsia-500', border: 'border-fuchsia-500', text: 'text-white', glow: 'shadow-fuchsia-500/50' },
+  'COME': { bg: 'bg-sky-500', border: 'border-sky-500', text: 'text-white', glow: 'shadow-sky-500/50' },
+  'SBME': { bg: 'bg-yellow-500', border: 'border-yellow-500', text: 'text-black', glow: 'shadow-yellow-500/50' },
+  'STE': { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-white', glow: 'shadow-blue-600/50' },
+  'HCDC': { bg: 'bg-red-600', border: 'border-red-600', text: 'text-white', glow: 'shadow-red-600/50' },
 }
 
 const getDepartmentAbbr = (fullName: string): string | null => {
@@ -80,20 +80,14 @@ export default function AdminEvents() {
     const fetchEvents = async () => {
       try {
         const eventsUrl = adminApi.events().endsWith('/') ? adminApi.events() : `${adminApi.events()}/`
-        console.log('[Events List] Fetching events from:', eventsUrl)
         const res = await apiCall.get(eventsUrl)
 
-        console.log('[Events List] Response status:', res.status, res.statusText)
-
         if (!res.ok) {
-          console.error('[Events List] Unable to load events. Status:', res.status, res.statusText)
           const existing = localStorage.getItem('crosscert_local_events')
           if (existing) {
             const list = JSON.parse(existing) as AdminEvent[]
-            console.log('[Events List] Using localStorage fallback, events count:', list.length)
             setEvents(Array.isArray(list) ? list : [])
           } else {
-            console.log('[Events List] No localStorage fallback available')
             setEvents([])
           }
           return
@@ -102,9 +96,7 @@ export default function AdminEvents() {
         let data: unknown = []
         try {
           data = await res.json()
-          console.log('[Events List] Raw API response:', data)
         } catch {
-          console.error('[Events List] Events API did not return JSON.')
           setEvents([])
           return
         }
@@ -173,7 +165,6 @@ export default function AdminEvents() {
     return normalized
   }
 
-  // Fixed school years from 2021-2022 to 2025-2026
   const availableSchoolYears = ['ALL', '2025-2026', '2024-2025', '2023-2024', '2022-2023', '2021-2022']
 
   const filteredEvents = useMemo(() => {
@@ -183,7 +174,6 @@ export default function AdminEvents() {
 
       if (!matchesSearch) return false
 
-      // Category filter
       if (selectedCategory !== 'ALL') {
         const eventCategory = getCategoryFromEvent(event)
         if (selectedCategory === 'HCDC') {
@@ -193,13 +183,11 @@ export default function AdminEvents() {
         }
       }
 
-      // Semester filter
       if (selectedSemester !== 'ALL') {
         const eventSemester = getSemester(event.date || '')
         if (eventSemester !== selectedSemester) return false
       }
 
-      // Month filter
       if (selectedMonth !== 'ALL') {
         const eventMonth = getMonth(event.date || '')
         if (eventMonth !== selectedMonth) return false
@@ -214,10 +202,9 @@ export default function AdminEvents() {
     })
   }, [events, searchTerm, selectedCategory, selectedSemester, selectedMonth, selectedSchoolYear])
 
-  // Split events into upcoming and past
   const { upcomingEvents, pastEvents } = useMemo(() => {
     const now = new Date()
-    now.setHours(0, 0, 0, 0) // Start of today
+    now.setHours(0, 0, 0, 0)
 
     const upcoming: AdminEvent[] = []
     const past: AdminEvent[] = []
@@ -237,7 +224,6 @@ export default function AdminEvents() {
           past.push(event)
         }
       } else {
-        // Events without dates go to upcoming
         upcoming.push(event)
       }
     })
@@ -245,7 +231,6 @@ export default function AdminEvents() {
     return { upcomingEvents: upcoming, pastEvents: past }
   }, [filteredEvents])
 
-  // Group upcoming events by month
   const upcomingEventsByMonth = useMemo(() => {
     const grouped: Record<string, AdminEvent[]> = {}
     upcomingEvents.forEach(event => {
@@ -256,7 +241,6 @@ export default function AdminEvents() {
       grouped[month].push(event)
     })
 
-    // Sort months chronologically
     const monthOrder = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
       'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
     const sorted: Record<string, AdminEvent[]> = {}
@@ -278,7 +262,6 @@ export default function AdminEvents() {
     return sorted
   }, [upcomingEvents])
 
-  // Group past events by month
   const pastEventsByMonth = useMemo(() => {
     const grouped: Record<string, AdminEvent[]> = {}
     pastEvents.forEach(event => {
@@ -298,12 +281,12 @@ export default function AdminEvents() {
       if (aIdx === -1 && bIdx === -1) return 0
       if (aIdx === -1) return 1
       if (bIdx === -1) return -1
-      return bIdx - aIdx // Reverse order for past events
+      return bIdx - aIdx
     }).forEach(month => {
       sorted[month] = grouped[month].sort((a, b) => {
         const dateA = new Date(a.date || '').getTime()
         const dateB = new Date(b.date || '').getTime()
-        return dateB - dateA // Reverse order for past events
+        return dateB - dateA
       })
     })
 
@@ -327,29 +310,19 @@ export default function AdminEvents() {
     selectedMonth !== 'ALL' || selectedSchoolYear !== 'ALL' || searchTerm !== ''
 
   const handleDelete = async (id: number | string) => {
-    console.log('[Delete Event] Deleting event with ID:', id)
     setShowDeleteConfirm(null)
 
     try {
       const eventUrl = adminApi.eventById(id)
-      console.log('[Delete Event] Deleting from API:', eventUrl)
-
       const response = await apiCall.delete(eventUrl)
-      console.log('[Delete Event] Delete response status:', response.status, response.statusText)
 
       if (!response.ok) {
-        console.error('[Delete Event] Failed to delete from API:', response.status, response.statusText)
-        const errorText = await response.text().catch(() => 'Unknown error')
-        console.error('[Delete Event] Error details:', errorText)
         alert(`Failed to delete event: ${response.status} ${response.statusText}`)
         return
       }
 
-      console.log('[Delete Event] ✅ Successfully deleted from API')
-
       const remaining = events.filter(e => String(e.id) !== String(id))
       setEvents(remaining)
-      console.log('[Delete Event] Updated local state, remaining events:', remaining.length)
 
       try {
         const existing = localStorage.getItem('crosscert_local_events')
@@ -357,57 +330,86 @@ export default function AdminEvents() {
           const list = JSON.parse(existing) as AdminEvent[]
           const filtered = list.filter(e => String(e.id) !== String(id))
           localStorage.setItem('crosscert_local_events', JSON.stringify(filtered))
-          console.log('[Delete Event] Cleaned up localStorage')
         }
       } catch (lsErr) {
-        console.warn('[Delete Event] Could not update localStorage:', lsErr)
+        console.warn('Could not update localStorage:', lsErr)
       }
     } catch (err: any) {
-      console.error('[Delete Event] Error during delete:', err)
       alert(`Failed to delete event: ${err.message || 'Unknown error'}`)
     }
   }
 
   return (
-    <div className="p-4 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Manage Events</h1>
-          <p className="text-muted-foreground mt-1">View and manage all events</p>
+    <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 p-6 space-y-8 max-w-[1800px] mx-auto animate-in fade-in duration-500">
+      {/* Premium Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-8 shadow-sm">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-red-500/10 via-rose-500/5 to-transparent rounded-full blur-3xl -mr-48 -mt-48" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <Sparkles className="w-8 h-8 text-red-500" />
+              <h1 className="text-4xl font-extrabold text-neutral-900 dark:text-white tracking-tight">Manage Events</h1>
+            </div>
+            <p className="text-neutral-500 dark:text-neutral-400 text-lg">View, organize, and manage all your events</p>
+            <div className="flex items-center gap-4 mt-4">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">{events.length} Total Events</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <Calendar className="w-4 h-4 text-red-600 dark:text-red-400" />
+                <span className="text-sm font-medium text-red-600 dark:text-red-400">{upcomingEvents.length} Upcoming</span>
+              </div>
+            </div>
+          </div>
+          <Button
+            className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white gap-2 shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all hover:scale-105"
+            size="lg"
+            onClick={() => router.push('/admin/events/create')}
+          >
+            <Plus className="w-5 h-5" />
+            Create Event
+          </Button>
         </div>
-        <Button
-          className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
-          onClick={() => router.push('/admin/events/create')}
-        >
-          <Plus className="w-4 h-4" />
-          Create Event
-        </Button>
       </div>
 
-      {/* Search Bar - Full Width */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+      {/* Enhanced Search Bar */}
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-neutral-400 group-focus-within:text-red-500 transition-colors" />
+        </div>
         <Input
-          placeholder="Search events..."
+          placeholder="Search events by name..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 bg-background border-border text-foreground h-12 text-base"
+          className="pl-12 pr-12 h-14 text-lg bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all shadow-sm"
         />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
-      {/* Categories Filter - Top Horizontal */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <label className="text-sm font-semibold text-foreground">Categories</label>
+      {/* Enhanced Category Filter */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-neutral-500" />
+            <label className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">Categories</label>
+          </div>
           {hasActiveFilters && (
             <Button
               variant="ghost"
               size="sm"
               onClick={clearFilters}
-              className="text-xs text-muted-foreground hover:text-foreground"
+              className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
-              Clear Filters
+              <X className="w-3 h-3 mr-1" />
+              Clear All Filters
             </Button>
           )}
         </div>
@@ -424,13 +426,13 @@ export default function AdminEvents() {
                 onClick={() => setSelectedCategory(cat)}
                 className={`
                   ${isSelected && colors
-                    ? `${colors.bg} ${colors.text} border-0 hover:opacity-90`
+                    ? `${colors.bg} ${colors.text} border-0 shadow-lg ${colors.glow} hover:opacity-90 scale-105`
                     : isSelected
-                      ? 'bg-secondary text-secondary-foreground'
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-500/30 hover:bg-red-700 scale-105'
                       : colors
-                        ? `${colors.border} border-2 bg-white dark:bg-card text-foreground hover:bg-muted`
-                        : 'border-border text-foreground'}
-                  font-medium transition-all
+                        ? `${colors.border} border-2 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800`
+                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'}
+                  font-semibold transition-all duration-200 hover:scale-105
                 `}
               >
                 {cat === 'HCDC' ? 'HCDC EVENTS' : cat}
@@ -440,55 +442,64 @@ export default function AdminEvents() {
         </div>
       </div>
 
-      {/* Main Layout: Semesters (Left) | Events (Center) | Months (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
-        {/* Semesters Filter - Left Column */}
+      {/* Main Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Sidebar - Semesters */}
         <div className="lg:col-span-2 space-y-2 order-2 lg:order-1">
-          <label className="text-sm font-semibold text-foreground block">Semesters</label>
+          <label className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide block mb-3">Semesters</label>
           <div className="space-y-1">
             {semesters.map((sem) => (
               <button
                 key={sem}
                 onClick={() => setSelectedSemester(sem)}
                 className={`
-                  w-full text-left px-4 py-2 rounded-md transition-all
+                  w-full text-left px-4 py-3 rounded-lg transition-all font-medium
                   ${selectedSemester === sem
-                    ? 'bg-secondary text-secondary-foreground font-semibold'
-                    : 'text-foreground hover:bg-muted'}
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-500/30'
+                    : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700'}
                   flex items-center gap-2
                 `}
               >
-                <span className={`w-2 h-2 rounded-full ${selectedSemester === sem ? 'bg-secondary-foreground' : 'bg-muted-foreground'}`} />
+                <span className={`w-2 h-2 rounded-full ${selectedSemester === sem ? 'bg-white' : 'bg-neutral-400'}`} />
                 {sem}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Events List - Center Column */}
+        {/* Center - Events List */}
         <div className="lg:col-span-8 space-y-6 order-1 lg:order-2">
           {loading && (
-            <Card className="p-12 border border-border bg-card text-center">
-              <p className="text-muted-foreground">Loading events...</p>
-            </Card>
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-64 bg-neutral-200 dark:bg-neutral-800 rounded-2xl animate-pulse" />
+              ))}
+            </div>
           )}
 
           {/* Upcoming Events */}
           {!loading && (
             <>
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-foreground">Upcoming Events</h2>
-                <span className="text-sm text-muted-foreground">{upcomingEvents.length} event{upcomingEvents.length !== 1 ? 's' : ''}</span>
+                <h2 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                  <div className="w-1 h-8 bg-gradient-to-b from-red-600 to-rose-600 rounded-full" />
+                  Upcoming Events
+                </h2>
+                <span className="px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-sm font-semibold text-neutral-600 dark:text-neutral-300">
+                  {upcomingEvents.length} event{upcomingEvents.length !== 1 ? 's' : ''}
+                </span>
               </div>
 
               {Object.keys(upcomingEventsByMonth).length === 0 ? (
-                <Card className="p-12 border border-border bg-card text-center">
-                  <p className="text-muted-foreground">No upcoming events found matching your filters</p>
+                <Card className="p-12 border-2 border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 text-center">
+                  <Calendar className="w-16 h-16 text-neutral-300 dark:text-neutral-700 mx-auto mb-4" />
+                  <p className="text-neutral-500 dark:text-neutral-400 text-lg">No upcoming events found</p>
+                  <p className="text-neutral-400 dark:text-neutral-500 text-sm mt-2">Try adjusting your filters</p>
                 </Card>
               ) : (
                 Object.entries(upcomingEventsByMonth).map(([month, monthEvents]) => (
                   <div key={month} className="space-y-4">
-                    <h3 className="text-xl font-bold text-foreground border-b border-border pb-2">
+                    <h3 className="text-xl font-bold text-neutral-800 dark:text-neutral-200 border-l-4 border-red-500 pl-4 py-1">
                       {month}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -499,40 +510,44 @@ export default function AdminEvents() {
                         const formattedDate = eventDate
                           ? eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                           : 'TBA'
-
                         const yearOfCourse = getYearOfCourse(event)
 
                         return (
                           <Card
                             key={event.id}
-                            className="overflow-hidden border border-border bg-card hover:shadow-lg transition-all group"
+                            className="group overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
                           >
-                            {(event.coverImage || event.cover_image) ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={event.coverImage || event.cover_image || ''}
-                                alt={event.title || event.name || 'Event cover'}
-                                className="w-full aspect-video object-cover"
-                              />
-                            ) : (
-                              <div className="w-full aspect-video bg-gradient-to-br from-secondary/20 to-primary/20" />
-                            )}
-                            <div className="p-4 space-y-3">
+                            <div className="relative">
+                              {(event.coverImage || event.cover_image) ? (
+                                <div className="relative overflow-hidden">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={event.coverImage || event.cover_image || ''}
+                                    alt={event.title || event.name || 'Event cover'}
+                                    className="w-full aspect-video object-cover group-hover:scale-110 transition-transform duration-500"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                                </div>
+                              ) : (
+                                <div className="w-full aspect-video bg-gradient-to-br from-red-500/20 via-rose-500/10 to-neutral-100 dark:to-neutral-800" />
+                              )}
+                            </div>
+                            <div className="p-5 space-y-3">
                               <div className="flex items-center justify-between">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text}`}>
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${colors.bg} ${colors.text} shadow-md`}>
                                   {eventCategory}
                                 </span>
-                                <span className="text-xs text-muted-foreground font-medium">
+                                <span className="text-xs text-neutral-500 dark:text-neutral-400 font-medium px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-md">
                                   {yearOfCourse}
                                 </span>
                               </div>
 
-                              <h3 className="font-bold text-lg text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+                              <h3 className="font-bold text-lg text-neutral-900 dark:text-white line-clamp-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
                                 {event.title || event.name || 'Untitled Event'}
                               </h3>
 
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Calendar className="w-4 h-4 shrink-0" />
+                              <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                <Calendar className="w-4 h-4 shrink-0 text-red-500" />
                                 <span>{formattedDate}</span>
                                 {(event.startTime || event.start_time) && (
                                   <>
@@ -546,18 +561,17 @@ export default function AdminEvents() {
                               </div>
 
                               {(event.venue || event.location) && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <MapPin className="w-4 h-4 shrink-0" />
+                                <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                  <MapPin className="w-4 h-4 shrink-0 text-red-500" />
                                   <span className="line-clamp-1">{event.venue || event.location}</span>
                                 </div>
                               )}
 
-                              <div className="flex gap-2 pt-2">
+                              <div className="flex gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="flex-1"
-                                  title="View"
+                                  className="flex-1 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"
                                   onClick={() => router.push(`/admin/events/${event.id}`)}
                                 >
                                   <Eye className="w-4 h-4 mr-1" />
@@ -566,8 +580,7 @@ export default function AdminEvents() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="flex-1"
-                                  title="Edit"
+                                  className="flex-1 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400"
                                   onClick={() => router.push(`/admin/events/${event.id}/edit`)}
                                 >
                                   <Edit className="w-4 h-4 mr-1" />
@@ -576,8 +589,7 @@ export default function AdminEvents() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="text-destructive hover:bg-destructive/10"
-                                  title="Delete"
+                                  className="hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
                                   onClick={() => setShowDeleteConfirm(event.id)}
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -594,19 +606,24 @@ export default function AdminEvents() {
             </>
           )}
 
-          {/* Past Events Section */}
+          {/* Past Events */}
           {!loading && pastEvents.length > 0 && (
-            <div className="space-y-4 pt-8 border-t border-border">
+            <div className="space-y-4 pt-8 border-t-2 border-neutral-200 dark:border-neutral-800">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-2xl font-bold text-foreground">Past Events</h2>
-                  <span className="text-sm text-muted-foreground">{pastEvents.length} event{pastEvents.length !== 1 ? 's' : ''}</span>
+                  <h2 className="text-2xl font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-2">
+                    <div className="w-1 h-8 bg-gradient-to-b from-neutral-400 to-neutral-600 rounded-full" />
+                    Past Events
+                  </h2>
+                  <span className="px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-sm font-semibold text-neutral-600 dark:text-neutral-300">
+                    {pastEvents.length} event{pastEvents.length !== 1 ? 's' : ''}
+                  </span>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowPastEvents(!showPastEvents)}
-                  className="gap-2"
+                  className="gap-2 border-neutral-300 dark:border-neutral-700"
                 >
                   {showPastEvents ? 'Hide' : 'Show'} Past Events
                   <ChevronDown className={`w-4 h-4 transition-transform ${showPastEvents ? 'rotate-180' : ''}`} />
@@ -616,7 +633,7 @@ export default function AdminEvents() {
               {showPastEvents && (
                 Object.entries(pastEventsByMonth).map(([month, monthEvents]) => (
                   <div key={month} className="space-y-4">
-                    <h3 className="text-xl font-bold text-muted-foreground border-b border-border pb-2">
+                    <h3 className="text-xl font-bold text-neutral-600 dark:text-neutral-400 border-l-4 border-neutral-400 pl-4 py-1">
                       {month}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -627,39 +644,46 @@ export default function AdminEvents() {
                         const formattedDate = eventDate
                           ? eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                           : 'TBA'
-
                         const yearOfCourse = getYearOfCourse(event)
 
                         return (
                           <Card
                             key={event.id}
-                            className="overflow-hidden border border-border bg-card opacity-75 hover:opacity-100 hover:shadow-lg transition-all group"
+                            className="group overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white/30 dark:bg-neutral-900/30 backdrop-blur-sm opacity-75 hover:opacity-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
                           >
-                            {(event.coverImage || event.cover_image) ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={event.coverImage || event.cover_image || ''}
-                                alt={event.title || event.name || 'Event cover'}
-                                className="w-full aspect-video object-cover grayscale group-hover:grayscale-0 transition-all"
-                              />
-                            ) : (
-                              <div className="w-full aspect-video bg-gradient-to-br from-muted/20 to-muted/40" />
-                            )}
-                            <div className="p-4 space-y-3">
+                            <div className="relative">
+                              {(event.coverImage || event.cover_image) ? (
+                                <div className="relative overflow-hidden">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={event.coverImage || event.cover_image || ''}
+                                    alt={event.title || event.name || 'Event cover'}
+                                    className="w-full aspect-video object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                                  <div className="absolute top-3 right-3 px-2 py-1 bg-neutral-900/80 backdrop-blur-sm rounded-md">
+                                    <span className="text-xs font-bold text-white">COMPLETED</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-full aspect-video bg-gradient-to-br from-neutral-300/20 via-neutral-400/10 to-neutral-500/20" />
+                              )}
+                            </div>
+                            <div className="p-5 space-y-3">
                               <div className="flex items-center justify-between">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text} opacity-80`}>
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${colors.bg} ${colors.text} opacity-80`}>
                                   {eventCategory}
                                 </span>
-                                <span className="text-xs text-muted-foreground font-medium">
+                                <span className="text-xs text-neutral-500 dark:text-neutral-400 font-medium px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-md">
                                   {yearOfCourse}
                                 </span>
                               </div>
 
-                              <h3 className="font-bold text-lg text-muted-foreground line-clamp-2 group-hover:text-foreground transition-colors">
+                              <h3 className="font-bold text-lg text-neutral-600 dark:text-neutral-400 line-clamp-2 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors">
                                 {event.title || event.name || 'Untitled Event'}
                               </h3>
 
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-500">
                                 <Calendar className="w-4 h-4 shrink-0" />
                                 <span>{formattedDate}</span>
                                 {(event.startTime || event.start_time) && (
@@ -674,18 +698,17 @@ export default function AdminEvents() {
                               </div>
 
                               {(event.venue || event.location) && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-500">
                                   <MapPin className="w-4 h-4 shrink-0" />
                                   <span className="line-clamp-1">{event.venue || event.location}</span>
                                 </div>
                               )}
 
-                              <div className="flex gap-2 pt-2">
+                              <div className="flex gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="flex-1"
-                                  title="View"
                                   onClick={() => router.push(`/admin/events/${event.id}`)}
                                 >
                                   <Eye className="w-4 h-4 mr-1" />
@@ -695,7 +718,6 @@ export default function AdminEvents() {
                                   variant="ghost"
                                   size="sm"
                                   className="flex-1"
-                                  title="Edit"
                                   onClick={() => router.push(`/admin/events/${event.id}/edit`)}
                                 >
                                   <Edit className="w-4 h-4 mr-1" />
@@ -704,8 +726,7 @@ export default function AdminEvents() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="text-destructive hover:bg-destructive/10"
-                                  title="Delete"
+                                  className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                                   onClick={() => setShowDeleteConfirm(event.id)}
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -723,14 +744,14 @@ export default function AdminEvents() {
           )}
         </div>
 
-        {/* Right Sidebar - School Year and Months */}
-        <div className="lg:col-span-2 space-y-4 order-3 hidden lg:block">
+        {/* Right Sidebar */}
+        <div className="lg:col-span-2 space-y-4 order-3 hidden lg:block sticky top-6 self-start">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground block">School Year</label>
+            <label className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide block">School Year</label>
             <select
               value={selectedSchoolYear}
               onChange={(e) => setSelectedSchoolYear(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground"
+              className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white font-medium focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
             >
               {availableSchoolYears.map((sy) => (
                 <option key={sy} value={sy}>
@@ -742,7 +763,7 @@ export default function AdminEvents() {
           <div className="space-y-2">
             <button
               onClick={() => setIsMonthsOpen(!isMonthsOpen)}
-              className="w-full flex items-center justify-between text-sm font-semibold text-foreground"
+              className="w-full flex items-center justify-between text-sm font-semibold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide"
             >
               <span>Months</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${isMonthsOpen ? 'rotate-180' : 'rotate-0'}`} />
@@ -754,10 +775,10 @@ export default function AdminEvents() {
                     key={month}
                     onClick={() => setSelectedMonth(month)}
                     className={`
-                      w-full text-left px-4 py-2 rounded-full transition-all text-sm
+                      w-full text-left px-4 py-2 rounded-lg transition-all text-sm font-medium
                       ${selectedMonth === month
-                        ? 'bg-secondary text-secondary-foreground font-semibold'
-                        : 'text-foreground hover:bg-muted'}
+                        ? 'bg-red-600 text-white shadow-lg shadow-red-500/30'
+                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'}
                     `}
                   >
                     {month}
@@ -769,24 +790,32 @@ export default function AdminEvents() {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Enhanced Delete Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 border border-border bg-card max-w-sm mx-4">
-            <h2 className="text-lg font-bold text-foreground mb-2">Delete Event</h2>
-            <p className="text-muted-foreground mb-6">Are you sure you want to delete this event? This action cannot be undone.</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <Card className="p-8 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 max-w-md mx-4 shadow-2xl">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Delete Event</h2>
+                <p className="text-neutral-600 dark:text-neutral-400">Are you sure you want to delete this event? This action cannot be undone.</p>
+              </div>
+            </div>
             <div className="flex gap-3 justify-end">
               <Button
                 variant="outline"
                 onClick={() => setShowDeleteConfirm(null)}
+                className="border-neutral-300 dark:border-neutral-700"
               >
                 Cancel
               </Button>
               <Button
-                variant="destructive"
+                className="bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => handleDelete(showDeleteConfirm)}
               >
-                Delete
+                Delete Event
               </Button>
             </div>
           </Card>
