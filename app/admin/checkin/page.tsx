@@ -185,107 +185,105 @@ export default function AdminCheckIn() {
     setShowErrorModal(true)
   }
 
-  const handleAutoScan = useCallback(async (code: string) => {
-    // Block scanning if:
-    // 1. Is already processing
-    // 2. Success modal is open
-    // 3. Error modal is open
-    // 4. Not Started modal is open
-    if (isProcessingScan || showSuccess || showErrorModal || showNotStartedModal) {
-      return
-    }
-
+  // New Handler: Just capture the code, don't submit yet
+  const handleCodeScanned = useCallback((code: string) => {
+    if (isProcessingScan || showSuccess || showErrorModal || showNotStartedModal) return
     if (!selectedEvent) {
       showError('Please select an event first')
       return
     }
-
-    if (!scannedCode || !code.trim()) {
-      return
-    }
-
-    setIsProcessingScan(true)
     setScannedCode(code)
+    // Optional: Add a small beep or visual feedback here that code was captured
+  }, [isProcessingScan, showSuccess, showErrorModal, showNotStartedModal, selectedEvent])
 
-    // 1. Verify Event ID from QR (Format: REG-{eventId}-{email})
-    const qrParts = code.trim().split('-')
+  const processCheckIn = async () => {
+    if (!selectedEvent || !scannedCode) return
+    setIsProcessingScan(true)
+
+    // Validate Event ID match
+    const qrParts = scannedCode.trim().split('-')
     if (qrParts.length >= 3 && qrParts[0] === 'REG') {
       const qrEventId = qrParts[1]
       if (qrEventId !== selectedEvent) {
-        const correctEvent = events.find(e => e.id.toString() === qrEventId)
-        const eventName = correctEvent ? correctEvent.title : `Event #${qrEventId}` || 'another event'
-        showError(`It's the wrong QR, it's for the ${eventName} QR.`)
-        setTimeout(() => setIsProcessingScan(false), 2500)
+        showError(`This ticket belongs to a different event (ID: ${qrEventId}).`)
+        setIsProcessingScan(false)
         return
       }
     }
 
-    const event = events.find(e => e.id.toString() === selectedEvent)
-    const isCompleted = event?.status?.toLowerCase() === 'completed'
-
-    const action = isCompleted ? 'check-out' : 'check-in'
-    const endpoint = isCompleted
-      ? `${api.checkIns()}check-out-by-code/`
-      : `${api.checkIns()}check-in-by-code/`
-
     try {
-      const res = await apiCall.post(endpoint, {
-        code: code.trim(),
+      const res = await apiCall.post(`${api.checkIns()}check-in-by-code/`, {
+        code: scannedCode.trim(),
       })
       const data = await res.json()
 
       if (!res.ok) {
-        // Special Handling for "Already checked in"
-        if (data.message?.toLowerCase().includes('already checked in') || data.error?.toLowerCase().includes('already checked in') ||
-          data.message?.toLowerCase().includes('already present') || data.error?.toLowerCase().includes('already present')) {
-          setParticipantName(`${data.participant_name ?? 'Participant'}`)
-          setShowSuccess(true)
-          setLastAction(action)
-          toast({
-            title: 'Already Checked In',
-            description: `${data.participant_name ?? 'Participant'} is already checked in.`,
-            className: 'bg-green-50 border-green-200 text-green-800'
-          })
-          setTimeout(() => {
-            setScannedCode('')
-            setShowSuccess(false)
-            setIsProcessingScan(false)
-          }, 2000)
-          return
-        }
-
-        if (res.status === 404 || data.message?.toLowerCase().includes('not found') || data.error?.toLowerCase().includes('not found') || data.error?.toLowerCase().includes('does not exist')) {
-          showError("Participant doesn't exist.")
-          setTimeout(() => setIsProcessingScan(false), 2000)
-          return
-        }
-
-        showError(data.error || data.message || `Unable to ${action} participant.`)
-        setTimeout(() => setIsProcessingScan(false), 2000)
+        handleApiError(res, data, 'check-in')
         return
       }
 
-      setParticipantName(`${data.participant_name ?? 'Participant'}`)
-      await fetchEventStats()
-      setShowErrorModal(false)
-      setShowSuccess(true)
-      setLastAction(action)
-
-      toast({
-        title: `${action === 'check-in' ? 'Check-in' : 'Check-out'} Successful`,
-        description: `${data.participant_name ?? 'Participant'} has been ${action === 'check-in' ? 'checked in' : 'checked out'}.`,
-      })
-
-      setTimeout(() => {
-        setScannedCode('')
-        setShowSuccess(false)
-        setIsProcessingScan(false)
-      }, 2000)
+      handleApiSuccess(data, 'check-in')
     } catch (err) {
-      showError(`Network error while processing ${action}.`)
-      setTimeout(() => setIsProcessingScan(false), 2000)
+      showError('Network error during check-in.')
+    } finally {
+      setIsProcessingScan(false)
     }
-  }, [selectedEvent, events, scannedCode, fetchEventStats, isProcessingScan, showSuccess, showErrorModal, showNotStartedModal])
+  }
+
+  const processCheckOut = async () => {
+    if (!selectedEvent || !scannedCode) return
+    setIsProcessingScan(true)
+
+    try {
+      const res = await apiCall.post(`${api.checkIns()}check-out-by-code/`, {
+        code: scannedCode.trim(),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        handleApiError(res, data, 'check-out')
+        return
+      }
+
+      handleApiSuccess(data, 'check-out')
+    } catch (err) {
+      showError('Network error during check-out.')
+    } finally {
+      setIsProcessingScan(false)
+    }
+  }
+
+  // Helper to handle API Success
+  const handleApiSuccess = (data: any, action: 'check-in' | 'check-out') => {
+    setParticipantName(`${data.participant_name ?? 'Participant'}`)
+    fetchEventStats()
+    setShowSuccess(true)
+    setLastAction(action)
+    toast({
+      title: `${action === 'check-in' ? 'Check-in' : 'Check-out'} Successful`,
+      description: `${data.participant_name ?? 'Participant'} has been ${action === 'check-in' ? 'checked in' : 'checked out'}.`,
+    })
+
+    // Clear code after success
+    setScannedCode('')
+    setTimeout(() => {
+      setShowSuccess(false)
+    }, 2000)
+  }
+
+  // Helper to handle API Errors
+  const handleApiError = (res: any, data: any, action: 'check-in' | 'check-out') => {
+    if (res.status === 404 || data.message?.toLowerCase().includes('not found')) {
+      showError("Participant ticket not found.")
+      return
+    }
+    if (data.message?.includes('Already checked in') || data.message?.includes('Already checked out')) {
+      toast({ title: "Notice", description: data.message, className: "bg-yellow-50 text-yellow-800 border-yellow-200" })
+      setScannedCode('') // Clear code to prevent loop
+      return
+    }
+    showError(data.error || data.message || `Unable to ${action} participant.`)
+  }
 
   const startCamera = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -371,27 +369,40 @@ export default function AdminCheckIn() {
           const startScanning = setTimeout(() => {
             scanIntervalRef.current = setInterval(() => {
               const isReady = video.readyState === video.HAVE_ENOUGH_DATA
+
+              // Fallback dimensions if canvas size is 0
+              if (canvas.width === 0 || canvas.height === 0) {
+                if (video.videoWidth) {
+                  canvas.width = video.videoWidth
+                  canvas.height = video.videoHeight
+                }
+              }
+
               const hasValidSize = canvas.width > 0 && canvas.height > 0
               const notProcessing = !isProcessingScan
+
+              // Only scan if no modals are open
               const canScan = !showSuccess && !showErrorModal && !showNotStartedModal
 
               if (isReady && hasValidSize && notProcessing && canScan) {
                 try {
                   context.drawImage(video, 0, 0, canvas.width, canvas.height)
                   const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+                  // Attempt both normal and inverted (for dark mode) QR codes
                   const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: 'dontInvert',
+                    inversionAttempts: 'attemptBoth',
                   })
 
                   if (code && code.data && code.data.trim() !== '') {
-                    handleAutoScan(code.data)
+                    // CHANGED: Instead of handleAutoScan, we just capture the code
+                    handleCodeScanned(code.data)
                   }
                 } catch (e) {
-                  // ignore
+                  // ignore frame read errors
                 }
               }
-            }, 500)
-          }, 1000)
+            }, 150) // Faster scanning interval 150ms
+          }, 500) // Shorter startup delay
 
           return () => {
             clearTimeout(startScanning)
@@ -404,11 +415,10 @@ export default function AdminCheckIn() {
     } else {
       if (scanIntervalRef.current) clearInterval(scanIntervalRef.current)
     }
-  }, [cameraActive, handleAutoScan, isProcessingScan, showSuccess, showErrorModal, showNotStartedModal])
+  }, [cameraActive, handleCodeScanned, isProcessingScan, showSuccess, showErrorModal, showNotStartedModal])
 
   const handleManualScan = () => {
-    // Reuse auto scan logic for now, but triggered manually
-    handleAutoScan(scannedCode)
+    // Redundant now, kept for safety or if needed
   }
 
   const attendanceRate = totalExpected > 0 ? Math.min(100, Math.round((checkedInCount / totalExpected) * 100)) : 0
@@ -610,19 +620,36 @@ export default function AdminCheckIn() {
               </div>
             )}
 
-            {/* Manual Check-in */}
-            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter ticket code manually..."
-                  value={scannedCode}
-                  onChange={(e) => setScannedCode(e.target.value)}
-                  className="bg-white dark:bg-neutral-900"
-                />
-                <Button onClick={handleManualScan} disabled={!selectedEvent || !scannedCode}>
-                  Check In
+            {/* Manual Action Buttons */}
+            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-4">
+              <Input
+                placeholder="Scanned code will appear here..."
+                value={scannedCode}
+                onChange={(e) => setScannedCode(e.target.value)}
+                className="bg-white dark:bg-neutral-900 text-center font-mono text-lg tracking-wider"
+              />
+
+              {selectedEvent && events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() === 'live' && (
+                <Button
+                  onClick={processCheckIn}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-6 shadow-lg shadow-green-500/20"
+                  disabled={!scannedCode}
+                >
+                  <CheckCircle2 className="w-6 h-6 mr-2" />
+                  CHECK IN PARTICIPANT
                 </Button>
-              </div>
+              )}
+
+              {selectedEvent && events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() === 'completed' && (
+                <Button
+                  onClick={processCheckOut}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-6 shadow-lg shadow-blue-500/20"
+                  disabled={!scannedCode}
+                >
+                  <CheckCircle2 className="w-6 h-6 mr-2" />
+                  CHECK OUT PARTICIPANT
+                </Button>
+              )}
             </div>
           </Card>
         </div>
