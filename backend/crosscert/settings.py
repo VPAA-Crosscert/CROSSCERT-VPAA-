@@ -37,6 +37,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.gzip.GZipMiddleware',  # Added for response compression
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -78,6 +79,8 @@ DATABASES = {
         'PASSWORD': 'npg_eTZK5ghob4zC',
         'HOST': 'ep-round-surf-a1af8ypj-pooler.ap-southeast-1.aws.neon.tech',
         'PORT': '5432',
+        # Optimization: Keep connection open for 10 minutes to reduce SSL handshake overhead
+        'CONN_MAX_AGE': 600,
         'OPTIONS': {
             'sslmode': 'require',
             'channel_binding': 'require',
