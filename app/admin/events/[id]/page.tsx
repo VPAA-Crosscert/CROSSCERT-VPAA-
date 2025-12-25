@@ -1,15 +1,16 @@
 'use client'
 
 import { useRouter, useParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield } from 'lucide-react'
+import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield, X, Search, FileDown, Printer } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { getEventById, Event } from '@/lib/event-context'
 import { api, apiCall, adminApi } from '@/lib/api-config'
 
-// Define the precise color palette from user request
+// Define the precise color palette
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; gradient: string }> = {
   'STE': { bg: 'bg-blue-600', text: 'text-blue-100', border: 'border-blue-400', gradient: 'from-blue-600 to-blue-900' },
   'CET': { bg: 'bg-orange-600', text: 'text-orange-100', border: 'border-orange-400', gradient: 'from-orange-600 to-orange-900' },
@@ -45,13 +46,34 @@ const getCategoryFromEvent = (event: Event): string => {
   return deptAbbr || 'HCDC'
 }
 
+interface Registration {
+  id: number
+  first_name: string
+  last_name: string
+  email: string
+  affiliation: string
+  is_present: boolean
+  has_evaluated?: boolean
+  created_at?: string
+}
+
 export default function AdminEventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false)
   const [showConcludeConfirm, setShowConcludeConfirm] = useState<boolean>(false)
 
-  // Countdown Logic - Moved up to fix Rules of Hooks
+  // Real Data States
+  const [registrations, setRegistrations] = useState<Registration[]>([])
+  const [registrationsLoading, setRegistrationsLoading] = useState<boolean>(false)
+  const [searchTerm, setSearchTerm] = useState<string>('')
+
+  // Modal States
+  const [showParticipantsModal, setShowParticipantsModal] = useState<boolean>(false)
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState<boolean>(false)
+  const [selectedParticipant, setSelectedParticipant] = useState<Registration | null>(null)
+
+  // Countdown Logic
   const [timeLeft, setTimeLeft] = useState<{ days: number, hours: number, minutes: number, seconds: number } | null>(null)
 
   useEffect(() => {
@@ -86,7 +108,7 @@ export default function AdminEventDetailPage() {
       setTimeLeft(calculateTimeLeft())
     }, 1000)
 
-    setTimeLeft(calculateTimeLeft()) // Initial call
+    setTimeLeft(calculateTimeLeft())
 
     return () => clearInterval(timer)
   }, [event])
@@ -97,9 +119,10 @@ export default function AdminEventDetailPage() {
   useEffect(() => {
     const eventId = params.id as string
 
-    async function fetchEvent() {
+    async function fetchEventAndData() {
       setLoading(true)
       try {
+        // Fetch Event
         const eventUrl = adminApi.eventById(eventId)
         const response = await apiCall.get(eventUrl)
 
@@ -107,21 +130,56 @@ export default function AdminEventDetailPage() {
           const apiEvent = await response.json()
           setEvent(apiEvent as Event)
         } else {
-          // Fallback to local
           const localEvent = getEventById(eventId)
-          if (localEvent) {
-            setEvent(localEvent)
-          }
+          if (localEvent) setEvent(localEvent)
+        }
+
+        // Fetch Registrations (Data for Modals)
+        setRegistrationsLoading(true)
+        const regsUrl = `${api.registrations()}?event=${eventId}`
+        const regsResponse = await apiCall.get(regsUrl)
+        if (regsResponse.ok) {
+          const data = await regsResponse.json()
+          setRegistrations(Array.isArray(data) ? data : data.results || [])
         }
       } catch (error) {
         console.error('Error fetching event details:', error)
       } finally {
         setLoading(false)
+        setRegistrationsLoading(false)
       }
     }
 
-    fetchEvent()
+    fetchEventAndData()
   }, [params.id])
+
+  // Compute Analytics
+  const analytics = useMemo(() => {
+    const total = registrations.length
+    const present = registrations.filter(r => r.is_present).length
+    // const evaluated = registrations.filter(r => r.has_evaluated).length // Mock if property missing
+    const rate = total > 0 ? ((present / total) * 100).toFixed(1) : '0'
+
+    const deptCounts: Record<string, number> = {}
+    registrations.forEach(r => {
+      const dept = r.affiliation || 'Unknown'
+      deptCounts[dept] = (deptCounts[dept] || 0) + 1
+    })
+
+    return { total, present, rate, deptCounts }
+  }, [registrations])
+
+  // Filtered Participants
+  const filteredParticipants = useMemo(() => {
+    if (!searchTerm) return registrations
+    const term = searchTerm.toLowerCase()
+    return registrations.filter(r =>
+      r.first_name.toLowerCase().includes(term) ||
+      r.last_name.toLowerCase().includes(term) ||
+      r.email.toLowerCase().includes(term) ||
+      r.affiliation?.toLowerCase().includes(term)
+    )
+  }, [registrations, searchTerm])
 
   const handleDelete = async () => {
     if (!event) return
@@ -135,9 +193,7 @@ export default function AdminEventDetailPage() {
 
   const handleConclude = async () => {
     if (!event) return
-    // Assuming a status update endpoint or patch
     try {
-      // Mock implementation for now as specific conclude endpoint might not be exposed yet
       alert('Event marked as concluded (mock).')
       setShowConcludeConfirm(false)
       router.refresh()
@@ -146,7 +202,7 @@ export default function AdminEventDetailPage() {
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">Loading event experience...</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white animate-pulse">Loading event experience...</div>
   if (!event) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">Event not found</div>
 
   const eventCategory = getCategoryFromEvent(event)
@@ -173,9 +229,8 @@ export default function AdminEventDetailPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
 
         {/* Content */}
-        <div className="absolute inset-0 flex flex-col justify-end pb-12 md:pb-20 px-6 md:px-12 max-w-[1700px] mx-auto">
+        <div className="absolute inset-0 flex flex-col justify-end pb-12 md:pb-24 px-6 md:px-12 max-w-[1700px] mx-auto">
 
-          {/* Top Nav Placeholder */}
           <div className="absolute top-8 left-6 md:left-12">
             <Button variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10 backdrop-blur-md rounded-full px-6" onClick={() => router.back()}>
               <ArrowLeft className="w-5 h-5 mr-2" /> Back to Dashboard
@@ -185,7 +240,6 @@ export default function AdminEventDetailPage() {
           <div className="w-full flex flex-col md:flex-row items-end justify-between gap-12">
             <div className="flex-1 space-y-6 animate-in slide-in-from-bottom-10 duration-700">
 
-              {/* Category Pill */}
               <div className="flex items-center gap-3">
                 <Badge className={`${colors.bg} text-white hover:${colors.bg} border-none px-4 py-1.5 text-sm uppercase tracking-widest font-bold shadow-lg shadow-black/20`}>
                   {eventCategory}
@@ -195,8 +249,8 @@ export default function AdminEventDetailPage() {
                     Concluded
                   </Badge>
                 )}
-                <Badge variant="outline" className={`${event.isPublic ? 'border-green-400 text-green-400' : 'border-amber-400 text-amber-400'} px-3 py-1.5 uppercase tracking-wide text-xs font-bold bg-black/20 backdrop-blur-md`}>
-                  {event.isPublic ? 'Public Event' : 'Private'}
+                <Badge variant="outline" className={`${(event.isPublic || (event as any).is_public) ? 'border-green-400 text-green-400' : 'border-amber-400 text-amber-400'} px-3 py-1.5 uppercase tracking-wide text-xs font-bold bg-black/20 backdrop-blur-md`}>
+                  {(event.isPublic || (event as any).is_public) ? 'Public Event' : 'Private'}
                 </Badge>
               </div>
 
@@ -243,11 +297,32 @@ export default function AdminEventDetailPage() {
       </div>
 
       {/* 2. BENTO LAYOUT CONTENT */}
-      <div className="max-w-[1700px] mx-auto px-6 md:px-12 -mt-24 relative z-10 pb-24">
+      {/* Adjusted negative margin -mt-16 */}
+      <div className="max-w-[1700px] mx-auto px-6 md:px-12 -mt-16 relative z-10 pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
           {/* MAIN CONTENT (Left 8) */}
           <div className="lg:col-span-8 flex flex-col gap-8">
+
+            {/* Extended Details Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-none rounded-2xl shadow-lg flex flex-col items-center justify-center text-center">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Semester</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{event.semester || '1st Semester'}</p>
+              </Card>
+              <Card className="p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-none rounded-2xl shadow-lg flex flex-col items-center justify-center text-center">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">School Year</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{event.school_year || '2025-2026'}</p>
+              </Card>
+              <Card className="p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-none rounded-2xl shadow-lg flex flex-col items-center justify-center text-center">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Capacity</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{event.capacity || 'Unlimited'}</p>
+              </Card>
+              <Card className="p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-none rounded-2xl shadow-lg flex flex-col items-center justify-center text-center">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Access</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{event.isPaidEvent ? 'Paid Ticket' : 'Free Entry'}</p>
+              </Card>
+            </div>
 
             {/* About Card */}
             <Card className="p-8 md:p-10 border-none shadow-2xl bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-xl rounded-[2.5rem]">
@@ -288,31 +363,20 @@ export default function AdminEventDetailPage() {
               </Card>
 
               <div className="flex flex-col gap-6">
-                {/* Visual Venue Tile */}
-                <Card className="flex-1 p-6 border-none shadow-xl bg-neutral-900 dark:bg-black rounded-[2rem] text-white relative overflow-hidden group">
-                  <img
-                    src={event.coverImage || "/placeholder-venue.jpg"}
-                    className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700"
-                    alt="Venue"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-                  <div className="relative z-10 h-full flex flex-col justify-end">
-                    <p className="text-neutral-400 text-xs uppercase tracking-widest font-bold mb-1">Venue</p>
-                    <p className="text-2xl font-bold">{event.venue || event.location}</p>
-                  </div>
-                </Card>
+
+                {/* Visual Venue Tile - REMOVED AS REQUESTED */}
 
                 {/* Participation Tile */}
-                <Card className="p-6 border-none shadow-xl bg-white dark:bg-neutral-900 rounded-[2rem] flex items-center justify-between">
-                  <div>
-                    <p className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-1">Total Registrations</p>
-                    <p className="text-4xl font-black text-neutral-900 dark:text-white tracking-tighter">
-                      {event.registration_count || 0}<span className="text-lg text-neutral-400 font-medium">/{event.capacity || '∞'}</span>
-                    </p>
+                <Card className="flex-1 p-6 border-none shadow-xl bg-white dark:bg-neutral-900 rounded-[2rem] flex flex-col justify-center">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-neutral-500 text-xs uppercase tracking-widest font-bold">Total Registrations</p>
+                    <div className={`w-10 h-10 rounded-full ${colors.bg} bg-opacity-10 flex items-center justify-center`}>
+                      <Ticket className={`w-5 h-5 ${colors.text.replace('100', '600')}`} />
+                    </div>
                   </div>
-                  <div className={`w-12 h-12 rounded-full ${colors.bg} bg-opacity-10 flex items-center justify-center`}>
-                    <Ticket className={`w-6 h-6 ${colors.text.replace('100', '600')}`} />
-                  </div>
+                  <p className="text-5xl font-black text-neutral-900 dark:text-white tracking-tighter">
+                    {analytics.total}<span className="text-lg text-neutral-400 font-medium ml-2">/{event.capacity || '∞'}</span>
+                  </p>
                 </Card>
               </div>
 
@@ -353,7 +417,7 @@ export default function AdminEventDetailPage() {
 
                       <div className="grid grid-cols-2 gap-3">
                         <Button
-                          onClick={() => alert('View Participants functionality coming soon!')}
+                          onClick={() => setShowParticipantsModal(true)}
                           variant="outline"
                           className="h-12 border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 text-xs font-bold uppercase tracking-wider"
                         >
@@ -361,7 +425,7 @@ export default function AdminEventDetailPage() {
                         </Button>
 
                         <Button
-                          onClick={() => alert('Analytics Dashboard coming soon!')}
+                          onClick={() => setShowAnalyticsModal(true)}
                           variant="outline"
                           className="h-12 border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 text-xs font-bold uppercase tracking-wider"
                         >
@@ -416,6 +480,235 @@ export default function AdminEventDetailPage() {
 
         </div>
       </div>
-    </div >
+
+      {/* VIEW PARTICIPANTS MODAL */}
+      {showParticipantsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <Card className="w-full max-w-4xl mx-6 bg-white dark:bg-neutral-950 border-none rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col">
+            <div className={`flex items-center justify-between p-6 border-b border-neutral-100 dark:border-neutral-800 ${colors.bg} text-white`}>
+              <div>
+                <h2 className="text-2xl font-bold">Event Participants</h2>
+                <p className="text-white/80 text-sm">Registered Attendees for {event.name}</p>
+              </div>
+              <Button variant="ghost" onClick={() => setShowParticipantsModal(false)} className="rounded-full hover:bg-white/20 text-white">
+                <X className="w-6 h-6" />
+              </Button>
+            </div>
+
+            <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-4 bg-neutral-50 dark:bg-neutral-900">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search participants..."
+                  className="w-full pl-10 pr-4 h-10 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-black text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="text-sm text-neutral-500 font-medium">
+                {filteredParticipants.length} results
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-0">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-neutral-50 dark:bg-neutral-900 sticky top-0 z-10">
+                  <tr>
+                    <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Name</th>
+                    <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Email</th>
+                    <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Affiliation</th>
+                    <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Affiliation</th>
+                    <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Status</th>
+                    <th className="p-4 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                  {filteredParticipants.length > 0 ? (
+                    filteredParticipants.map((reg) => (
+                      <tr key={reg.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/50">
+                        <td className="p-4 font-medium">{reg.first_name} {reg.last_name}</td>
+                        <td className="p-4 text-neutral-500 text-sm">
+                          {reg.email.length > 25 ? `${reg.email.substring(0, 25)}...` : reg.email}
+                        </td>
+                        <td className="p-4"><Badge variant="outline" className="bg-neutral-50 dark:bg-neutral-900">{reg.affiliation}</Badge></td>
+                        <td className="p-4 text-right">
+                          {reg.is_present ? (
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-none">Checked In</Badge>
+                          ) : (
+                            <Badge className="bg-neutral-100 text-neutral-600 hover:bg-neutral-200 border-none">Registered</Badge>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                            onClick={() => {
+                              setSelectedParticipant(reg)
+                              setTimeout(() => window.print(), 100)
+                            }}
+                          >
+                            <Printer className="w-4 h-4 text-neutral-400" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-neutral-400 italic">
+                        {registrationsLoading ? 'Loading data...' : 'No participants found.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* DATA ANALYTICS MODAL */}
+      {showAnalyticsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <Card className="w-full max-w-5xl mx-6 bg-neutral-50 dark:bg-neutral-950 border-none rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
+            <div className={`flex items-center justify-between p-6 border-b border-neutral-100 dark:border-neutral-800 ${colors.bg} text-white`}>
+              <div>
+                <h2 className="text-2xl font-bold">Event Analytics</h2>
+                <p className="text-white/80 text-sm">Real-time insights for {event.name}</p>
+              </div>
+              <Button variant="ghost" onClick={() => setShowAnalyticsModal(false)} className="rounded-full hover:bg-white/20 text-white">
+                <X className="w-6 h-6" />
+              </Button>
+            </div>
+
+            <div className="p-8 overflow-y-auto">
+              {/* Top Stats Row */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <Card className="p-6 border-none shadow-md bg-white dark:bg-neutral-900 rounded-2xl">
+                  <p className="text-xs text-neutral-500 uppercase tracking-bold font-bold mb-2">Total Registrations</p>
+                  <p className="text-4xl font-black text-neutral-900 dark:text-white">{analytics.total}</p>
+                  <p className="text-neutral-400 text-xs font-bold mt-2">
+                    {((analytics.total / (Number(event.capacity) || 1)) * 100).toFixed(0)}% Capacity
+                  </p>
+                </Card>
+                <Card className="p-6 border-none shadow-md bg-white dark:bg-neutral-900 rounded-2xl">
+                  <p className="text-xs text-neutral-500 uppercase tracking-bold font-bold mb-2">Actual Turnout</p>
+                  <p className="text-4xl font-black text-neutral-900 dark:text-white">{analytics.present}</p>
+                  <p className="text-neutral-400 text-xs font-bold mt-2">
+                    {analytics.rate}% Attendance Rate
+                  </p>
+                </Card>
+                <Card className="p-6 border-none shadow-md bg-white dark:bg-neutral-900 rounded-2xl">
+                  <p className="text-xs text-neutral-500 uppercase tracking-bold font-bold mb-2">Departments</p>
+                  <p className="text-4xl font-black text-neutral-900 dark:text-white">{Object.keys(analytics.deptCounts).length}</p>
+                  <p className="text-neutral-400 text-xs font-bold mt-2">Active colleges</p>
+                </Card>
+                <Card className="p-6 border-none shadow-md bg-white dark:bg-neutral-900 rounded-2xl">
+                  <p className="text-xs text-neutral-500 uppercase tracking-bold font-bold mb-2">Ticket Revenue</p>
+                  <p className="text-4xl font-black text-neutral-900 dark:text-white">
+                    {event.isPaidEvent ? `₱${(analytics.total * (Number(event.ticketPrice) || 0)).toLocaleString()}` : 'Free'}
+                  </p>
+                </Card>
+              </div>
+
+              {/* Visual Charts Area */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Attendance Chart Mockup */}
+                <Card className="p-6 border-none shadow-md bg-white dark:bg-neutral-900 rounded-3xl h-[400px] flex flex-col">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg">Registration Status</h3>
+                  </div>
+                  <div className="flex-1 flex flex-col justify-center gap-4 px-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1 font-medium">
+                        <span>Registered</span>
+                        <span>{analytics.total}</span>
+                      </div>
+                      <div className="h-4 bg-neutral-100 rounded-full overflow-hidden">
+                        <div className={`h-full ${colors.bg} opacity-50`} style={{ width: '100%' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1 font-medium">
+                        <span>Checked In (Present)</span>
+                        <span>{analytics.present}</span>
+                      </div>
+                      <div className="h-4 bg-neutral-100 rounded-full overflow-hidden">
+                        <div className={`h-full ${colors.bg}`} style={{ width: `${analytics.rate}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Department Distribution */}
+                <Card className="p-6 border-none shadow-md bg-white dark:bg-neutral-900 rounded-3xl h-[400px] flex flex-col">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg">Department Distribution</h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                    {Object.entries(analytics.deptCounts)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([dept, count]) => (
+                        <div key={dept}>
+                          <div className="flex justify-between text-xs mb-1 font-bold text-neutral-500 uppercase">
+                            <span>{dept || 'External / Other'}</span>
+                            <span>{count}</span>
+                          </div>
+                          <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-neutral-800 dark:bg-white"
+                              style={{ width: `${(count / analytics.total) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* HIDDEN PRINT COMPONENT */}
+      <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-0">
+        {selectedParticipant && (
+          <div className="w-[300px] mx-auto pt-8 flex flex-col items-center font-mono text-black">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-black uppercase tracking-tight mb-2">EVENT PASS</h1>
+              <p className="text-xs uppercase tracking-widest border-b border-black pb-4 mb-4">Official Verification</p>
+              <h2 className="text-lg font-bold leading-tight mb-1">{event.name}</h2>
+              <p className="text-xs">{new Date(event.date).toLocaleDateString()}</p>
+            </div>
+
+            <div className="border-4 border-black p-2 rounded-xl mb-6">
+              <QRCodeSVG
+                value={`REG-${event.id}-${selectedParticipant.email}`}
+                size={150}
+                level="H"
+              />
+            </div>
+
+            <div className="text-center w-full border-t border-dashed border-black pt-6">
+              <p className="text-[10px] uppercase tracking-wider mb-1">Attendee</p>
+              <p className="text-xl font-bold uppercase mb-4">{selectedParticipant.first_name} {selectedParticipant.last_name}</p>
+
+              <p className="text-[10px] uppercase tracking-wider mb-1">Affiliation</p>
+              <p className="font-bold uppercase mb-6">{selectedParticipant.affiliation}</p>
+
+              <p className="text-[10px] uppercase tracking-wider mb-2">Identifier</p>
+              <p className="bg-black text-white px-2 py-1 inline-block text-xs font-mono rounded">
+                REQ-{selectedParticipant.id}
+              </p>
+            </div>
+
+            <div className="mt-12 text-[10px] text-center opacity-50">
+              <p>Powered by CROSSCERT</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+    </div>
   )
 }

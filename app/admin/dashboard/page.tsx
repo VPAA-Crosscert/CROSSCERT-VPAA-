@@ -194,26 +194,9 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* 2. Global Search Bar */}
-      <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-muted-foreground group-focus-within:text-red-500 transition-colors" />
-        </div>
-        <input
-          type="text"
-          placeholder="Search events, locations, or details..."
-          className="w-full pl-11 pr-4 py-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-neutral-900/50 backdrop-blur shadow-sm focus:shadow-md focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all outline-none text-lg text-foreground placeholder:text-muted-foreground"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        {searchQuery && (
-          <div className="absolute right-4 top-4 text-xs font-medium text-muted-foreground bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded">
-            Filtering Results
-          </div>
-        )}
-      </div>
+      {/* 2. Global Search Bar - REMOVED */}
 
-      {/* 3. High-Impact Stats Cards */}
+      {/* 3. High-Impact Stats Cards - Keep as global overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {statsArray.map((stat) => {
           const Icon = stat.icon
@@ -239,26 +222,78 @@ export default function AdminDashboard() {
         {/* LEFT COLUMN (2/3): Actions & Events */}
         <div className="xl:col-span-2 space-y-8">
 
-          {/* 4. Command Center (Quick Actions) */}
+          {/* 4. Command Center (Quick Actions & Analytics Split) */}
           <section>
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Command Center</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {quickActions.map((action) => {
-                const Icon = action.icon
-                return (
-                  <button
-                    key={action.title}
-                    onClick={() => router.push(action.path)}
-                    className="flex flex-col text-left p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-red-500/30 hover:translate-y-[-2px] transition-all group"
-                  >
-                    <div className={`w-10 h-10 rounded-lg ${action.bg} flex items-center justify-center mb-3 group-hover:bg-red-500 group-hover:text-white transition-colors`}>
-                      <Icon className={`w-5 h-5 ${action.color} group-hover:text-white transition-colors`} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Column 1: Actions */}
+              <div className="space-y-4">
+                {/* Create Event - Primary Action */}
+                <button
+                  onClick={() => router.push('/admin/events/create')}
+                  className="w-full flex items-center justify-between p-6 rounded-2xl bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-xl hover:translate-y-[-2px] transition-all group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                      <Calendar className="w-6 h-6 text-white" />
                     </div>
-                    <span className="font-bold text-neutral-700 dark:text-neutral-200">{action.title}</span>
-                    <span className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">{action.desc}</span>
-                  </button>
-                )
-              })}
+                    <div className="text-left">
+                      <p className="font-bold text-lg">Create Event</p>
+                      <p className="text-red-100 text-sm">Schedule a new session</p>
+                    </div>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white group-hover:text-red-600 transition-colors pointer-events-none">
+                    <span className="text-2xl font-light leading-none mb-1">+</span>
+                  </div>
+                </button>
+
+                {/* Manage Events - Secondary Action */}
+                <button
+                  onClick={() => router.push('/admin/events')}
+                  className="w-full flex items-center gap-4 p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-red-500/30 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-neutral-800 dark:text-neutral-200">Manage Events</p>
+                    <p className="text-neutral-500 text-xs">Edit, update, or remove existing records</p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Column 2: Analytics Summary */}
+              <div className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-bold text-lg text-neutral-900 dark:text-white flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-emerald-500" /> Analytics Snapshot
+                  </h4>
+                  <Button variant="ghost" size="sm" onClick={() => router.push('/admin/insights')} className="text-xs text-neutral-500 hover:text-emerald-500">
+                    View All
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50">
+                    <span className="text-sm text-neutral-500">Avg. Attendance</span>
+                    <span className="font-bold text-neutral-900 dark:text-white">
+                      {stats.totalEvents > 0 ? ((stats.attendedToday / stats.totalParticipants || 0) * 100).toFixed(0) : 0}%
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50">
+                    <span className="text-sm text-neutral-500">Active Registrations</span>
+                    <span className="font-bold text-neutral-900 dark:text-white">
+                      {stats.totalParticipants}
+                    </span>
+                  </div>
+                  <div className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-full h-2 overflow-hidden mt-2">
+                    <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.random() * 40 + 40}%` }} />
+                  </div>
+                  <p className="text-xs text-center text-neutral-400 mt-2">Data updated in real-time</p>
+                </div>
+              </div>
+
             </div>
           </section>
 

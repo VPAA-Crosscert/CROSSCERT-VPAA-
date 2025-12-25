@@ -21,6 +21,7 @@ export interface Event {
   is_paid_event?: boolean // Backend property
   ticket_price?: number // Backend property
   isPublic?: boolean
+  is_public?: boolean // Backend property
   theme?: string | number
   participants?: number
   attended?: number

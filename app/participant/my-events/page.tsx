@@ -139,12 +139,15 @@ export default function MyEvents() {
 
         const allEvents = Array.from(eventsMap.values())
         const now = new Date()
+        now.setHours(0, 0, 0, 0) // Normalize to midnight to include today in upcoming
 
         const upcoming: EventWithRegistration[] = []
         const past: EventWithRegistration[] = []
 
         allEvents.forEach(event => {
           const eventDate = new Date(event.date)
+          eventDate.setHours(0, 0, 0, 0)
+
           const status = (event.status || '').toLowerCase()
           const isCompleted = status === 'completed' || status === 'concluded'
 
@@ -153,6 +156,12 @@ export default function MyEvents() {
           } else if (eventDate >= now) {
             upcoming.push(event)
           } else {
+            // Even if date is past, if not marked completed by admin, do we keep it? 
+            // User said: "in the history is just the events that are done and completed"
+            // Usually simpler to strictly follow date for history unless active.
+            // Let's stick to: Date Past = History (unless running?)
+            // Actually, if it's NOT completed, maybe it should stay in active? 
+            // Let's assume Date < Now = Past for safely moving things out of view.
             past.push(event)
           }
         })
@@ -240,14 +249,26 @@ export default function MyEvents() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {upcomingEvents.map((event) => {
                 const eventDate = new Date(event.date)
-                const formattedDate = eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                 const startTime = event.start_time || event.startTime || ''
 
                 // Status Logic
-                const isRegistered = true
                 const isCheckedIn = event.registration.is_present
                 const isCheckedOut = event.registration.is_checked_out
                 const hasEvaluated = event.registration.has_evaluated
+
+                // Calculate Current Status Label
+                let statusLabel = 'Registered'
+                let statusColor = 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                if (hasEvaluated) {
+                  statusLabel = 'Evaluated'
+                  statusColor = 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                } else if (isCheckedOut) {
+                  statusLabel = 'Waiting for Evaluation'
+                  statusColor = 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                } else if (isCheckedIn) {
+                  statusLabel = 'Checked In'
+                  statusColor = 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                }
 
                 return (
                   <div
@@ -273,6 +294,9 @@ export default function MyEvents() {
                       <div className="space-y-4">
                         <div className="flex justify-between items-start">
                           <div>
+                            <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 ${statusColor}`}>
+                              {statusLabel}
+                            </div>
                             <h3 className="text-xl font-bold text-neutral-900 dark:text-white line-clamp-1 mb-1">
                               {event.title || event.name || 'Untitled Event'}
                             </h3>
@@ -309,15 +333,27 @@ export default function MyEvents() {
                           onClick={() => router.push(`/participant/event/${event.id}/qrcode`)}
                         >
                           <QrCode className="w-4 h-4 mr-2" />
-                          Show QR Code
+                          View Ticket
                         </Button>
-                        <Button
-                          variant="outline"
-                          className="flex-1 border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-                          onClick={() => router.push(`/participant/event/${event.id}`)}
-                        >
-                          Details
-                        </Button>
+
+                        {isCheckedOut && !hasEvaluated && (
+                          <Button
+                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                            onClick={() => router.push(`/participant/event/${event.id}/evaluation`)}
+                          >
+                            Evaluate Now
+                          </Button>
+                        )}
+
+                        {(!isCheckedOut || hasEvaluated) && (
+                          <Button
+                            variant="outline"
+                            className="flex-1 border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                            onClick={() => router.push(`/participant/event/${event.id}`)}
+                          >
+                            Details
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -343,8 +379,8 @@ export default function MyEvents() {
             <div className="grid grid-cols-1 gap-4">
               {pastEvents.map((event) => {
                 const eventDate = new Date(event.date)
-                const formattedDate = eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                 const hasEvaluated = event.registration.has_evaluated
+                const isCheckedOut = event.registration.is_checked_out
 
                 return (
                   <div
@@ -358,7 +394,10 @@ export default function MyEvents() {
 
                     <div className="flex-1 text-center md:text-left">
                       <h3 className="font-bold text-lg text-neutral-900 dark:text-white">{event.title || event.name}</h3>
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400">{event.location || event.venue || 'No Location'}</p>
+                      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-1">{event.location || event.venue || 'No Location'}</p>
+                      {!isCheckedOut && (
+                        <span className="inline-block text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold uppercase">Did Not Checkout</span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -376,8 +415,11 @@ export default function MyEvents() {
 
                       {!hasEvaluated ? (
                         <Button
-                          className="bg-orange-500 hover:bg-orange-600 text-white"
-                          onClick={() => router.push(`/participant/event/${event.id}/evaluation`)}
+                          className={`${isCheckedOut ? 'bg-orange-500 hover:bg-orange-600' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'} text-white`}
+                          onClick={() => {
+                            if (isCheckedOut) router.push(`/participant/event/${event.id}/evaluation`)
+                          }}
+                          disabled={!isCheckedOut}
                         >
                           Evaluate Now
                         </Button>

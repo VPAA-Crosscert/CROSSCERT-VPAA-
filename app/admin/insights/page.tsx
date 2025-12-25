@@ -69,11 +69,15 @@ export default function AdminInsights() {
 
   const topEvents = useMemo(() => {
     return [...events]
-      .sort((a, b) => (b.participants?.length || 0) - (a.participants?.length || 0))
+      .sort((a, b) => {
+        const countB = b.registration_count || b.participants?.length || 0
+        const countA = a.registration_count || a.participants?.length || 0
+        return countB - countA
+      })
       .slice(0, 5)
       .map(e => ({
         name: e.title.length > 20 ? e.title.substring(0, 20) + '...' : e.title,
-        participants: e.participants?.length || 0
+        participants: e.registration_count || e.participants?.length || 0
       }))
   }, [events])
 

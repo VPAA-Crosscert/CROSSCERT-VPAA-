@@ -1,14 +1,14 @@
 'use client'
 
 import { useRouter, useParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MapPin, Calendar, Clock, ArrowLeft, Share2, Ticket, Users, FileText, CheckCircle2, AlertCircle, Info, Landmark, Bookmark, QrCode } from 'lucide-react'
+import { MapPin, Calendar, Clock, ArrowLeft, Share2, Ticket, Users, FileText, CheckCircle2, AlertCircle, Info, Landmark, Bookmark, QrCode, GraduationCap, School, Download, X } from 'lucide-react'
 import { getEventById, getRegistrationStatus, Event, fetchUserDepartment } from '@/lib/event-context'
 import { getAuthenticatedUserEmail, api, apiCall, authApi, apiRequest } from '@/lib/api-config'
-import Link from 'next/link'
+import { QRCodeSVG } from 'qrcode.react'
 
 // Define the precise color palette
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; gradient: string }> = {
@@ -48,11 +48,13 @@ const getCategoryFromEvent = (event: Event): string => {
 
 export default function ParticipantEventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null)
-  const [userDepartment, setUserDepartment] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
   const [buttonLabel, setButtonLabel] = useState<string>('Register Now')
   const [registrationStatus, setRegistrationStatus] = useState<string>('none')
+  const [registrationData, setRegistrationData] = useState<any>(null)
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false)
+  const [showTicketModal, setShowTicketModal] = useState<boolean>(false)
+
   const [hasAccess, setHasAccess] = useState<boolean>(false)
   const [isBookmarked, setIsBookmarked] = useState<boolean>(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -113,8 +115,6 @@ export default function ParticipantEventDetailPage() {
           setEvent(apiEvent as Event)
 
           const userDept = await fetchUserDepartment()
-          setUserDepartment(userDept)
-
           const eventCategory = getCategoryFromEvent(apiEvent)
           const canAccess = eventCategory === 'HCDC' || (!!userDept && getDepartmentAbbr(userDept) === eventCategory)
           setHasAccess(canAccess)
@@ -135,6 +135,7 @@ export default function ParticipantEventDetailPage() {
               const regs = Array.isArray(regsData) ? regsData : (regsData.results || regsData.data || [])
               if (regs.length > 0) {
                 const reg = regs[0]
+                setRegistrationData(reg)
                 if (reg.has_evaluated) derivedStatus = 'evaluated'
                 else if (reg.is_checked_out) derivedStatus = 'checked-out'
                 else if (reg.is_present) derivedStatus = 'checked-in'
@@ -220,6 +221,8 @@ export default function ParticipantEventDetailPage() {
 
       const res = await apiCall.post(api.registrations(), payload)
       if (res.ok) {
+        const reg = await res.json()
+        setRegistrationData(reg)
         setRegistrationStatus('registered')
         updateButtonLabel('registered')
         setShowSuccessModal(true)
@@ -229,6 +232,8 @@ export default function ParticipantEventDetailPage() {
           setRegistrationStatus('registered')
           updateButtonLabel('registered')
           setShowSuccessModal(true)
+          // If it was already registered but we didn't capture data initially, we might need to re-fetch or use what we have.
+          // Usually the GET loop above handles initial state.
         } else {
           setErrorMessage('Registration failed. Please try again.')
         }
@@ -243,12 +248,11 @@ export default function ParticipantEventDetailPage() {
     if (registrationStatus === 'none') {
       handleRegister()
     } else if (registrationStatus === 'registered') {
-      router.push(`/participant/event/${event?.id}/qrcode`)
+      // Show Ticket Modal instead of navigating
+      setShowTicketModal(true)
     } else if (registrationStatus === 'checked-out') {
-      // Goto evaluation
       alert('Evaluation page coming soon!')
     } else if (registrationStatus === 'evaluated') {
-      // Goto certificate
       router.push('/participant/certificates')
     }
   }
@@ -267,8 +271,42 @@ export default function ParticipantEventDetailPage() {
     localStorage.setItem('bookmarkedEvents', JSON.stringify(Array.from(stored)))
   }
 
+  const handleDownloadQR = () => {
+    const svgEl = document.getElementById('qr-main-svg')
+    if (svgEl) {
+      const serializer = new XMLSerializer()
+      const svgStr = serializer.serializeToString(svgEl)
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">Loading event experience...</div>
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+
+      // Convert SVG to data URI
+      const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(svgBlob)
+
+      img.onload = () => {
+        canvas.width = 500
+        canvas.height = 500
+        if (ctx) {
+          ctx.fillStyle = 'white'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.drawImage(img, 0, 0, 500, 500)
+
+          const pngUrl = canvas.toDataURL('image/png')
+          const link = document.createElement('a')
+          link.href = pngUrl
+          link.download = `EventTicket-${event?.id}.png`
+          link.click()
+          URL.revokeObjectURL(url)
+        }
+      }
+      img.src = url
+    }
+  }
+
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white animate-pulse">Loading event experience...</div>
   if (!event) return <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">Event not found</div>
 
   const eventCategory = getCategoryFromEvent(event)
@@ -278,25 +316,25 @@ export default function ParticipantEventDetailPage() {
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
 
       {/* 1. IMMERSIVE HERO SECTION */}
-      <div className="relative w-full h-[60vh] md:h-[75vh] overflow-hidden">
+      {/* Increased height to show more banner as requested */}
+      <div className="relative w-full h-[65vh] md:h-[80vh] overflow-hidden">
         {/* Dynamic Background */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${colors.gradient} opacity-90 transition-all duration-1000`} />
+        <div className={`absolute inset-0 bg-gradient-to-br ${colors.gradient} opacity-90`} />
         {event.coverImage || event.cover_image && (
           <img
             src={event.coverImage || event.cover_image}
             alt={event.name}
-            className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50"
+            className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60"
           />
         )}
 
         {/* Texture Overlay */}
         <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-20 mix-blend-soft-light" />
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent" />
 
         {/* Content */}
-        <div className="absolute inset-0 flex flex-col justify-end pb-12 md:pb-20 px-6 md:px-12 max-w-[1700px] mx-auto">
+        <div className="absolute inset-0 flex flex-col justify-end pb-12 md:pb-24 px-6 md:px-12 max-w-[1700px] mx-auto">
 
-          {/* Top Nav Placeholder */}
           <div className="absolute top-8 left-6 md:left-12">
             <Button variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10 backdrop-blur-md rounded-full px-6" onClick={() => router.back()}>
               <ArrowLeft className="w-5 h-5 mr-2" /> Back to Explore
@@ -306,14 +344,18 @@ export default function ParticipantEventDetailPage() {
           <div className="w-full flex flex-col md:flex-row items-end justify-between gap-12">
             <div className="flex-1 space-y-6 animate-in slide-in-from-bottom-10 duration-700">
 
-              {/* Category Pill */}
               <div className="flex items-center gap-3">
                 <Badge className={`${colors.bg} text-white hover:${colors.bg} border-none px-4 py-1.5 text-sm uppercase tracking-widest font-bold shadow-lg shadow-black/20`}>
                   {eventCategory}
                 </Badge>
-                {event.isPublic && (
+                {(event.isPublic || (event as any).is_public) && (
                   <Badge variant="outline" className="border-green-400 text-green-400 bg-green-400/10 backdrop-blur-md px-3 py-1.5 uppercase tracking-wide text-xs font-bold">
                     Open to Public
+                  </Badge>
+                )}
+                {event.isPaidEvent && (
+                  <Badge variant="outline" className="border-amber-400 text-amber-400 bg-amber-400/10 backdrop-blur-md px-3 py-1.5 uppercase tracking-wide text-xs font-bold">
+                    Paid Event
                   </Badge>
                 )}
               </div>
@@ -361,20 +403,45 @@ export default function ParticipantEventDetailPage() {
       </div>
 
       {/* 2. BENTO LAYOUT CONTENT */}
-      <div className="max-w-[1700px] mx-auto px-6 md:px-12 -mt-24 relative z-10 pb-24">
+      {/* Adjusted negative margin to -mt-16 to show more banner */}
+      <div className="max-w-[1700px] mx-auto px-6 md:px-12 -mt-16 relative z-10 pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
           {/* MAIN CONTENT (Left 8) */}
           <div className="lg:col-span-8 flex flex-col gap-8">
 
-            {/* About Card (Glass) */}
+            {/* Extended Details Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Semester */}
+              <Card className="p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-none rounded-2xl shadow-lg flex flex-col items-center justify-center text-center">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Semester</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{event.semester || '1st Semester'}</p>
+              </Card>
+              {/* SY */}
+              <Card className="p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-none rounded-2xl shadow-lg flex flex-col items-center justify-center text-center">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">School Year</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{event.school_year || '2025-2026'}</p>
+              </Card>
+              {/* Capacity */}
+              <Card className="p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-none rounded-2xl shadow-lg flex flex-col items-center justify-center text-center">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Capacity</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{event.capacity || 'Unlimited'}</p>
+              </Card>
+              {/* Access Type */}
+              <Card className="p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-none rounded-2xl shadow-lg flex flex-col items-center justify-center text-center">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Access</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{event.isPaidEvent ? 'Paid Ticket' : 'Free Entry'}</p>
+              </Card>
+            </div>
+
+            {/* About Card */}
             <Card className="p-8 md:p-10 border-none shadow-2xl bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-xl rounded-[2.5rem]">
               <div className="flex items-center gap-4 mb-6">
                 <div className={`p-3 rounded-2xl ${colors.bg} bg-opacity-10`}>
                   <Info className={`w-8 h-8 ${colors.text.replace('100', '600')}`} />
                 </div>
                 <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-neutral-900 to-neutral-500 dark:from-white dark:to-neutral-500">
-                  Experiment Description
+                  Event Description
                 </h2>
               </div>
               <div className="prose dark:prose-invert prose-lg max-w-none text-neutral-600 dark:text-neutral-300 leading-relaxed">
@@ -382,7 +449,7 @@ export default function ParticipantEventDetailPage() {
               </div>
             </Card>
 
-            {/* Bento Grid for Secondary Info */}
+            {/* Middle Row Bento */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
               {/* Speakers Tile */}
@@ -406,30 +473,20 @@ export default function ParticipantEventDetailPage() {
               </Card>
 
               <div className="flex flex-col gap-6">
-                {/* Visual Venue Tile */}
-                <Card className="flex-1 p-6 border-none shadow-xl bg-neutral-900 dark:bg-black rounded-[2rem] text-white relative overflow-hidden group">
-                  <img
-                    src={event.coverImage || "/placeholder-venue.jpg"}
-                    className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700"
-                    alt="Venue"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-                  <div className="relative z-10 h-full flex flex-col justify-end">
-                    <p className="text-neutral-400 text-xs uppercase tracking-widest font-bold mb-1">Venue</p>
-                    <p className="text-2xl font-bold">{event.venue || event.location}</p>
-                  </div>
-                </Card>
 
-                {/* Registration Stats Tile */}
-                <Card className="p-6 border-none shadow-xl bg-white dark:bg-neutral-900 rounded-[2rem] flex items-center justify-between">
-                  <div>
-                    <p className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-1">Going</p>
-                    <p className="text-4xl font-black text-neutral-900 dark:text-white tracking-tighter">
-                      {event.registration_count || 0}<span className="text-lg text-neutral-400 font-medium">/{event.capacity || '∞'}</span>
-                    </p>
-                  </div>
-                  <div className={`w-12 h-12 rounded-full ${colors.bg} bg-opacity-10 flex items-center justify-center`}>
-                    <Ticket className={`w-6 h-6 ${colors.text.replace('100', '600')}`} />
+
+                {/* Certificate Preview Tile */}
+                <Card className="p-6 border-none shadow-xl bg-neutral-900 text-white rounded-[2rem] flex flex-col justify-center relative overflow-hidden">
+                  <div className={`absolute -right-10 -bottom-10 w-32 h-32 rounded-full ${colors.bg} blur-3xl opacity-30`} />
+                  <h4 className="text-sm uppercase tracking-widest text-neutral-400 font-bold mb-2">Completion</h4>
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/10 rounded-xl">
+                      <GraduationCap className="w-8 h-8 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-lg">Verified Certificate</p>
+                      <p className="text-xs text-neutral-400">Earnable upon completion</p>
+                    </div>
                   </div>
                 </Card>
               </div>
@@ -520,6 +577,91 @@ export default function ParticipantEventDetailPage() {
         </div>
       </div>
 
+      {/* TICKET DETAILS MODAL */}
+      {showTicketModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          {/* Modal Card */}
+          <Card className="w-full max-w-4xl mx-6 bg-white dark:bg-neutral-900 border-none rounded-3xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row max-h-[90vh]">
+
+            {/* Left Side: Ticket Visual */}
+            <div className={`w-full md:w-1/3 ${colors.bg} p-8 text-white flex flex-col items-center justify-center relative overflow-hidden`}>
+              <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-20 mix-blend-soft-light" />
+              {/* QR Code Container */}
+              <div className="bg-white p-4 rounded-2xl shadow-xl mb-6 relative group">
+                <QRCodeSVG
+                  id="qr-main-svg"
+                  value={registrationData?.qr_code_value || `REG-${event.id}-${registrationData?.email}`}
+                  size={200}
+                  level="H"
+                  includeMargin={true}
+                />
+                <div className="absolute inset-0 bg-white/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-2xl backdrop-blur-sm">
+                  <p className="text-neutral-900 font-bold text-sm">Scan to Check-in</p>
+                </div>
+              </div>
+              <p className="font-mono text-center text-white/80 opacity-50 text-xs mb-2">TICKET ID</p>
+              <p className="font-mono text-center text-xl font-bold tracking-widest mb-6">{registrationData?.qr_code_value || 'PENDING'}</p>
+
+              <div className="text-center space-y-1">
+                <p className="font-bold text-lg leading-tight">{event.name}</p>
+                <div className="flex items-center justify-center gap-2 text-xs opacity-70 mt-2">
+                  <span>{event.venue}</span>
+                  <span>•</span>
+                  <span>{event.startTime}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Side: Details */}
+            <div className="flex-1 p-8 md:p-12 overflow-y-auto">
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <Badge variant="outline" className="mb-3 border-neutral-200 dark:border-neutral-700 text-neutral-500">Official Entry Pass</Badge>
+                  <h2 className="text-3xl font-black text-neutral-900 dark:text-white leading-none mb-2">{event.name}</h2>
+                  <p className="text-neutral-500">{new Date(event.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                </div>
+                <Button variant="ghost" className="rounded-full h-10 w-10 p-0" onClick={() => setShowTicketModal(false)}>
+                  <X className="w-6 h-6" />
+                </Button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-neutral-400 font-bold mb-1">Attendee</p>
+                    <p className="font-semibold text-lg">{registrationData?.first_name} {registrationData?.last_name}</p>
+                    <p className="text-sm text-neutral-500">{registrationData?.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-neutral-400 font-bold mb-1">Affiliation</p>
+                    <p className="font-semibold text-lg">{registrationData?.affiliation || 'HCDC'}</p>
+                  </div>
+                </div>
+
+                <div className="h-px bg-neutral-100 dark:bg-neutral-800" />
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-neutral-400 font-bold mb-1">Venue</p>
+                    <p className="font-medium">{event.venue}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-neutral-400 font-bold mb-1">Time</p>
+                    <p className="font-medium">{event.startTime} - {event.endTime}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 mt-8">
+                  <Button onClick={handleDownloadQR} className="flex-1 h-12 rounded-xl bg-neutral-900 text-white hover:bg-black dark:bg-white dark:text-black">
+                    <Download className="w-4 h-4 mr-2" /> Save Ticket Image
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
@@ -530,7 +672,7 @@ export default function ParticipantEventDetailPage() {
             </div>
             <h3 className="text-3xl font-black mb-2 text-neutral-900 dark:text-white tracking-tight">You're In!</h3>
             <p className="text-neutral-500 mb-8 text-lg">Registration successful. Your digital pass is ready.</p>
-            <Button onClick={() => setShowSuccessModal(false)} className="w-full h-12 text-lg rounded-xl font-bold bg-neutral-900 text-white hover:bg-neutral-800">
+            <Button onClick={() => { setShowSuccessModal(false); setShowTicketModal(true); }} className="w-full h-12 text-lg rounded-xl font-bold bg-neutral-900 text-white hover:bg-neutral-800">
               View Ticket
             </Button>
           </Card>
