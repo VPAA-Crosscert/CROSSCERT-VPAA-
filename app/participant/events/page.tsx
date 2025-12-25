@@ -23,14 +23,14 @@ const DEPARTMENT_ABBR = {
 }
 
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; gradient: string }> = {
-  'CCJE': { bg: 'bg-red-500', border: 'border-red-500', text: 'text-white', gradient: 'from-red-500 to-red-600' },
-  'CET': { bg: 'bg-orange-500', border: 'border-orange-500', text: 'text-white', gradient: 'from-orange-500 to-orange-600' },
-  'CHATME': { bg: 'bg-gray-500', border: 'border-gray-500', text: 'text-white', gradient: 'from-gray-500 to-gray-600' },
-  'HUSOCOM': { bg: 'bg-fuchsia-500', border: 'border-fuchsia-500', text: 'text-white', gradient: 'from-fuchsia-500 to-fuchsia-600' },
-  'COME': { bg: 'bg-sky-500', border: 'border-sky-500', text: 'text-white', gradient: 'from-sky-500 to-sky-600' },
-  'SBME': { bg: 'bg-yellow-500', border: 'border-yellow-500', text: 'text-black', gradient: 'from-yellow-400 to-yellow-500' },
-  'STE': { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-white', gradient: 'from-blue-600 to-blue-700' },
-  'HCDC': { bg: 'bg-red-600', border: 'border-red-600', text: 'text-white', gradient: 'from-red-600 to-rose-600' },
+  'STE': { bg: 'bg-blue-800/60', text: 'text-blue-100', border: 'border-blue-400', gradient: 'from-blue-800 to-blue-900' },
+  'CET': { bg: 'bg-orange-700/60', text: 'text-orange-100', border: 'border-orange-400', gradient: 'from-orange-700 to-orange-800' },
+  'SBME': { bg: 'bg-yellow-600/60', text: 'text-yellow-50', border: 'border-yellow-400', gradient: 'from-yellow-600 to-yellow-700' },
+  'CHATME': { bg: 'bg-zinc-700/60', text: 'text-zinc-100', border: 'border-zinc-400', gradient: 'from-zinc-700 to-zinc-800' },
+  'HUSOCOM': { bg: 'bg-[#6d174b]/70', text: 'text-fuchsia-100', border: 'border-[#a8326e]', gradient: 'from-[#6d174b] to-[#4d1035]' },
+  'COME': { bg: 'bg-sky-800/60', text: 'text-sky-100', border: 'border-sky-400', gradient: 'from-sky-800 to-sky-900' },
+  'CCJE': { bg: 'bg-red-800/60', text: 'text-red-100', border: 'border-red-400', gradient: 'from-red-800 to-red-900' },
+  'HCDC': { bg: 'bg-gradient-to-r from-blue-700 to-red-600', text: 'text-white', border: 'border-blue-600', gradient: 'from-blue-700 to-red-600' },
 }
 
 const getDepartmentAbbr = (fullName: string): string | null => {
@@ -139,9 +139,9 @@ export default function ParticipantEvents() {
     if (!dateStr) return 'UNKNOWN'
     const date = new Date(dateStr)
     const month = date.getMonth() + 1
-    if (month >= 1 && month <= 4) return '1ST'
-    if (month >= 5 && month <= 8) return '2ND'
-    return 'SUMMER'
+    if (month >= 1 && month <= 4) return '1st Semester'
+    if (month >= 5 && month <= 8) return '2nd Semester'
+    return 'Summer'
   }
 
   const getMonth = (dateStr: string): string => {
@@ -339,7 +339,7 @@ export default function ParticipantEvents() {
   }
 
   const categories = ['ALL', 'HCDC', 'CCJE', 'CET', 'CHATME', 'HUSOCOM', 'COME', 'SBME', 'STE']
-  const semesters = ['ALL', '1ST', '2ND', 'SUMMER']
+  const semesters = ['ALL', '1st Semester', '2nd Semester', 'Summer']
   const months = ['ALL', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
     'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
 
@@ -448,7 +448,7 @@ export default function ParticipantEvents() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 p-6 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+    <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 p-6 space-y-8 max-w-[1700px] mx-auto animate-in fade-in duration-500">
 
       {/* Header */}
       <div className="space-y-2">
@@ -460,7 +460,7 @@ export default function ParticipantEvents() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Filters - Sticky */}
+        {/* Left Columns - Filters (Search, Year, Semester) */}
         <div className="lg:col-span-3 space-y-6 lg:sticky lg:top-6">
           {/* Search */}
           <Card className="p-4 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
@@ -478,7 +478,7 @@ export default function ParticipantEvents() {
             </div>
           </Card>
 
-          {/* Filters */}
+          {/* Core Filters */}
           <Card className="p-4 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
@@ -524,53 +524,43 @@ export default function ParticipantEvents() {
                 ))}
               </div>
             </div>
-
-            {/* Month */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Month</label>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setSelectedMonth('ALL')}
-                  className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all flex items-center gap-2
-                    ${selectedMonth === 'ALL' ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-medium' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800'}
-                  `}
-                >
-                  <div className={`w-2 h-2 rounded-full ${selectedMonth === 'ALL' ? 'bg-red-500' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
-                  All Months
-                </button>
-                {isMonthsOpen && months.filter(m => m !== 'ALL').map((month) => (
-                  <button
-                    key={month}
-                    onClick={() => setSelectedMonth(month)}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all ml-1
-                      ${selectedMonth === month ? 'text-red-600 dark:text-red-400 font-medium' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'}
-                    `}
-                  >
-                    {month}
-                  </button>
-                ))}
-              </div>
-            </div>
           </Card>
         </div>
 
-        {/* Main Content */}
-        <div className="lg:col-span-9 space-y-6">
+        {/* Center Column - Content */}
+        <div className="lg:col-span-7 space-y-6">
           {/* Categories */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 justify-center">
             {categories.map((cat) => {
               const isSelected = selectedCategory === cat
-              const colors = cat !== 'ALL' && cat !== 'HCDC' ? CATEGORY_COLORS[cat] : null
+              const colors = CATEGORY_COLORS[cat] || null // Use defined colors if available
+
+              // Dynamic classes base on selection and color existence
+              let buttonClasses = "px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border "
+
+              if (isSelected) {
+                if (colors) {
+                  // Active with specific color
+                  buttonClasses += `${colors.bg} ${colors.text} ${colors.border} shadow-lg scale-105 border`
+                } else {
+                  // Active default (ALL)
+                  buttonClasses += "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-neutral-900 dark:border-white shadow-lg scale-105"
+                }
+              } else {
+                if (colors) {
+                  // Inactive but has color (hover effect)
+                  buttonClasses += `bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:${colors.text.replace('text-', 'text-')} hover:${colors.border}`
+                } else {
+                  // Inactive default
+                  buttonClasses += "bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:border-red-500 dark:hover:border-red-500 hover:text-red-500 dark:hover:text-red-500"
+                }
+              }
+
               return (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`
-                    px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border
-                    ${isSelected
-                      ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-neutral-900 dark:border-white shadow-lg scale-105'
-                      : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:border-red-500 dark:hover:border-red-500 hover:text-red-500 dark:hover:text-red-500'}
-                  `}
+                  className={buttonClasses}
                 >
                   {cat === 'HCDC' ? 'HCDC EVENTS' : cat}
                 </button>
@@ -579,20 +569,22 @@ export default function ParticipantEvents() {
           </div>
 
           <Tabs defaultValue="upcoming" className="w-full">
-            <TabsList className="w-full max-w-[400px] mb-6 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-full border border-neutral-200 dark:border-neutral-800">
-              <TabsTrigger
-                value="upcoming"
-                className="rounded-full data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:shadow-sm transition-all"
-              >
-                Upcoming ({upcomingEvents.length})
-              </TabsTrigger>
-              <TabsTrigger
-                value="past"
-                className="rounded-full data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:shadow-sm transition-all"
-              >
-                Past Events ({pastEvents.length})
-              </TabsTrigger>
-            </TabsList>
+            <div className="flex justify-center mb-6">
+              <TabsList className="bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-full border border-neutral-200 dark:border-neutral-800 w-full max-w-[400px]">
+                <TabsTrigger
+                  value="upcoming"
+                  className="flex-1 rounded-full data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:shadow-sm transition-all"
+                >
+                  Upcoming ({upcomingEvents.length})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="past"
+                  className="flex-1 rounded-full data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 data-[state=active]:shadow-sm transition-all"
+                >
+                  Past Events ({pastEvents.length})
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="upcoming" className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
               {Object.keys(upcomingEventsByMonth).length === 0 ? (
@@ -612,20 +604,21 @@ export default function ParticipantEvents() {
                 Object.entries(upcomingEventsByMonth).map(([month, monthEvents]) => (
                   <div key={month} className="space-y-4">
                     <div className="flex items-center gap-4">
-                      <h2 className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">{month}</h2>
+                      <h2 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">{month}</h2>
                       <div className="h-px flex-1 bg-gradient-to-r from-neutral-200 dark:from-neutral-800 to-transparent" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {monthEvents.map((event, idx) => {
                         const eventCategory = getCategoryFromEvent(event)
                         const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
                         const hasAccess = canAccessEvent(event.category || 'HCDC', event.department)
                         const isRegistered = registeredEvents.has(String(event.id))
+                        const borderColor = colors ? colors.border : 'border-neutral-200 dark:border-neutral-800'
 
                         return (
                           <div
                             key={event.id}
-                            className="group relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:shadow-xl hover:shadow-red-500/10 hover:border-red-500/30 transition-all duration-300 flex flex-col h-full"
+                            className={`group relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-xl hover:shadow-red-500/10 transition-all duration-300 flex flex-col h-full`}
                           >
                             {/* Image */}
                             <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => router.push(`/participant/event/${event.id}`)}>
@@ -724,18 +717,19 @@ export default function ParticipantEvents() {
                 Object.entries(pastEventsByMonth).map(([month, monthEvents]) => (
                   <div key={month} className="space-y-4">
                     <div className="flex items-center gap-4">
-                      <h2 className="text-2xl font-bold text-neutral-500 dark:text-neutral-500 tracking-tight">{month}</h2>
+                      <h2 className="text-xl font-bold text-neutral-500 dark:text-neutral-500 tracking-tight">{month}</h2>
                       <div className="h-px flex-1 bg-gradient-to-r from-neutral-200 dark:from-neutral-800 to-transparent" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {monthEvents.map((event) => {
                         const eventCategory = getCategoryFromEvent(event)
                         const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
+                        const borderColor = colors ? colors.border : 'border-neutral-200 dark:border-neutral-800'
 
                         return (
                           <div
                             key={event.id}
-                            className="group relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:shadow-lg transition-all duration-300 opacity-75 hover:opacity-100 cursor-pointer"
+                            className={`group relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-lg transition-all duration-300 opacity-75 hover:opacity-100 cursor-pointer`}
                             onClick={() => router.push(`/participant/event/${event.id}`)}
                           >
                             <div className="relative h-48 overflow-hidden">
@@ -772,6 +766,46 @@ export default function ParticipantEvents() {
             </TabsContent>
           </Tabs>
         </div>
+
+        {/* Right Sidebar - Months */}
+        <div className="lg:col-span-2 space-y-6 lg:sticky lg:top-6">
+          <Card className="p-4 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <div className="space-y-4">
+              <button
+                onClick={() => setIsMonthsOpen(!isMonthsOpen)}
+                className="w-full flex items-center justify-between text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide"
+              >
+                <span>Filter By Month</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isMonthsOpen ? 'rotate-180' : 'rotate-0'}`} />
+              </button>
+              {isMonthsOpen && (
+                <div className="space-y-1">
+                  <button
+                    onClick={() => setSelectedMonth('ALL')}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all flex items-center gap-2
+                        ${selectedMonth === 'ALL' ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-medium' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800'}
+                      `}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${selectedMonth === 'ALL' ? 'bg-red-500' : 'bg-neutral-300 dark:bg-neutral-700'}`} />
+                    All Months
+                  </button>
+                  {months.filter(m => m !== 'ALL').map((month) => (
+                    <button
+                      key={month}
+                      onClick={() => setSelectedMonth(month)}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all ml-1
+                          ${selectedMonth === month ? 'text-red-600 dark:text-red-400 font-medium' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'}
+                        `}
+                    >
+                      {month}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
       </div>
     </div>
   )
