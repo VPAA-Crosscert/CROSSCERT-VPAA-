@@ -36,7 +36,7 @@ export default function Home() {
 
   if (showSplash) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background dark:bg-gradient-to-b dark:from-black dark:to-[#450a0a]">
         {mounted && (
           <Image
             src={logoSrc}
@@ -44,7 +44,7 @@ export default function Home() {
             width={320}
             height={96}
             priority
-            className="w-48 sm:w-64 md:w-80 h-auto object-contain"
+            className="w-48 sm:w-64 md:w-80 h-auto object-contain animate-in fade-in zoom-in duration-500"
           />
         )}
       </div>
@@ -52,33 +52,39 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      <LandingHero />
+    <div className="min-h-screen relative selection:bg-red-500/30">
+      {/* Fixed Background Layer */}
+      <div className="fixed inset-0 -z-10 bg-background dark:bg-gradient-to-b dark:from-black dark:to-[#450a0a]" />
 
-      {/* Marquee */}
-      <div className="py-2 sm:py-3 -mt-8 sm:-mt-30 overflow-hidden flex items-center justify-center marquee-mask">
-        <div className="marquee whitespace-nowrap select-none">
-          {departments.map((d) => (
-            <span
-              key={`vis-${d}`}
-              className={`mx-4 sm:mx-6 md:mx-8 text-base sm:text-lg md:text-xl lg:text-2xl font-bold tracking-wide uppercase rounded-full px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 border backdrop-blur-md shadow-sm ${departmentGlass[d] || 'bg-background/60 text-foreground/80 border-border'}`}
-              style={{backgroundClip: 'padding-box', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)'}}
-            >
-              {d}
-            </span>
-          ))}
-          {/* full duplicate for seamless loop, hidden from assistive tech */}
-          {departments.map((d) => (
-            <span
-              key={`dup-${d}`}
-              className={`mx-4 sm:mx-6 md:mx-8 text-base sm:text-lg md:text-xl lg:text-2xl font-bold tracking-wide uppercase rounded-full px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 border backdrop-blur-md shadow-sm ${departmentGlass[d] || 'bg-background/60 text-foreground/80 border-border'}`}
-              style={{backgroundClip: 'padding-box', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)'}}
-              aria-hidden
-            >
-              {d}
-            </span>
-          ))}
+      {/* Content */}
+      <div className="relative z-0">
+        <Navigation />
+        <LandingHero />
+
+        {/* Marquee */}
+        <div className="py-2 sm:py-3 -mt-8 sm:-mt-30 overflow-hidden flex items-center justify-center marquee-mask">
+          <div className="marquee whitespace-nowrap select-none">
+            {departments.map((d) => (
+              <span
+                key={`vis-${d}`}
+                className={`mx-4 sm:mx-6 md:mx-8 text-base sm:text-lg md:text-xl lg:text-2xl font-bold tracking-wide uppercase rounded-full px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 border backdrop-blur-md shadow-sm ${departmentGlass[d] || 'bg-background/60 text-foreground/80 border-border'}`}
+                style={{ backgroundClip: 'padding-box', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)' }}
+              >
+                {d}
+              </span>
+            ))}
+            {/* full duplicate for seamless loop, hidden from assistive tech */}
+            {departments.map((d) => (
+              <span
+                key={`dup-${d}`}
+                className={`mx-4 sm:mx-6 md:mx-8 text-base sm:text-lg md:text-xl lg:text-2xl font-bold tracking-wide uppercase rounded-full px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 border backdrop-blur-md shadow-sm ${departmentGlass[d] || 'bg-background/60 text-foreground/80 border-border'}`}
+                style={{ backgroundClip: 'padding-box', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)' }}
+                aria-hidden
+              >
+                {d}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>

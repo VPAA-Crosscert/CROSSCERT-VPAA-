@@ -208,10 +208,10 @@ export function LandingHero() {
           {/* Left Content */}
           <div className="space-y-6 sm:space-y-8">
             <div className="space-y-3 sm:space-y-4">
-              <div className="inline-block bg-accent/10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full">
-                <span className="text-accent font-semibold text-xs sm:text-sm flex items-center gap-2">
+              <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border transition-colors bg-red-50 border-red-200 text-red-700 dark:bg-white/10 dark:border-white/10 dark:text-zinc-200 dark:backdrop-blur-md">
+                <span className="font-semibold text-xs sm:text-sm flex items-center gap-2">
                   <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
-                  CROSSCERT
+                  pinay.py
                 </span>
               </div>
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight text-balance">
