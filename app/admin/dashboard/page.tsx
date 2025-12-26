@@ -26,6 +26,7 @@ type DashboardEvent = {
   attended?: number
   attended_count?: number
   certificates?: number
+  certificates_count?: number
   registration_count?: number
   created_at?: string
 }
@@ -127,7 +128,7 @@ export default function AdminDashboard() {
           if (e.attended_count !== undefined) return sum + e.attended_count
           return sum + (e.attended || 0)
         }, 0)
-        const certificatesIssued = eventsList.reduce((sum, e) => sum + (e.certificates || 0), 0)
+        const certificatesIssued = eventsList.reduce((sum, e) => sum + (e.certificates_count || 0), 0)
 
         setStats({
           totalEvents: eventsList.length,
@@ -287,10 +288,10 @@ export default function AdminDashboard() {
               <div className="bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col h-full min-h-[300px] relative overflow-hidden">
                 {/* Background Grid Pattern */}
                 <div className="absolute inset-0 opacity-10">
-                  <div className="absolute inset-0" style={{
+                  <div className="absolute inset-0 dark:hidden" style={{
                     backgroundImage: 'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)',
                     backgroundSize: '20px 20px'
-                  }} className="dark:hidden" />
+                  }} />
                   <div className="absolute inset-0 hidden dark:block" style={{
                     backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
                     backgroundSize: '20px 20px'

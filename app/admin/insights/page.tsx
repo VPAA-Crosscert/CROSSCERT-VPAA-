@@ -225,6 +225,10 @@ export default function AdminInsights() {
                     <stop offset="50%" stopColor="#059669" stopOpacity={0.2} />
                     <stop offset="95%" stopColor="#059669" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#34d399" stopOpacity={1} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#d4d4d4" className="dark:stroke-neutral-700" opacity={0.3} />
                 <XAxis
@@ -312,11 +316,7 @@ export default function AdminInsights() {
                   className="dark:stroke-neutral-500"
                 />
                 <Tooltip cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }} content={<CustomTooltip />} />
-                <Bar dataKey="participants" name="Participants" radius={[0, 8, 8, 0]}>
-                  {topEvents.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={'#10b981'} />
-                  ))}
-                </Bar>
+                <Bar dataKey="participants" name="Participants" radius={[0, 8, 8, 0]} fill="url(#barGradient)" />
               </BarChart>
             </ResponsiveContainer>
           </div>

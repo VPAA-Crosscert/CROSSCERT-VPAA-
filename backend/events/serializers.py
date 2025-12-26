@@ -10,6 +10,7 @@ class EventSerializer(serializers.ModelSerializer):
 
     registration_count = serializers.SerializerMethodField()
     attended_count = serializers.SerializerMethodField()
+    certificates_count = serializers.SerializerMethodField()
     organizer_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -47,6 +48,7 @@ class EventSerializer(serializers.ModelSerializer):
             'updated_at',
             'registration_count',
             'attended_count',
+            'certificates_count',
             'organizer_name',
         ]
         read_only_fields = [
@@ -62,6 +64,11 @@ class EventSerializer(serializers.ModelSerializer):
 
     def get_attended_count(self, obj):
         return getattr(obj, 'attended_count_annotated', obj.registrations.filter(is_present=True).count())
+
+    def get_certificates_count(self, obj):
+        # Count certificates related to this event's registrations
+        from certificates.models import Certificate
+        return Certificate.objects.filter(registration__event=obj, status='generated').count()
 
     def get_organizer_name(self, obj):
         return obj.organizer.get_full_name() or obj.organizer.username

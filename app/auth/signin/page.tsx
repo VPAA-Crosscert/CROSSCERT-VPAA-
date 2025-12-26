@@ -60,6 +60,10 @@ export default function SignIn() {
         return
       }
 
+      // Clear inputs immediately after success
+      setEmail('')
+      setPassword('')
+
       // Store minimal user info in localStorage (only for session management)
       localStorage.setItem('userEmail', data.user.email)
       localStorage.setItem('userId', data.user.id.toString())

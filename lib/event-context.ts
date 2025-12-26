@@ -125,3 +125,59 @@ export const updateRegistrationStatus = (eventId: string | number, status: Regis
   registrations[eventId] = status
   localStorage.setItem('registrations', JSON.stringify(registrations))
 }
+
+/**
+ * Helper to determine if an event is physically ongoing based on the current time.
+ */
+export const isEventLive = (event: Event): boolean => {
+  if (!event) return false
+
+  // Explicit status override
+  if (event.status?.toLowerCase() === 'live') return true
+  if (event.status?.toLowerCase() === 'completed' || event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'paused') return false
+
+  try {
+    const eventDate = new Date(event.date)
+    const startTimeStr = event.start_time || event.startTime || '00:00'
+    const endTimeStr = event.end_time || event.endTime || '23:59'
+
+    // Format times into comparable numbers or full dates
+    const now = new Date()
+
+    // Create Date objects for start and end
+    const startDate = new Date(eventDate)
+    const [startH, startM] = startTimeStr.split(':').map(Number)
+    startDate.setHours(startH || 0, startM || 0, 0, 0)
+
+    const endDate = new Date(eventDate)
+    const [endH, endM] = endTimeStr.split(':').map(Number)
+    endDate.setHours(endH || 23, endM || 59, 59, 999)
+
+    return now >= startDate && now <= endDate
+  } catch (e) {
+    return false
+  }
+}
+
+/**
+ * Helper to determine if an event has physically ended.
+ */
+export const isEventEnded = (event: Event): boolean => {
+  if (!event) return false
+
+  if (event.status?.toLowerCase() === 'completed' || event.status?.toLowerCase() === 'concluded') return true
+
+  try {
+    const eventDate = new Date(event.date)
+    const endTimeStr = event.end_time || event.endTime || '23:59'
+    const now = new Date()
+
+    const endDate = new Date(eventDate)
+    const [endH, endM] = endTimeStr.split(':').map(Number)
+    endDate.setHours(endH || 23, endM || 59, 59, 999)
+
+    return now > endDate
+  } catch (e) {
+    return false
+  }
+}

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { MapPin, Calendar, Clock, ArrowLeft, Share2, Ticket, Users, FileText, CheckCircle2, AlertCircle, Info, Landmark, Bookmark, QrCode, GraduationCap, School, Download, X, Facebook, Instagram, Twitter, Mail, Heart, Star, Rocket } from 'lucide-react'
-import { getEventById, getRegistrationStatus, Event, fetchUserDepartment } from '@/lib/event-context'
+import { getEventById, getRegistrationStatus, Event, fetchUserDepartment, isEventLive, isEventEnded } from '@/lib/event-context'
 import { getAuthenticatedUserEmail, api, apiCall, authApi, apiRequest } from '@/lib/api-config'
 import { QRCodeSVG } from 'qrcode.react'
 
@@ -597,10 +597,15 @@ export default function ParticipantEventDetailPage() {
                       <QrCode className="w-8 h-8 opacity-80" />
                       <div className="flex items-center gap-2">
                         {/* LIVE BADGE */}
-                        {event.status === 'live' ? (
+                        {isEventLive(event) ? (
                           <Badge className="bg-red-600/90 hover:bg-red-600 text-white border-none px-4 py-1.5 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
                             <Rocket className="w-3 h-3 mr-2 animate-bounce" />
                             EVENT STARTED
+                          </Badge>
+                        ) : isEventEnded(event) ? (
+                          <Badge className="bg-neutral-800 text-white border-none px-4 py-1.5 uppercase font-bold tracking-wider">
+                            <CheckCircle2 className="w-3 h-3 mr-2" />
+                            EVENT ENDED
                           </Badge>
                         ) : (
                           <Badge className="bg-amber-500/90 text-white border-none px-4 py-1.5">

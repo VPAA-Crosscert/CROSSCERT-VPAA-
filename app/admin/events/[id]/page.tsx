@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield, X, Search, FileDown, Printer, CheckCircle2, Rocket, Pause, Play } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { getEventById, Event } from '@/lib/event-context'
+import { getEventById, Event, isEventLive, isEventEnded } from '@/lib/event-context'
 import { api, apiCall, adminApi } from '@/lib/api-config'
 
 // Define the precise color palette
