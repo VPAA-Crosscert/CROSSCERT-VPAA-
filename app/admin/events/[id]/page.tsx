@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { MapPin, Calendar, Clock, ArrowLeft, Ticket, Users, Info, Edit, Trash2, Power, BarChart, Landmark, AlertCircle, Shield, X, Search, FileDown, Printer, CheckCircle2, Rocket, Pause, Play } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { getEventById, Event, isEventLive, isEventEnded } from '@/lib/event-context'
+import { getEventById, Event } from '@/lib/event-context'
 import { api, apiCall, adminApi } from '@/lib/api-config'
 
 // Define the precise color palette
@@ -331,8 +331,8 @@ export default function AdminEventDetailPage() {
 
   const eventCategory = event ? getCategoryFromEvent(event) : 'HCDC'
   const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
-  const isConcluded = isEventEnded(event)
-  const isStarted = isEventLive(event)
+  const isConcluded = event?.status?.toLowerCase() === 'completed' || event?.status?.toLowerCase() === 'concluded'
+  const isStarted = event?.status?.toLowerCase() === 'live'
   const isPaused = event?.status?.toLowerCase() === 'paused'
 
 

@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api, apiCall } from '@/lib/api-config'
-import { isEventLive, isEventEnded } from '@/lib/event-context'
 import { toast } from '@/hooks/use-toast'
 import jsQR from 'jsqr'
 
@@ -20,8 +19,6 @@ type EventRecord = {
   date?: string
   start_time?: string
   end_time?: string
-  startTime?: string
-  endTime?: string
 }
 
 export default function AdminCheckIn() {
@@ -87,8 +84,8 @@ export default function AdminCheckIn() {
                 title: evt.title || evt.name || `Event #${evt.id}`,
                 status: evt.status,
                 date: evt.date,
-                start_time: evt.start_time || evt.startTime,
-                end_time: evt.end_time || evt.endTime,
+                start_time: evt.start_time,
+                end_time: evt.end_time,
               }))
             setEvents(validEvents)
             setEventsLoading(false)
@@ -121,8 +118,8 @@ export default function AdminCheckIn() {
             title: evt.title || evt.name || `Event #${evt.id}`,
             status: evt.status,
             date: evt.date,
-            start_time: evt.start_time || evt.startTime,
-            end_time: evt.end_time || evt.endTime,
+            start_time: evt.start_time,
+            end_time: evt.end_time,
           }))
 
         setEvents(validEvents)
@@ -485,8 +482,8 @@ export default function AdminCheckIn() {
               ) : (
                 events.map((event) => {
                   const isSelected = selectedEvent === event.id.toString()
-                  const isLive = isEventLive(event as any)
-                  const isCompleted = isEventEnded(event as any)
+                  const isLive = event.status?.toLowerCase() === 'live'
+                  const isCompleted = event.status?.toLowerCase() === 'completed' || event.status?.toLowerCase() === 'concluded'
 
                   return (
                     <div
@@ -640,7 +637,7 @@ export default function AdminCheckIn() {
                 className="bg-white dark:bg-neutral-900 text-center font-mono text-lg tracking-wider"
               />
 
-              {selectedEvent && isEventLive(events.find(e => e.id.toString() === selectedEvent) as any) && (
+              {selectedEvent && events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() === 'live' && (
                 <Button
                   onClick={processCheckIn}
                   className="w-full bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-6 shadow-lg shadow-green-500/20"
@@ -651,7 +648,7 @@ export default function AdminCheckIn() {
                 </Button>
               )}
 
-              {selectedEvent && (isEventEnded(events.find(e => e.id.toString() === selectedEvent) as any) || events.find(e => e.id.toString() === selectedEvent)?.status === 'paused') && (
+              {selectedEvent && (['completed', 'concluded', 'paused'].includes(events.find(e => e.id.toString() === selectedEvent)?.status?.toLowerCase() || '')) && (
                 <Button
                   onClick={processCheckOut}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-6 shadow-lg shadow-blue-500/20"
