@@ -8,12 +8,14 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.db.models import Count, Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView, UpdateView, ListView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from .models import Event, EventRegistration, CheckIn, Certificate, Notification
 from .serializers import EventSerializer, EventRegistrationSerializer, CheckInSerializer, NotificationSerializer
+
 from .forms import EventForm
 from django.contrib import messages
 from crosscert.email_utils import (
@@ -60,10 +62,15 @@ class EventViewSet(viewsets.ModelViewSet):
         Return all events for authenticated users.
         Return only public events for anonymous users.
         """
+        queryset = Event.objects.select_related('organizer').annotate(
+            registration_count_annotated=Count('registrations'),
+            attended_count_annotated=Count('registrations', filter=Q(registrations__is_present=True))
+        )
+
         if self.request.user.is_authenticated:
-            return Event.objects.all()
+            return queryset
         # Anonymous users can only see public events
-        return Event.objects.filter(is_public=True)
+        return queryset.filter(is_public=True)
 
     def create(self, request, *args, **kwargs):
         """Create an event."""
@@ -255,7 +262,7 @@ class CheckInViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Filter check-ins by event or registration if provided."""
-        queryset = CheckIn.objects.all()
+        queryset = CheckIn.objects.select_related('registration', 'registration__event').all()
         
         # Filter by event ID (registration__event)
         event_id = self.request.query_params.get('registration__event', None)

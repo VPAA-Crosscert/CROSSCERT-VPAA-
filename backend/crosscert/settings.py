@@ -3,6 +3,7 @@ Django settings for CROSSCERT project.
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Apply runtime monkeypatches (safe no-op if Django not available yet)
 # REQUIRED: Django 5.1's native __copy__ is broken on Python 3.14
@@ -13,6 +14,7 @@ except Exception:
     pass
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = 'django-insecure-your-secret-key-change-in-production'
 
@@ -72,18 +74,35 @@ WSGI_APPLICATION = 'crosscert.wsgi.application'
 
 
 DATABASES = {
+# NEON DB (Commented out)
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': 'neondb',
+    #     'USER': 'neondb_owner',
+    #     'PASSWORD': 'npg_eTZK5ghob4zC',
+    #     'HOST': 'ep-round-surf-a1af8ypj-pooler.ap-southeast-1.aws.neon.tech',
+    #     'PORT': '5432',
+    #     # Optimization: Keep connection open for 10 minutes to reduce SSL handshake overhead
+    #     'CONN_MAX_AGE': 600,
+    #     'OPTIONS': {
+    #         'sslmode': 'require',
+    #         'channel_binding': 'require',
+    #     },
+    # }
+
+    # SUPABASE DB
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'neondb',
-        'USER': 'neondb_owner',
-        'PASSWORD': 'npg_eTZK5ghob4zC',
-        'HOST': 'ep-round-surf-a1af8ypj-pooler.ap-southeast-1.aws.neon.tech',
-        'PORT': '5432',
-        # Optimization: Keep connection open for 10 minutes to reduce SSL handshake overhead
-        'CONN_MAX_AGE': 600,
+        'NAME': os.getenv('SUPABASE_DB_NAME', 'postgres'),
+        'USER': os.getenv('SUPABASE_DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('SUPABASE_DB_PASSWORD'),
+        'HOST': os.getenv('SUPABASE_DB_HOST'),
+        'PORT': os.getenv('SUPABASE_DB_PORT', '5432'),
+        # Optimization: We use port 5432 (Session Mode) with CONN_MAX_AGE for persistent connections.
+        # This acts as an efficient application-side pool.
+        'CONN_MAX_AGE': 600, 
         'OPTIONS': {
             'sslmode': 'require',
-            'channel_binding': 'require',
         },
     }
 }

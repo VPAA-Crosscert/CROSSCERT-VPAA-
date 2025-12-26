@@ -58,10 +58,10 @@ class EventSerializer(serializers.ModelSerializer):
         ]
 
     def get_registration_count(self, obj):
-        return obj.registrations.count()
+        return getattr(obj, 'registration_count_annotated', obj.registrations.count())
 
     def get_attended_count(self, obj):
-        return obj.registrations.filter(is_present=True).count()
+        return getattr(obj, 'attended_count_annotated', obj.registrations.filter(is_present=True).count())
 
     def get_organizer_name(self, obj):
         return obj.organizer.get_full_name() or obj.organizer.username
