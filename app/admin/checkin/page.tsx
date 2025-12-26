@@ -721,6 +721,19 @@ export default function AdminCheckIn() {
         </div>
       </div>
 
+      {/* Processing/Loading Modal */}
+      {isProcessingScan && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="rounded-3xl p-8 bg-white dark:bg-neutral-900 w-full max-w-sm mx-4 shadow-2xl border border-neutral-200 dark:border-neutral-800 text-center scale-100 animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-6">
+              <div className="w-10 h-10 border-4 border-neutral-300 dark:border-neutral-700 border-t-red-600 dark:border-t-red-500 rounded-full animate-spin" />
+            </div>
+            <h3 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">Processing...</h3>
+            <p className="text-neutral-500 dark:text-neutral-400 font-medium">Please wait while we verify the ticket.</p>
+          </div>
+        </div>
+      )}
+
       {/* Modals */}
       <NotStartedModal />
 

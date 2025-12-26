@@ -97,10 +97,10 @@ DATABASES = {
         'USER': os.getenv('SUPABASE_DB_USER', 'postgres'),
         'PASSWORD': os.getenv('SUPABASE_DB_PASSWORD'),
         'HOST': os.getenv('SUPABASE_DB_HOST'),
-        'PORT': os.getenv('SUPABASE_DB_PORT', '5432'),
-        # Optimization: We use port 5432 (Session Mode) with CONN_MAX_AGE for persistent connections.
-        # This acts as an efficient application-side pool.
-        'CONN_MAX_AGE': 600, 
+        'PORT': os.getenv('SUPABASE_DB_PORT', '6543'), # Default to 6543 for pooling
+        # Supabase Transaction Pooler (Port 6543) requires disabling persistent connections
+        # CONN_MAX_AGE must be 0 to allow the pooler to manage connections efficiently
+        'CONN_MAX_AGE': 0, 
         'OPTIONS': {
             'sslmode': 'require',
         },

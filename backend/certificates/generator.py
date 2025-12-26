@@ -91,12 +91,14 @@ class CertificateGenerator:
         image_reader = ImageReader(io.BytesIO(image_bytes))
         c.drawImage(image_reader, 0, 0, width=self.page_width, height=self.page_height)
 
-    def _draw_text(self, c, text, coords, font='Helvetica-Bold', size=28, align='center'):
-        """Draw text at specified coordinates."""
+    def _draw_text(self, c, text, coords, font='Helvetica-Bold', size=28, color=None, align='center'):
+        """Draw text at specified coordinates with custom font, size, and color."""
         x = coords.get('x', self.page_width / 2)
         y = coords.get('y', self.page_height / 2)
         c.setFont(font, size)
-        c.setFillColor(self.text_color)
+        # Use provided color or fall back to default text color
+        text_color = HexColor(color) if color else self.text_color
+        c.setFillColor(text_color)
         if align == 'center':
             c.drawCentredString(x, y, text)
         elif align == 'right':
@@ -110,6 +112,7 @@ class CertificateGenerator:
         event_data,
         template_image=None,
         coordinates=None,
+        font_styles=None,
         sample_text=None,
         output_path=None,
         return_base64=True,
@@ -142,21 +145,43 @@ class CertificateGenerator:
         c = canvas.Canvas(buffer, pagesize=(self.page_width, self.page_height))
         coords = coordinates or {}
         text_overrides = sample_text or {}
+        styles = font_styles or {}
 
         # Draw template background
         self._draw_template(c, template_to_use)
 
         # Participant name
         name_text = text_overrides.get('name') or participant_data.get('name', 'Participant Name')
-        self._draw_text(c, name_text.upper(), coords.get('name', {}), size=38)
+        name_style = styles.get('name', {})
+        self._draw_text(
+            c, 
+            name_text.upper(), 
+            coords.get('name', {}), 
+            size=name_style.get('fontSize', 38),
+            color=name_style.get('color')
+        )
 
         # Event title
         event_title = text_overrides.get('event_title') or event_data.get('title', 'Event Title')
-        self._draw_text(c, event_title, coords.get('event_title', {}), size=24)
+        title_style = styles.get('event_title', {})
+        self._draw_text(
+            c, 
+            event_title, 
+            coords.get('event_title', {}), 
+            size=title_style.get('fontSize', 24),
+            color=title_style.get('color')
+        )
 
         # Event date
         event_date = text_overrides.get('date') or event_data.get('date', 'January 01, 2025')
-        self._draw_text(c, event_date, coords.get('date', {}), size=18)
+        date_style = styles.get('date', {})
+        self._draw_text(
+            c, 
+            event_date, 
+            coords.get('date', {}), 
+            size=date_style.get('fontSize', 18),
+            color=date_style.get('color')
+        )
 
         c.showPage()
         c.save()
@@ -210,6 +235,7 @@ class CertificateService:
             event_data,
             template_image=event.certificate_template_image,
             coordinates=event.certificate_coordinates,
+            font_styles=event.certificate_font_styles,
             sample_text=None,
             output_path=output_path,
             return_base64=not save_to_disk,

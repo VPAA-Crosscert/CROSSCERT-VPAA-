@@ -9,24 +9,88 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from events.models import Event, EventRegistration, Certificate as EventCertificate
-from .serializers import CertificateSerializer
+from events.models import Event, EventRegistration
+from certificates.models import Certificate
+from .serializers import CertificateSerializer, CertificateListSerializer, CertificateDetailSerializer
 from .generator import generate_certificate
 
 
 class CertificateViewSet(viewsets.ModelViewSet):
     """ViewSet for Certificate management."""
-    queryset = EventCertificate.objects.all()
+    queryset = Certificate.objects.all()
     serializer_class = CertificateSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        """Use list serializer for list actions to exclude base64."""
+        if self.action == 'list' or self.action == 'my_certificates' or self.action == 'event_certificates':
+            return CertificateListSerializer
+        return CertificateDetailSerializer
 
     def get_queryset(self):
         """Filter certificates based on user role."""
         user = self.request.user
         if user.is_staff:
-            return EventCertificate.objects.all()
+            return Certificate.objects.select_related(
+                'registration', 
+                'registration__event',
+                'registration__event__organizer'
+            ).all()
         # For regular users, only show their own certificates
-        return EventCertificate.objects.filter(registration__email=user.email)
+        return Certificate.objects.select_related(
+            'registration',
+            'registration__event'
+        ).filter(registration__email__iexact=user.email)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def my_certificates(self, request):
+        """Get all certificates for the authenticated user."""
+        try:
+            print(f"DEBUG: my_certificates requested by {request.user} (email: {request.user.email})")
+            certificates = Certificate.objects.select_related(
+                'registration',
+                'registration__event'
+            ).filter(
+                registration__email__iexact=request.user.email
+            ).order_by('-created_at')
+            
+            print(f"DEBUG: Found {certificates.count()} certificates for {request.user.email}")
+            
+            serializer = CertificateListSerializer(certificates, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            print(f"DEBUG: Error in my_certificates: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': str(e), 'traceback': traceback.format_exc()},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    def event_certificates(self, request):
+        """Get all certificates grouped by event (admin only)."""
+        event_id = request.query_params.get('event_id')
+        
+        queryset = Certificate.objects.select_related(
+            'registration',
+            'registration__event',
+            'registration__event__organizer'
+        )
+        
+        if event_id:
+            queryset = queryset.filter(registration__event_id=event_id)
+        
+        queryset = queryset.order_by('-created_at')
+        serializer = CertificateListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def download(self, request, pk=None):
+        """Download certificate with full base64 data."""
+        certificate = self.get_object()
+        serializer = CertificateDetailSerializer(certificate)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def generate_certificate(self, request, pk=None):

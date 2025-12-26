@@ -135,13 +135,9 @@ export default function SignUp() {
       const responseData = await res.json().catch(() => ({}))
       console.log('[Signup] ✅ Registration successful:', responseData)
 
-      // Save minimal user data to localStorage (only for session management)
-      localStorage.setItem('userRole', 'participant')
-      localStorage.setItem('userEmail', formData.email)
-      localStorage.setItem('userId', responseData.id?.toString() || '')
-
-      console.log('[Signup] User session data saved')
-      router.push('/participant/dashboard')
+      // Don't auto-login, redirect to signin page
+      console.log('[Signup] Redirecting to signin page')
+      router.push('/auth/signin')
     } catch (err) {
       setError('Network error while creating account.')
     } finally {

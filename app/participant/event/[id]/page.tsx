@@ -323,24 +323,24 @@ export default function ParticipantEventDetailPage() {
     }
   }
   if (loading) return (
-    <div className="min-h-screen bg-neutral-950 animate-in fade-in duration-700">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 animate-in fade-in duration-700">
       {/* Hero Skeleton */}
-      <div className="relative w-full h-[65vh] md:h-[80vh] overflow-hidden bg-neutral-900/20">
-        <div className="absolute inset-0 bg-neutral-900/40 animate-pulse" />
+      <div className="relative w-full h-[65vh] md:h-[80vh] overflow-hidden bg-neutral-200/50 dark:bg-neutral-900/20">
+        <div className="absolute inset-0 bg-neutral-300/40 dark:bg-neutral-900/40 animate-pulse" />
         <div className="absolute inset-0 flex flex-col justify-end pb-12 md:pb-24 px-6 md:px-12 max-w-[1700px] mx-auto">
           <div className="space-y-6">
             {/* Badges */}
             <div className="flex gap-3">
-              <div className="h-8 w-24 bg-neutral-800 rounded-full animate-pulse" />
-              <div className="h-8 w-32 bg-neutral-800 rounded-full animate-pulse" />
+              <div className="h-8 w-24 bg-neutral-300 dark:bg-neutral-800 rounded-full animate-pulse" />
+              <div className="h-8 w-32 bg-neutral-300 dark:bg-neutral-800 rounded-full animate-pulse" />
             </div>
             {/* Title */}
-            <div className="h-16 md:h-24 w-3/4 max-w-4xl bg-neutral-800/80 rounded-3xl animate-pulse backdrop-blur-md" />
-            <div className="h-16 md:h-24 w-1/2 max-w-2xl bg-neutral-800/80 rounded-3xl animate-pulse backdrop-blur-md" />
+            <div className="h-16 md:h-24 w-3/4 max-w-4xl bg-neutral-200/80 dark:bg-neutral-800/80 rounded-3xl animate-pulse backdrop-blur-md" />
+            <div className="h-16 md:h-24 w-1/2 max-w-2xl bg-neutral-200/80 dark:bg-neutral-800/80 rounded-3xl animate-pulse backdrop-blur-md" />
             {/* Meta */}
             <div className="flex gap-4 pt-4">
-              <div className="h-12 w-48 bg-neutral-800/50 rounded-xl animate-pulse" />
-              <div className="h-12 w-48 bg-neutral-800/50 rounded-xl animate-pulse" />
+              <div className="h-12 w-48 bg-neutral-200/50 dark:bg-neutral-800/50 rounded-xl animate-pulse" />
+              <div className="h-12 w-48 bg-neutral-200/50 dark:bg-neutral-800/50 rounded-xl animate-pulse" />
             </div>
           </div>
         </div>
@@ -353,15 +353,15 @@ export default function ParticipantEventDetailPage() {
           <div className="lg:col-span-8 flex flex-col gap-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-24 bg-neutral-900/50 rounded-2xl animate-pulse border border-neutral-800/50" />
+                <div key={i} className="h-24 bg-neutral-200/50 dark:bg-neutral-900/50 rounded-2xl animate-pulse border border-neutral-200/50 dark:border-neutral-800/50" />
               ))}
             </div>
-            <div className="h-96 bg-neutral-900/50 rounded-[2.5rem] animate-pulse border border-neutral-800/50" />
+            <div className="h-96 bg-neutral-200/50 dark:bg-neutral-900/50 rounded-[2.5rem] animate-pulse border border-neutral-200/50 dark:border-neutral-800/50" />
           </div>
 
           {/* Ticket Skeleton */}
           <div className="lg:col-span-4">
-            <div className="h-[600px] bg-neutral-900/50 rounded-3xl animate-pulse border border-neutral-800/50" />
+            <div className="h-[600px] bg-neutral-200/50 dark:bg-neutral-900/50 rounded-3xl animate-pulse border border-neutral-200/50 dark:border-neutral-800/50" />
           </div>
         </div>
       </div>

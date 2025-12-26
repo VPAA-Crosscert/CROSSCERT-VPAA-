@@ -284,75 +284,137 @@ export default function AdminDashboard() {
               </div>
 
               {/* Column 2: Analytics Snapshot (Graph) */}
-              <div className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col h-full min-h-[300px]">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-bold text-lg text-neutral-900 dark:text-white flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-emerald-500" /> Registration Trends
-                  </h4>
-                  <Button variant="ghost" size="sm" onClick={() => router.push('/admin/insights')} className="text-xs text-neutral-500 hover:text-emerald-500">
+              <div className="bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col h-full min-h-[300px] relative overflow-hidden">
+                {/* Background Grid Pattern */}
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute inset-0" style={{
+                    backgroundImage: 'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)',
+                    backgroundSize: '20px 20px'
+                  }} className="dark:hidden" />
+                  <div className="absolute inset-0 hidden dark:block" style={{
+                    backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
+                    backgroundSize: '20px 20px'
+                  }} />
+                </div>
+
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                  <div>
+                    <h4 className="font-bold text-lg text-neutral-900 dark:text-white flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                      Registration Trends
+                    </h4>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Real-time analytics</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push('/admin/insights')}
+                    className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-500/10 border border-emerald-500/20"
+                  >
+                    <ArrowUpRight className="w-3 h-3 mr-1" />
                     Full Report
                   </Button>
                 </div>
 
-                <div className="flex-1 w-full relative">
-                  {/* Recharts Implementation: Stock Style */}
+                <div className="flex-1 w-full relative z-10">
                   {loading ? (
-                    <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                        <p className="text-xs font-mono uppercase tracking-widest animate-pulse">Loading Analytics...</p>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="relative">
+                          <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                          <div className="absolute inset-0 w-8 h-8 border-2 border-transparent border-b-emerald-400 rounded-full animate-spin" style={{ animationDirection: 'reverse' }} />
+                        </div>
+                        <p className="text-xs font-mono uppercase tracking-widest text-emerald-600 dark:text-emerald-400 animate-pulse">Loading Analytics...</p>
                       </div>
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={upcomingEvents.concat(pastEvents).slice(0, 10).map(e => ({
-                        name: (e.name || e.title || '').substring(0, 10),
-                        full_name: e.name || e.title,
-                        registrations: e.registration_count || e.participants || 0,
-                        date: e.date
-                      }))}>
+                      <AreaChart
+                        data={upcomingEvents.concat(pastEvents).slice(0, 10).map(e => ({
+                          name: (e.name || e.title || '').substring(0, 10),
+                          full_name: e.name || e.title,
+                          registrations: e.registration_count || e.participants || 0,
+                          date: e.date
+                        }))}
+                        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                      >
                         <defs>
                           <linearGradient id="colorReg" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                            <stop offset="50%" stopColor="#10b981" stopOpacity={0.2} />
                             <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                           </linearGradient>
+                          <filter id="glow">
+                            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                            <feMerge>
+                              <feMergeNode in="coloredBlur" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
                         </defs>
                         <XAxis
                           dataKey="name"
-                          stroke="#525252"
+                          stroke="#a3a3a3"
                           fontSize={10}
                           tickLine={false}
-                          axisLine={false}
+                          axisLine={{ stroke: '#d4d4d4', strokeWidth: 1 }}
+                          tick={{ fill: '#737373' }}
+                          className="dark:stroke-neutral-500"
                         />
                         <YAxis
-                          stroke="#525252"
+                          stroke="#a3a3a3"
                           fontSize={10}
                           tickLine={false}
-                          axisLine={false}
+                          axisLine={{ stroke: '#d4d4d4', strokeWidth: 1 }}
+                          tick={{ fill: '#737373' }}
                           tickFormatter={(value: any) => `${value}`}
+                          className="dark:stroke-neutral-500"
                         />
                         <Tooltip
-                          contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '12px', color: '#fff' }}
-                          itemStyle={{ color: '#10b981' }}
-                          labelStyle={{ color: '#a3a3a3', marginBottom: '0.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                          cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '4 4' }}
+                          contentStyle={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                            border: '1px solid #10b981',
+                            borderRadius: '12px',
+                            color: '#171717',
+                            boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)'
+                          }}
+                          itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                          labelStyle={{
+                            color: '#525252',
+                            marginBottom: '0.5rem',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}
+                          cursor={{ stroke: '#10b981', strokeWidth: 2, strokeDasharray: '5 5', opacity: 0.5 }}
                         />
                         <Area
                           type="monotone"
                           dataKey="registrations"
                           stroke="#10b981"
-                          strokeWidth={2}
+                          strokeWidth={3}
                           fillOpacity={1}
                           fill="url(#colorReg)"
-                          activeDot={{ r: 6, strokeWidth: 0, fill: '#fff' }}
+                          activeDot={{
+                            r: 6,
+                            strokeWidth: 2,
+                            stroke: '#10b981',
+                            fill: '#fff',
+                            filter: 'url(#glow)'
+                          }}
+                          dot={{
+                            r: 3,
+                            fill: '#10b981',
+                            strokeWidth: 0
+                          }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
                   )}
 
-                  {!loading && stats.totalParticipants === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center text-neutral-400 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
-                      <p className="text-sm">No data available</p>
+                  {!loading && stats.totalEvents === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-neutral-900/50 backdrop-blur-sm">
+                      <p className="text-sm text-neutral-500">No data available</p>
                     </div>
                   )}
                 </div>

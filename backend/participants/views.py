@@ -9,7 +9,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import get_user_model
 from .models import Evaluation, UserProfile
 from .serializers import EvaluationSerializer, ParticipantSerializer
-from events.models import CheckIn
+from events.models import CheckIn, Notification
 from certificates.generator import CertificateService
 from certificates.models import Certificate
 from django.utils import timezone
@@ -179,7 +179,22 @@ class EvaluationViewSet(viewsets.ModelViewSet):
         # Automatically send certificate email after evaluation submission
         if certificate:
             try:
-                certificate.send_certificate_email()
+                if certificate.send_certificate_email():
+                    # Create notification for the user
+                    user = registration.event.organizer # Fallback if user model not easily accessible, but we have registration.email
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    try:
+                        participant_user = User.objects.get(email=registration.email)
+                        Notification.objects.create(
+                            user=participant_user,
+                            title="Certificate Ready! 🎓",
+                            message=f"Your certificate for {registration.event.title} is now available. You can view it in your email or download it from the Certificates tab.",
+                            notification_type='certificate',
+                            related_event=registration.event
+                        )
+                    except User.DoesNotExist:
+                        pass
             except Exception as e:
                 # Log error but don't fail the evaluation submission
                 print(f"[Evaluation] Error sending certificate email: {e}")

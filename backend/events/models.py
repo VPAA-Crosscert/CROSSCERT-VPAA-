@@ -385,62 +385,71 @@ def notify_on_certificate(sender, instance, created, **kwargs):
             pass
 
 
+# Mapping for robust department matching
+DEPARTMENT_MAPPING = {
+    'CCJE': 'College of Criminal Justice Education',
+    'CET': 'College of Engineering and Technology',
+    'CHATME': 'College of Hospitality & Tourism Management',
+    'HUSOCOM': 'College of Humanities, Social Sciences and Communication',
+    'COME': 'College of Maritime Education',
+    'SBME': 'School of Business & Management',
+    'STE': 'School of Teacher Education',
+}
+
+def get_department_q_filters(department_name):
+    """Build Q filters to match department by abbreviation or full name."""
+    from django.db.models import Q
+    
+    # Reverse mapping for full names
+    REVERSE_MAPPING = {v: k for k, v in DEPARTMENT_MAPPING.items()}
+    
+    dept_query = Q(department__iexact=department_name)
+    
+    # If name is an Abbr (e.g., CCJE), add Full Name filter
+    if department_name in DEPARTMENT_MAPPING:
+        dept_query |= Q(department__iexact=DEPARTMENT_MAPPING[department_name])
+        
+    # If name is a Full Name, add Abbr filter
+    if department_name in REVERSE_MAPPING:
+        dept_query |= Q(department__iexact=REVERSE_MAPPING[department_name])
+        
+    return dept_query
+
 @receiver(post_save, sender=Event)
 def notify_on_new_event(sender, instance, created, **kwargs):
     """Notify users when a new event is created/published."""
-    # Existing logic for new events
+    # Trigger on creation if not draft
     if created and instance.status != 'draft':
         _send_event_notifications(instance)
+        
+    # Trigger on status change from draft to something else
+    elif not created and hasattr(instance, '_old_status'):
+        if instance._old_status == 'draft' and instance.status != 'draft':
+            _send_event_notifications(instance)
 
     # Logic for Event Start (Status change to 'live')
     if hasattr(instance, '_old_status'):
-        print(f"[DEBUG] Event Save: {instance.title} - Old: {instance._old_status} -> New: {instance.status}")
         if instance._old_status != 'live' and instance.status == 'live':
-             print("[DEBUG] Triggering Start Notifications")
-             _send_event_started_notifications(instance)
+             try:
+                _send_event_started_notifications(instance)
+             except Exception as e:
+                print(f"[ERROR] Failed to send start notifications: {e}")
 
 
 def _send_event_started_notifications(event):
     """Send notifications when event starts."""
     from participants.models import UserProfile
-    from django.db.models import Q
     
     users_to_notify = []
     
-    # Mapping for robust matching
-    DEPARTMENT_MAPPING = {
-        'CCJE': 'College of Criminal Justice Education',
-        'CET': 'College of Engineering and Technology',
-        'CHATME': 'College of Hospitality & Tourism Management',
-        'HUSOCOM': 'College of Humanities, Social Sciences and Communication',
-        'COME': 'College of Maritime Education',
-        'SBME': 'School of Business & Management',
-        'STE': 'School of Teacher Education',
-    }
-    # Reverse mapping
-    REVERSE_MAPPING = {v: k for k, v in DEPARTMENT_MAPPING.items()}
-
     if event.category == 'HCDC':
-        # Notify ALL
         profiles = UserProfile.objects.all()
         users_to_notify = [p.user for p in profiles]
-        print(f"[DEBUG] Notification: HCDC Wide - {len(users_to_notify)} users")
         
     elif event.category == 'department' and event.department:
-        # Notify specific department (handle Abbr vs Full Name mismatch)
-        dept_query = Q(department__iexact=event.department)
-        
-        # If event has Abbr (e.g., CCJE), check for Full Name
-        if event.department in DEPARTMENT_MAPPING:
-            dept_query |= Q(department__iexact=DEPARTMENT_MAPPING[event.department])
-            
-        # If event has Full Name, check for Abbr
-        if event.department in REVERSE_MAPPING:
-            dept_query |= Q(department__iexact=REVERSE_MAPPING[event.department])
-            
+        dept_query = get_department_q_filters(event.department)
         profiles = UserProfile.objects.filter(dept_query)
         users_to_notify = [p.user for p in profiles]
-        print(f"[DEBUG] Notification: Dept {event.department} - {len(users_to_notify)} users")
     
     notifications = []
     for user in users_to_notify:
@@ -454,7 +463,6 @@ def _send_event_started_notifications(event):
     
     if notifications:
         Notification.objects.bulk_create(notifications)
-        print(f"[DEBUG] Created {len(notifications)} notifications")
 
 
 # Signal to track state change
@@ -473,6 +481,7 @@ def track_event_state(sender, instance, **kwargs):
 
 
 def _send_event_notifications(event):
+    """Send notifications when a new event is published."""
     from participants.models import UserProfile
     
     users_to_notify = []
@@ -483,8 +492,9 @@ def _send_event_notifications(event):
         users_to_notify = [p.user for p in profiles]
         
     elif event.category == 'department' and event.department:
-        # Notify specific department
-        profiles = UserProfile.objects.filter(department=event.department)
+        # Notify specific department (robust matching)
+        dept_query = get_department_q_filters(event.department)
+        profiles = UserProfile.objects.filter(dept_query)
         users_to_notify = [p.user for p in profiles]
     
     # Bulk create notifications
@@ -494,7 +504,7 @@ def _send_event_notifications(event):
             user=user,
             title="New Event Available",
             message=f"New event: {event.title} is now available for registration.",
-            notification_type='general', # generic type for new event
+            notification_type='general',
             related_event=event
         ))
     

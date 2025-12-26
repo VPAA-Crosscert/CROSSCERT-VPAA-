@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Download, Eye, FileText, Loader2, Award, ShieldCheck, Share2 } from 'lucide-react'
+import { ArrowLeft, Download, Eye, FileText, Loader2, Award, ShieldCheck, Share2, Mail } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { apiCall, api, getAuthenticatedUserEmail } from '@/lib/api-config'
 
@@ -25,6 +25,9 @@ export default function Certificates() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedCert, setSelectedCert] = useState<CertificateRecord | null>(null)
+
   useEffect(() => {
     const fetchCertificates = async () => {
       try {
@@ -35,49 +38,28 @@ export default function Certificates() {
           return
         }
 
-        const response = await apiCall.get(api.certificates())
+        // Use optimized endpoint that excludes base64 in list view
+        const baseUrl = api.certificates().endsWith('/') ? api.certificates().slice(0, -1) : api.certificates()
+        const response = await apiCall.get(`${baseUrl}/my_certificates/`)
 
         if (!response.ok) {
           if (response.status === 401) {
             setError('Please sign in to view your certificates.')
           } else {
-            setError('Unable to load certificates. Please try again later.')
+            try {
+              const errData = await response.json()
+              setError(errData.error || `Error loading certificates: ${response.statusText}`)
+            } catch {
+              setError(`Unable to load certificates (${response.status}). Please try again later.`)
+            }
           }
           setLoading(false)
           return
         }
 
         const data = await response.json()
-
-        const certificatesList: CertificateRecord[] = Array.isArray(data)
-          ? data
-          : (data.results || data.data || [])
-
-        const enrichedCertificates = await Promise.all(
-          certificatesList.map(async (cert) => {
-            if (!cert.event_title) {
-              try {
-                const regResponse = await apiCall.get(`${api.registrations()}/${cert.registration}/`)
-                if (regResponse.ok) {
-                  const reg = await regResponse.json()
-                  const eventResponse = await apiCall.get(api.eventById(reg.event))
-                  if (eventResponse.ok) {
-                    const event = await eventResponse.json()
-                    return {
-                      ...cert,
-                      event_title: event.title,
-                    }
-                  }
-                }
-              } catch (err) {
-                console.warn(`Could not fetch event details for certificate ${cert.id}:`, err)
-              }
-            }
-            return cert
-          })
-        )
-
-        setCertificates(enrichedCertificates)
+        const certificatesList: CertificateRecord[] = Array.isArray(data) ? data : []
+        setCertificates(certificatesList)
       } catch (err: any) {
         console.error('[Certificates] Error fetching certificates:', err)
         setError(err.message || 'Failed to load certificates. Please try again later.')
@@ -103,43 +85,34 @@ export default function Certificates() {
   }
 
   const handleViewCertificate = async (cert: CertificateRecord) => {
-    try {
-      if (cert.pdf_file) {
-        const fileUrl = cert.pdf_file.startsWith('http')
-          ? cert.pdf_file
-          : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${cert.pdf_file}`
-        window.open(fileUrl, '_blank')
-        return
-      }
-
-      if (cert.pdf_base64) {
-        const blob = base64ToBlob(cert.pdf_base64, 'application/pdf')
-        const url = window.URL.createObjectURL(blob)
-        window.open(url, '_blank')
-        return
-      }
-
-      alert('Certificate file is not available yet. Please contact the administrator.')
-    } catch (err: any) {
-      alert(err.message || 'Failed to open certificate.')
-    }
+    setSelectedCert(cert)
+    setShowViewModal(true)
   }
 
   const handleDownloadCertificate = async (cert: CertificateRecord) => {
     try {
+      // Fetch full certificate with base64 from download endpoint
+      const baseUrl = api.certificates().endsWith('/') ? api.certificates().slice(0, -1) : api.certificates()
+      const response = await apiCall.get(`${baseUrl}/${cert.id}/download/`)
+
+      if (!response.ok) {
+        throw new Error('Failed to download certificate')
+      }
+
+      const fullCert = await response.json()
       let blob: Blob | null = null
 
-      if (cert.pdf_file) {
-        const fileUrl = cert.pdf_file.startsWith('http')
-          ? cert.pdf_file
-          : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${cert.pdf_file}`
-        const response = await fetch(fileUrl)
-        if (!response.ok) {
+      if (fullCert.pdf_file) {
+        const fileUrl = fullCert.pdf_file.startsWith('http')
+          ? fullCert.pdf_file
+          : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${fullCert.pdf_file}`
+        const fileResponse = await fetch(fileUrl)
+        if (!fileResponse.ok) {
           throw new Error('Failed to download certificate')
         }
-        blob = await response.blob()
-      } else if (cert.pdf_base64) {
-        blob = base64ToBlob(cert.pdf_base64, 'application/pdf')
+        blob = await fileResponse.blob()
+      } else if (fullCert.pdf_base64) {
+        blob = base64ToBlob(fullCert.pdf_base64, 'application/pdf')
       }
 
       if (!blob) {
@@ -194,10 +167,7 @@ export default function Certificates() {
           <div className="w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-6">
             <ShieldCheck className="w-10 h-10 text-neutral-400" />
           </div>
-          <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">No Verified Credentials Yet</h3>
-          <p className="text-neutral-500 dark:text-neutral-400 max-w-sm mx-auto mb-8">
-            Certificates will appear here once you complete event evaluations.
-          </p>
+          <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-8">No certificates yet</h3>
           <Button
             className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white px-8"
             onClick={() => router.push('/participant/my-events')}
@@ -263,6 +233,40 @@ export default function Certificates() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* View Info Modal */}
+      {showViewModal && selectedCert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <Card className="w-full max-w-md mx-6 bg-white dark:bg-neutral-900 border-none rounded-[2.5rem] shadow-2xl p-8 text-center animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Mail className="w-10 h-10 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-2xl font-black text-neutral-900 dark:text-white mb-4 leading-tight">Certificate Details</h2>
+            <p className="text-neutral-600 dark:text-neutral-400 mb-8 leading-relaxed">
+              Check your <span className="font-bold text-red-600 dark:text-red-400">email</span> to view the certificate <br /> or <span className="font-bold">download</span> it directly to your device.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Button
+                onClick={() => {
+                  handleDownloadCertificate(selectedCert)
+                  setShowViewModal(false)
+                }}
+                className="w-full h-12 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-xl font-bold hover:scale-[1.02] transition-transform"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download PDF
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setShowViewModal(false)}
+                className="w-full h-12 rounded-xl text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                Close
+              </Button>
+            </div>
+          </Card>
         </div>
       )}
     </div>

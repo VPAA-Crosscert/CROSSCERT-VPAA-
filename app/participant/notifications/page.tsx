@@ -158,17 +158,44 @@ export default function NotificationsPage() {
                                             {notification.message}
                                         </p>
                                         {isExpanded && notification.related_event && (
-                                            <div className="pt-2 mt-2 border-t border-neutral-100 dark:border-neutral-800">
-                                                <Button
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        router.push(`/participant/event/${notification.related_event}`)
-                                                    }}
-                                                >
-                                                    View Event Details
-                                                </Button>
+                                            <div className="pt-2 mt-2 border-t border-neutral-100 dark:border-neutral-800 flex flex-wrap gap-2">
+                                                {notification.notification_type === 'certificate' ? (
+                                                    <>
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-red-600 hover:bg-red-700 text-white"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                router.push('/participant/certificates')
+                                                            }}
+                                                        >
+                                                            Go to Certificates
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="gap-2"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                window.open('https://gmail.com', '_blank', 'noopener,noreferrer')
+                                                            }}
+                                                        >
+                                                            <Mail className="w-4 h-4" />
+                                                            Go to Email
+                                                        </Button>
+                                                    </>
+                                                ) : (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            router.push(`/participant/event/${notification.related_event}`)
+                                                        }}
+                                                    >
+                                                        View Event Details
+                                                    </Button>
+                                                )}
                                             </div>
                                         )}
                                     </div>

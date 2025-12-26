@@ -398,9 +398,9 @@ export default function CreateEventPage() {
           date: sampleDate || eventDate,
         },
         certificate_font_styles: {
-          name: { size: nameFontSize, color: nameFontColor },
-          event_title: { size: eventTitleFontSize, color: eventTitleFontColor },
-          date: { size: dateFontSize, color: dateFontColor },
+          name: { fontSize: nameFontSize, color: nameFontColor },
+          event_title: { fontSize: eventTitleFontSize, color: eventTitleFontColor },
+          date: { fontSize: dateFontSize, color: dateFontColor },
         },
       }
 
@@ -1629,6 +1629,7 @@ export default function CreateEventPage() {
                       type="color"
                       value={nameFontColor}
                       onChange={(e) => setNameFontColor(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
                       className="h-10 w-full cursor-pointer"
                     />
                     <Input
@@ -1649,6 +1650,7 @@ export default function CreateEventPage() {
                       type="color"
                       value={eventTitleFontColor}
                       onChange={(e) => setEventTitleFontColor(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
                       className="h-10 w-full cursor-pointer"
                     />
                     <Input
@@ -1669,6 +1671,7 @@ export default function CreateEventPage() {
                       type="color"
                       value={dateFontColor}
                       onChange={(e) => setDateFontColor(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
                       className="h-10 w-full cursor-pointer"
                     />
                     <Input

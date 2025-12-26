@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { TrendingUp, Users, CalendarCheck, Award, ArrowLeft, BarChart3, PieChart } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
-import { api, apiCall } from '@/lib/api-config'
+import { api, adminApi, apiCall } from '@/lib/api-config'
 import {
   AreaChart,
   Area,
@@ -26,6 +26,7 @@ type EventData = {
   date: string
   status: string
   participants: any[]
+  registration_count?: number
   attended_count?: number
 }
 
@@ -37,10 +38,15 @@ export default function AdminInsights() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const res = await apiCall.get(api.events())
+        const res = await apiCall.get(adminApi.events())
         if (res.ok) {
           const data = await res.json()
-          setEvents(Array.isArray(data) ? data : (data.results || []))
+          let eventList = []
+          if (Array.isArray(data)) eventList = data
+          else if (data.results) eventList = data.results
+          else if (data.data) eventList = data.data
+
+          setEvents(eventList)
         }
       } catch (err) {
         console.error("Failed to fetch events for insights", err)
@@ -53,7 +59,7 @@ export default function AdminInsights() {
 
   // Derived Metrics
   const totalEvents = events.length
-  const totalParticipants = events.reduce((sum, e) => sum + (e.participants?.length || 0), 0)
+  const totalParticipants = events.reduce((sum, e) => sum + (e.registration_count || 0), 0)
   const totalAttended = events.reduce((sum, e) => sum + (e.attended_count || 0), 0)
   const attendanceRate = totalParticipants > 0 ? Math.round((totalAttended / totalParticipants) * 100) : 0
 
@@ -62,26 +68,24 @@ export default function AdminInsights() {
     const sorted = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     return sorted.map(e => ({
       name: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      participants: e.participants?.length || 0,
+      participants: e.registration_count || 0,
       attended: e.attended_count || 0
     })).slice(-10)
   }, [events])
 
+  // ... (topEvents and statusDistribution logic remains mostly similar but using registration_count)
   const topEvents = useMemo(() => {
     return [...events]
-      .sort((a, b) => {
-        const countB = b.registration_count || b.participants?.length || 0
-        const countA = a.registration_count || a.participants?.length || 0
-        return countB - countA
-      })
+      .sort((a, b) => (b.registration_count || 0) - (a.registration_count || 0))
       .slice(0, 5)
       .map(e => ({
         name: e.title.length > 20 ? e.title.substring(0, 20) + '...' : e.title,
-        participants: e.registration_count || e.participants?.length || 0
+        participants: e.registration_count || 0
       }))
   }, [events])
 
   const statusDistribution = useMemo(() => {
+    // ... existing logic ...
     const counts = { Upcoming: 0, Completed: 0, Cancelled: 0 }
     events.forEach(e => {
       const s = (e.status || '').toLowerCase()
@@ -90,8 +94,8 @@ export default function AdminInsights() {
       else counts.Upcoming++
     })
     return [
-      { name: 'Upcoming', value: counts.Upcoming, color: '#f43f5e' }, // Rose/Red
-      { name: 'Completed', value: counts.Completed, color: '#10b981' }, // Emerald
+      { name: 'Upcoming', value: counts.Upcoming, color: '#10b981' }, // Green
+      { name: 'Completed', value: counts.Completed, color: '#059669' }, // Darker Green
       { name: 'Cancelled', value: counts.Cancelled, color: '#737373' }  // Neutral
     ].filter(item => item.value > 0)
   }, [events])
@@ -185,54 +189,132 @@ export default function AdminInsights() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Participation Growth */}
-        <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm col-span-1 lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Participation Trends</h3>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">Registrations vs Attendance over last 10 events</p>
-            </div>
-            <BarChart3 className="w-5 h-5 text-neutral-400" />
+        <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 shadow-2xl col-span-1 lg:col-span-2 relative overflow-hidden">
+          {/* Background Grid */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0 dark:hidden" style={{
+              backgroundImage: 'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }} />
+            <div className="absolute inset-0 hidden dark:block" style={{
+              backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }} />
           </div>
-          <div className="h-[300px] w-full">
+
+          <div className="flex items-center justify-between mb-6 relative z-10">
+            <div>
+              <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                Participation Trends
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Registrations vs Attendance over last 10 events</p>
+            </div>
+          </div>
+          <div className="h-[300px] w-full relative z-10">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={participantsOverTime}>
                 <defs>
                   <linearGradient id="colorRegistered" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorAttended" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="50%" stopColor="#10b981" stopOpacity={0.2} />
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id="colorAttended" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#059669" stopOpacity={0.4} />
+                    <stop offset="50%" stopColor="#059669" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+                  </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#525252" opacity={0.2} />
-                <XAxis dataKey="name" stroke="#737373" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#737373" fontSize={12} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#d4d4d4" className="dark:stroke-neutral-700" opacity={0.3} />
+                <XAxis
+                  dataKey="name"
+                  stroke="#737373"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={{ stroke: '#d4d4d4', strokeWidth: 1 }}
+                  className="dark:stroke-neutral-500"
+                />
+                <YAxis
+                  stroke="#737373"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={{ stroke: '#d4d4d4', strokeWidth: 1 }}
+                  className="dark:stroke-neutral-500"
+                />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="participants" name="Registered" stroke="#ef4444" fillOpacity={1} fill="url(#colorRegistered)" strokeWidth={2} />
-                <Area type="monotone" dataKey="attended" name="Attended" stroke="#10b981" fillOpacity={1} fill="url(#colorAttended)" strokeWidth={2} />
+                <Area
+                  type="monotone"
+                  dataKey="participants"
+                  name="Registered"
+                  stroke="#10b981"
+                  fillOpacity={1}
+                  fill="url(#colorRegistered)"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }}
+                  activeDot={{ r: 7, strokeWidth: 2, stroke: '#10b981', fill: '#fff' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="attended"
+                  name="Attended"
+                  stroke="#059669"
+                  fillOpacity={1}
+                  fill="url(#colorAttended)"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: '#059669', strokeWidth: 0 }}
+                  activeDot={{ r: 7, strokeWidth: 2, stroke: '#059669', fill: '#fff' }}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
         {/* Top Events */}
-        <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Top Events</h3>
-            <Award className="w-5 h-5 text-neutral-400" />
+        <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 shadow-xl relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0 dark:hidden" style={{
+              backgroundImage: 'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }} />
+            <div className="absolute inset-0 hidden dark:block" style={{
+              backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }} />
           </div>
-          <div className="h-[300px] w-full">
+
+          <div className="flex items-center justify-between mb-6 relative z-10">
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+              <Award className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              Top Events
+            </h3>
+          </div>
+          <div className="h-[300px] w-full relative z-10">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={topEvents} layout="vertical" margin={{ left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#525252" opacity={0.2} />
-                <XAxis type="number" stroke="#737373" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" stroke="#737373" fontSize={12} tickLine={false} axisLine={false} width={100} />
-                <Tooltip cursor={{ fill: 'transparent' }} content={<CustomTooltip />} />
-                <Bar dataKey="participants" name="Participants" radius={[0, 4, 4, 0]}>
+                <CartesianGrid strokeDasharray="5 5" horizontal={true} vertical={false} stroke="#d4d4d4" className="dark:stroke-neutral-700" opacity={0.3} />
+                <XAxis
+                  type="number"
+                  stroke="#737373"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={{ stroke: '#d4d4d4', strokeWidth: 1 }}
+                  className="dark:stroke-neutral-500"
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="#737373"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={{ stroke: '#d4d4d4', strokeWidth: 1 }}
+                  width={100}
+                  className="dark:stroke-neutral-500"
+                />
+                <Tooltip cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }} content={<CustomTooltip />} />
+                <Bar dataKey="participants" name="Participants" radius={[0, 8, 8, 0]}>
                   {topEvents.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#ef4444' : '#f43f5e'} />
+                    <Cell key={`cell-${index}`} fill={'#10b981'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -241,12 +323,25 @@ export default function AdminInsights() {
         </Card>
 
         {/* Status Distribution */}
-        <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Event Status</h3>
-            <PieChart className="w-5 h-5 text-neutral-400" />
+        <Card className="p-6 border border-neutral-200 dark:border-neutral-800 bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 shadow-xl relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0 dark:hidden" style={{
+              backgroundImage: 'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }} />
+            <div className="absolute inset-0 hidden dark:block" style={{
+              backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }} />
           </div>
-          <div className="h-[300px] w-full flex justify-center">
+
+          <div className="flex items-center justify-between mb-6 relative z-10">
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+              <PieChart className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              Event Status
+            </h3>
+          </div>
+          <div className="h-[300px] w-full flex justify-center relative z-10">
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 <Pie
@@ -254,9 +349,12 @@ export default function AdminInsights() {
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
-                  outerRadius={80}
+                  outerRadius={90}
                   paddingAngle={5}
                   dataKey="value"
+                  strokeWidth={2}
+                  stroke="#fff"
+                  className="dark:stroke-neutral-900"
                 >
                   {statusDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -266,10 +364,10 @@ export default function AdminInsights() {
               </RechartsPieChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex justify-center gap-4 mt-4">
+          <div className="flex justify-center gap-4 mt-4 relative z-10">
             {statusDistribution.map((item, i) => (
               <div key={i} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
                 <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">{item.name}</span>
               </div>
             ))}

@@ -635,7 +635,7 @@ export default function ParticipantEvents() {
 
                             <div
                               onClick={() => router.push(`/participant/event/${event.id}`)}
-                              className={`relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer ${!hasAccess ? 'opacity-75 grayscale-[0.5]' : ''}`}
+                              className={`relative bg-white dark:bg-neutral-900 rounded-2xl border ${borderColor} overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer ${(!hasAccess && !isRegistered) ? 'opacity-75 grayscale-[0.5]' : ''}`}
                             >
                               {/* Image & Badge */}
                               <div className="relative h-48 overflow-hidden bg-neutral-100 dark:bg-neutral-800">
@@ -661,6 +661,12 @@ export default function ParticipantEvents() {
                                           'bg-amber-500/80'
                                       }`}>
                                       {status}
+                                    </span>
+                                  )}
+                                  {!hasAccess && !isRegistered && (
+                                    <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-md bg-neutral-900/80 border border-white/20 flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                      Restricted
                                     </span>
                                   )}
                                 </div>
@@ -714,23 +720,24 @@ export default function ParticipantEvents() {
                                       <Button className="flex-1 bg-green-500 hover:bg-green-600 text-white border-0" disabled>
                                         Registered
                                       </Button>
-                                      <Button variant="outline" size="icon" onClick={() => handleUnregisterEvent(event)} className="border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-900/20">
+                                      <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); handleUnregisterEvent(event); }} className="border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-900/20">
                                         <X className="w-4 h-4" />
                                       </Button>
                                     </>
                                   ) : (
                                     <Button
-                                      className={`flex-1 ${hasAccess ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg shadow-red-500/20' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
-                                      onClick={() => handleJoinEvent(event)}
+                                      className={`flex-1 ${hasAccess ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white shadow-lg shadow-red-500/20' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed border border-neutral-200 dark:border-neutral-700'}`}
+                                      onClick={(e) => { e.stopPropagation(); if (hasAccess) handleJoinEvent(event); }}
                                       disabled={!hasAccess}
                                     >
-                                      {hasAccess ? 'Join Event' : 'Restricted'}
+                                      {hasAccess ? 'Join Event' : 'Restricted to Department'}
                                     </Button>
                                   )}
                                 </div>
                               </div>
                             </div>
                           </div>
+
                         )
                       })}
                     </div>
