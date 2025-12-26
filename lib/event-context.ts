@@ -137,19 +137,22 @@ export const isEventLive = (event: Event): boolean => {
   if (event.status?.toLowerCase() === 'completed' || event.status?.toLowerCase() === 'concluded' || event.status?.toLowerCase() === 'paused') return false
 
   try {
-    const eventDate = new Date(event.date)
+    // Parse YYYY-MM-DD safely to avoid timezone shifts
+    const [y, m, d] = String(event.date).split('-').map(Number)
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return false
+
     const startTimeStr = event.start_time || event.startTime || '00:00'
     const endTimeStr = event.end_time || event.endTime || '23:59'
 
-    // Format times into comparable numbers or full dates
     const now = new Date()
 
-    // Create Date objects for start and end
-    const startDate = new Date(eventDate)
+    const startDate = new Date()
+    startDate.setFullYear(y, m - 1, d)
     const [startH, startM] = startTimeStr.split(':').map(Number)
     startDate.setHours(startH || 0, startM || 0, 0, 0)
 
-    const endDate = new Date(eventDate)
+    const endDate = new Date()
+    endDate.setFullYear(y, m - 1, d)
     const [endH, endM] = endTimeStr.split(':').map(Number)
     endDate.setHours(endH || 23, endM || 59, 59, 999)
 
@@ -168,11 +171,14 @@ export const isEventEnded = (event: Event): boolean => {
   if (event.status?.toLowerCase() === 'completed' || event.status?.toLowerCase() === 'concluded') return true
 
   try {
-    const eventDate = new Date(event.date)
+    const [y, m, d] = String(event.date).split('-').map(Number)
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return false
+
     const endTimeStr = event.end_time || event.endTime || '23:59'
     const now = new Date()
 
-    const endDate = new Date(eventDate)
+    const endDate = new Date()
+    endDate.setFullYear(y, m - 1, d)
     const [endH, endM] = endTimeStr.split(':').map(Number)
     endDate.setHours(endH || 23, endM || 59, 59, 999)
 

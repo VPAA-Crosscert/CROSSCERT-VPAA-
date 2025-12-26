@@ -331,8 +331,8 @@ export default function AdminEventDetailPage() {
 
   const eventCategory = event ? getCategoryFromEvent(event) : 'HCDC'
   const colors = CATEGORY_COLORS[eventCategory] || CATEGORY_COLORS['HCDC']
-  const isConcluded = event?.status?.toLowerCase() === 'completed' || event?.status?.toLowerCase() === 'concluded'
-  const isStarted = event?.status?.toLowerCase() === 'live'
+  const isConcluded = isEventEnded(event)
+  const isStarted = isEventLive(event)
   const isPaused = event?.status?.toLowerCase() === 'paused'
 
 
