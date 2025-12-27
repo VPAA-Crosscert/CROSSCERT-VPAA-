@@ -6,8 +6,8 @@
 
 :root {
   /* Brand Palette - Modern Red/Blue System */
-  --primary: 210 100% 50%;
-  /* Default Blue */
+  --primary: 354 86% 40%;
+  /* Dark Red for Light Mode */
   --primary-foreground: 0 0% 100%;
 
   --background: 0 0% 98%;

@@ -1,5 +1,6 @@
 'use client'
 
+import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -24,35 +25,48 @@ export default function Home() {
   }
 
   useEffect(() => {
-    const t = setTimeout(() => setShowSplash(false), 1000)
+    setMounted(true)
+    const t = setTimeout(() => setShowSplash(false), 2500) // Increased duration for animation
     return () => clearTimeout(t)
   }, [])
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
   const logoSrc = resolvedTheme === 'dark' ? '/crosscert-typo-white.png' : '/crosscert-typo-black.png'
-
-  if (showSplash) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background dark:bg-gradient-to-b dark:from-black dark:to-[#450a0a]">
-        {mounted && (
-          <Image
-            src={logoSrc}
-            alt="CROSSCERT"
-            width={320}
-            height={96}
-            priority
-            className="w-48 sm:w-64 md:w-80 h-auto object-contain animate-in fade-in zoom-in duration-500"
-          />
-        )}
-      </div>
-    )
-  }
+  // Use Red for consistency as requested
+  const brandColor = 'text-primary'
+  const brandBg = 'bg-primary'
 
   return (
     <div className="min-h-screen relative selection:bg-red-500/30">
+      <AnimatePresence>
+        {showSplash && (
+          <motion.div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-background pointer-events-auto"
+            exit={{ opacity: 0, y: -100 }}
+            transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
+          >
+            <div className="relative flex flex-col items-center">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+                className="mb-8"
+              >
+                {mounted && (
+                  <Image
+                    src={logoSrc}
+                    alt="CROSSCERT"
+                    width={320}
+                    height={96}
+                    priority
+                    className="w-64 md:w-96 h-auto object-contain"
+                  />
+                )}
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Fixed Background Layer */}
       <div className="fixed inset-0 -z-10 bg-background dark:bg-gradient-to-b dark:from-black dark:to-[#450a0a]" />
 

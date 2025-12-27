@@ -239,10 +239,10 @@ export default function DevelopersPage() {
     if (!mounted) return null
 
     const logoSrc = resolvedTheme === 'dark' ? '/crosscert-typo-white.png' : '/crosscert-typo-black.png'
-    const brandColor = resolvedTheme === 'dark' ? 'text-red-600' : 'text-blue-600'
-    const brandBg = resolvedTheme === 'dark' ? 'bg-red-600' : 'bg-blue-600'
+    const brandColor = resolvedTheme === 'dark' ? 'text-red-600' : 'text-red-600'
+    const brandBg = resolvedTheme === 'dark' ? 'bg-red-600' : 'bg-red-600'
     const heroBgSrc = resolvedTheme === 'dark' ? '/developers/herobg/teampic.png' : '/developers/herobg/teampic.png'
-    const pyColor = resolvedTheme === 'dark' ? 'text-red-500' : 'text-blue-500'
+    const pyColor = resolvedTheme === 'dark' ? 'text-red-500' : 'text-red-500'
 
     return (
         <div className="relative min-h-[800vh] bg-background font-sans selection:bg-primary/30">
@@ -270,7 +270,7 @@ export default function DevelopersPage() {
                     >
                         <div className="relative flex flex-col items-center">
                             <motion.h1
-                                className="text-4xl md:text-7xl font-display font-black uppercase tracking-tightest"
+                                className="text-4xl md:text-7xl font-display font-black uppercase tracking-tightest text-center"
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.5 }}
