@@ -132,13 +132,7 @@ export default function MyCertificatesPage() {
           {!loading && !error && certificates.length === 0 && (
             <Card className="p-12 text-center border border-dashed border-border">
               <Award className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-              <p className="text-muted-foreground mb-4">No certificates yet</p>
-              <Button
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                onClick={() => router.push('/discover')}
-              >
-                Explore Events
-              </Button>
+              <p className="text-muted-foreground mb-4 opacity-75">Your earned certificates will appear here after event evaluation.</p>
             </Card>
           )}
         </div>

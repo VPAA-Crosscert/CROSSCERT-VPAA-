@@ -235,9 +235,9 @@ export function LandingHero() {
                 size="lg"
                 variant="outline"
                 className="border-border text-sm sm:text-base w-full sm:w-auto"
-                onClick={() => router.push('/discover')}
+                onClick={() => router.push('/developers')}
               >
-                Explore Events
+                Developers
               </Button>
             </div>
 

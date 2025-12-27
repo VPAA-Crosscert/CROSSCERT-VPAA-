@@ -54,12 +54,9 @@ export default function MyEventsPage() {
               <h1 className="text-4xl font-bold text-foreground">My Events</h1>
               <p className="text-muted-foreground mt-2">Events you're registered for or have attended</p>
             </div>
-            <Button
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              onClick={() => router.push('/discover')}
-            >
-              Browse Events
-            </Button>
+            <div className="bg-primary/5 border border-primary/10 rounded-xl px-4 py-2">
+              <span className="text-xs font-bold text-primary uppercase tracking-widest leading-none">Registered Events</span>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -73,11 +70,10 @@ export default function MyEventsPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="font-semibold text-lg text-foreground">{event.title}</h3>
-                        <Badge className={`${
-                          event.status === 'attended'
+                        <Badge className={`${event.status === 'attended'
                             ? 'bg-accent/10 text-accent'
                             : 'bg-primary/10 text-primary'
-                        }`}>
+                          }`}>
                           {event.status === 'attended' ? 'Attended' : 'Registered'}
                         </Badge>
                       </div>
@@ -145,13 +141,7 @@ export default function MyEventsPage() {
           {mockMyEvents.length === 0 && (
             <Card className="p-12 text-center border border-dashed border-border">
               <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-              <p className="text-muted-foreground mb-4">You haven't registered for any events yet</p>
-              <Button
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                onClick={() => router.push('/discover')}
-              >
-                Browse Events
-              </Button>
+              <p className="text-muted-foreground mb-4 opacity-75">You haven't registered for any events yet.</p>
             </Card>
           )}
         </div>
