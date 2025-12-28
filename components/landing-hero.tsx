@@ -142,7 +142,8 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
 
   // Define scale, position and line width based on screen size
   const cardScale = isSmall ? 2.0 : 2.6
-  const cardPosition: [number, number, number] = isSmall ? [0, -0.7, -0.05] : [0, -1.2, -0.05]
+  // The y-position here is calibrated to keep the top of the card aligned with the joint anchor at 1.45
+  const cardPosition: [number, number, number] = isSmall ? [0, -0.6, -0.05] : [0, -1.2, -0.05]
   const bandWidth = isSmall ? 1.4 : 2.2
 
   return (

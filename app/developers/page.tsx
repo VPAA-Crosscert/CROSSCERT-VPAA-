@@ -362,7 +362,7 @@ export default function DevelopersPage() {
                             </div>
 
                             <div className="relative">
-                                <h1 className="text-[10vw] md:text-[8vw] lg:text-[10vw] font-display font-black leading-none tracking-tightest whitespace-nowrap">
+                                <h1 className="text-[12vw] md:text-[8vw] font-display font-black leading-[0.9] tracking-tightest text-balance">
                                     PINAY<span className={pyColor}>.PY</span>
                                 </h1>
                             </div>
@@ -379,7 +379,7 @@ export default function DevelopersPage() {
 
                     {/* 2. Meet The Team Section - CLEARED (Ready for New Design) */}
                     {/* 2. Meet The Team Section */}
-                    <section className="flex flex-col gap-24 relative">
+                    <section className="flex flex-col gap-24 relative flex-shrink-0 min-w-screen">
                         <motion.div
                             className="space-y-4"
                             style={{
@@ -387,7 +387,7 @@ export default function DevelopersPage() {
                                 x: teamHeaderX,
                             }}
                         >
-                            <h2 className="text-6xl md:text-8xl font-display font-black uppercase tracking-tighter">
+                            <h2 className="text-6xl md:text-[7vw] font-display font-black uppercase tracking-tighter text-balance leading-[0.9]">
                                 Meet the <span className={brandColor}>Team</span>
                             </h2>
                             <div className={`h-2 w-48 ${brandBg}`} />
@@ -507,7 +507,7 @@ export default function DevelopersPage() {
                     <section className="flex flex-col gap-10 sm:gap-16 w-screen px-4 sm:px-20 lg:px-32 flex-shrink-0 justify-center">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                             <div>
-                                <h2 className="text-5xl sm:text-7xl font-display font-black uppercase tracking-tighter">Our <span className={brandColor}>Story</span></h2>
+                                <h2 className="text-5xl sm:text-7xl font-display font-black uppercase tracking-tighter text-balance">Our <span className={brandColor}>Story</span></h2>
                                 <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-lg">From challenges to triumph, our development journey.</p>
                             </div>
                             <Badge variant="outline" className="text-xs sm:text-xl px-4 sm:px-6 py-2 border-border/50 uppercase font-black">Milestone.log</Badge>
@@ -729,9 +729,9 @@ export default function DevelopersPage() {
                     </AnimatePresence>
 
                     {/* 5. Phase / Gantt Section */}
-                    <section className="flex flex-col gap-12 min-w-[100vw]">
+                    <section className="flex flex-col gap-12 min-w-[100vw] flex-shrink-0">
                         <div className="space-y-4">
-                            <h2 className="text-6xl font-display font-black uppercase tracking-tighter">
+                            <h2 className="text-6xl font-display font-black uppercase tracking-tighter text-balance">
                                 Gantt <span className={brandColor}>Chart</span>
                             </h2>
                             <p className="text-muted-foreground leading-relaxed">The roadmap of our technological evolution.</p>
@@ -1001,7 +1001,7 @@ export default function DevelopersPage() {
                         </div>
 
                         <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col items-center">
-                            <h2 className="text-5xl sm:text-7xl md:text-[10vw] font-display font-black uppercase tracking-tightest mb-6 sm:mb-12 leading-none whitespace-nowrap">
+                            <h2 className="text-5xl sm:text-7xl md:text-[8vw] font-display font-black uppercase tracking-tightest mb-6 sm:mb-12 leading-[0.9] text-balance">
                                 READY TO <span className={brandColor}>SCALE?</span>
                             </h2>
                             <p className="text-sm sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mb-8 sm:mb-16 uppercase tracking-widest font-bold leading-relaxed px-4">
