@@ -27,21 +27,22 @@ type LanyardProps = {
 }
 
 function Lanyard({ position = [0, 0, 17], gravity = [0, -10, 0], fov = 20, transparent = true }: LanyardProps) {
-  // Camera moved further back (z=22 instead of z=18)
   return (
-    <div className="relative z-0 w-full h-[24rem] sm:h-[28rem] md:h-[32rem] lg:h-[36rem] xl:h-[44rem] flex justify-center items-center">
-      <Canvas camera={{ position, fov }} gl={{ alpha: transparent }} onCreated={({ gl }) => gl.setClearColor(new THREE.Color(0xffffff), transparent ? 0 : 1)}>
-        <ambientLight intensity={Math.PI} />
-        <Physics gravity={gravity} timeStep={1 / 60}>
-          <Band />
-        </Physics>
-        <Environment blur={0.75}>
-          <Lightformer intensity={2} color="white" position={[0, -1, 5]} rotation={[0, 0, Math.PI / 3]} scale={[100, 0.1, 1]} />
-          <Lightformer intensity={3} color="white" position={[-1, -1, 1]} rotation={[0, 0, Math.PI / 3]} scale={[100, 0.1, 1]} />
-          <Lightformer intensity={3} color="white" position={[1, 1, 1]} rotation={[0, 0, Math.PI / 3]} scale={[100, 0.1, 1]} />
-          <Lightformer intensity={10} color="white" position={[-10, 0, 14]} rotation={[0, Math.PI / 2, Math.PI / 3]} scale={[100, 10, 1]} />
-        </Environment>
-      </Canvas>
+    <div className="relative z-0 w-full h-[32rem] sm:h-[28rem] md:h-[32rem] lg:h-[36rem] xl:h-[44rem] flex justify-center items-center pointer-events-none">
+      <div className="w-full h-full pointer-events-auto">
+        <Canvas camera={{ position, fov }} gl={{ alpha: transparent }} onCreated={({ gl }) => gl.setClearColor(new THREE.Color(0xffffff), transparent ? 0 : 1)}>
+          <ambientLight intensity={Math.PI} />
+          <Physics gravity={gravity} timeStep={1 / 60}>
+            <Band />
+          </Physics>
+          <Environment blur={0.75}>
+            <Lightformer intensity={2} color="white" position={[0, -1, 5]} rotation={[0, 0, Math.PI / 3]} scale={[100, 0.1, 1]} />
+            <Lightformer intensity={3} color="white" position={[-1, -1, 1]} rotation={[0, 0, Math.PI / 3]} scale={[100, 0.1, 1]} />
+            <Lightformer intensity={3} color="white" position={[1, 1, 1]} rotation={[0, 0, Math.PI / 3]} scale={[100, 0.1, 1]} />
+            <Lightformer intensity={10} color="white" position={[-10, 0, 14]} rotation={[0, Math.PI / 2, Math.PI / 3]} scale={[100, 10, 1]} />
+          </Environment>
+        </Canvas>
+      </div>
     </div>
   )
 }
@@ -139,6 +140,11 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
   curve.curveType = 'chordal'
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping
 
+  // Define scale, position and line width based on screen size
+  const cardScale = isSmall ? 2.0 : 2.6
+  const cardPosition: [number, number, number] = isSmall ? [0, -0.7, -0.05] : [0, -1.2, -0.05]
+  const bandWidth = isSmall ? 1.4 : 2.2
+
   return (
     <>
       <group position={[0, 3.2, 0]}>
@@ -149,7 +155,7 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
         <RigidBody position={[0.9, 1, 0]} ref={j3} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.13]} /></RigidBody>
         <RigidBody position={[1.2, 0, 0]} ref={card} {...segmentProps} type={dragged ? ('kinematicPosition' as RigidBodyProps['type']) : ('dynamic' as RigidBodyProps['type'])}>
           <CuboidCollider args={[0.8, 1.125, 0.01]} />
-          <group scale={2.6} position={[0, -1.2, -0.05]} onPointerOver={() => hover(true)} onPointerOut={() => hover(false)} onPointerUp={(e: any) => { e.target.releasePointerCapture(e.pointerId); drag(false) }} onPointerDown={(e: any) => { e.target.setPointerCapture(e.pointerId); drag(new THREE.Vector3().copy(e.point).sub(vec.copy(card.current.translation()))) }}>
+          <group scale={cardScale} position={cardPosition} onPointerOver={() => hover(true)} onPointerOut={() => hover(false)} onPointerUp={(e: any) => { e.target.releasePointerCapture(e.pointerId); drag(false) }} onPointerDown={(e: any) => { e.target.setPointerCapture(e.pointerId); drag(new THREE.Vector3().copy(e.point).sub(vec.copy(card.current.translation()))) }}>
             {/* White card base */}
             <mesh geometry={nodes.card.geometry}>
               <meshPhysicalMaterial color={new THREE.Color('#ffffff')} clearcoat={1} clearcoatRoughness={0.15} roughness={0.6} metalness={0.1} />
@@ -171,8 +177,7 @@ function Band({ maxSpeed = 50, minSpeed = 0 }: BandProps) {
       </group>
       <mesh ref={band} position={[0, 0.5, 0]}>
         <meshLineGeometry />
-        {/* Make the lanyard visually wider by increasing lineWidth */}
-        <meshLineMaterial color="white" depthTest={false} resolution={isSmall ? [1000, 2000] : [1000, 1000]} useMap map={texture} repeat={[-4, 1]} lineWidth={2.2} />
+        <meshLineMaterial color="white" depthTest={false} resolution={isSmall ? [1000, 2000] : [1000, 1000]} useMap map={texture} repeat={[-4, 1]} lineWidth={bandWidth} />
       </mesh>
     </>
   )
@@ -202,70 +207,72 @@ export function LandingHero() {
   }
 
   return (
-    <div className="pt-8 sm:pt-12 md:pt-16 lg:pt-20 pb-12 sm:pb-16 md:pb-20 px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center">
-          {/* Left Content */}
-          <div className="space-y-6 sm:space-y-8">
-            <div className="space-y-3 sm:space-y-4">
+    <div className="relative pt-12 sm:pt-12 md:pt-16 lg:pt-20 pb-12 sm:pb-16 md:pb-20 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl relative">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          {/* Right - Logo/Visual (Top on mobile, Right on desktop) */}
+          <div className="flex items-center justify-center order-first lg:order-last relative z-60 -mb-64 lg:mb-0 w-[calc(100%+2rem)] -mx-4 lg:w-full lg:mx-0">
+            <div
+              ref={logoRef}
+              onMouseEnter={() => setHovered(true)}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={resetTilt}
+              className="relative w-full aspect-square max-w-none sm:max-w-md flex items-center justify-center"
+            >
+              {/* Animated color-cycling glow behind the logo */}
+              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 sm:w-80 sm:h-80 rounded-full blur-3xl opacity-80 glow-cycle" />
+              {/* Logo */}
+              <div className="relative w-full">
+                <Lanyard position={[0, 0, 18]} gravity={[0, -40, 0]} />
+              </div>
+            </div>
+          </div>
+
+          {/* Left Content (Under lanyard on mobile, Left on desktop) */}
+          <div className="space-y-6 sm:space-y-8 text-center lg:text-left flex flex-col items-center lg:items-start relative">
+            {/* Text at Lower Layer */}
+            <div className="space-y-3 sm:space-y-4 relative z-10 pt-4 sm:pt-0">
               <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border transition-colors bg-red-50 border-red-200 text-red-700 dark:bg-white/10 dark:border-white/10 dark:text-zinc-200 dark:backdrop-blur-md">
                 <span className="font-semibold text-xs sm:text-sm flex items-center gap-2">
                   <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
                   pinay.py
                 </span>
               </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight text-balance">
+              <h1 className="text-4xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-foreground leading-[1.1] text-balance">
                 Smart events start with automation.
               </h1>
-              <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed text-balance">
+              <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed text-balance max-w-lg">
                 Organize, monitor attendance and generate verified certificates without the manual work.
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            {/* Buttons at Layer (above lanyard visually, but z-index managed for overlap) */}
+            <div className="relative z-[60] flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
               <Button
                 size="lg"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base w-full sm:w-auto"
+                className="bg-primary hover:bg-primary/90 text-white text-sm sm:text-base w-full sm:w-auto font-bold rounded-xl shadow-xl shadow-primary/20"
                 onClick={() => router.push('/auth/signin')}
               >
                 Create an Event
-                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 text-white" />
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="border-border text-sm sm:text-base w-full sm:w-auto"
+                className="border-zinc-200 dark:border-zinc-800 text-sm sm:text-base w-full sm:w-auto font-bold rounded-xl bg-background/50 backdrop-blur-sm"
                 onClick={() => router.push('/developers')}
               >
                 Developers
               </Button>
             </div>
 
-            {/* Trust Indicators */}
-            <div className="pt-6 sm:pt-8 border-t border-border">
+            {/* Trust Indicators - Desktop only or spaced for mobile */}
+            <div className="pt-6 sm:pt-8 border-t border-border w-full hidden sm:block">
               <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">Trusted by leading institutions</p>
               <div className="flex flex-col sm:flex-row flex-wrap gap-4 sm:gap-6 md:gap-8 items-start sm:items-center opacity-60">
                 <span className="font-semibold text-foreground text-sm sm:text-base">HCDC Campus-Wide Events</span>
                 <span className="font-semibold text-foreground text-sm sm:text-base">Departmental Events</span>
                 <span className="font-semibold text-foreground text-sm sm:text-base">VPAA Seminars</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right - Logo/Visual */}
-          <div className="hidden lg:flex items-center justify-center">
-            <div
-              ref={logoRef}
-              onMouseEnter={() => setHovered(true)}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={resetTilt}
-              className="relative w-full aspect-square max-w-md flex items-center justify-center"
-            >
-              {/* Animated color-cycling glow behind the logo */}
-              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl opacity-80 glow-cycle" />
-              {/* Logo */}
-              <div className="relative w-full max-w-2xl">
-                <Lanyard position={[0, 0, 16]} gravity={[0, -40, 0]} />
               </div>
             </div>
           </div>

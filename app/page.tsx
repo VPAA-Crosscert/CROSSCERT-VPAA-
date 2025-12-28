@@ -68,7 +68,13 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Fixed Background Layer */}
-      <div className="fixed inset-0 -z-10 bg-background dark:bg-gradient-to-b dark:from-black dark:to-[#450a0a]" />
+      <div className="fixed inset-0 -z-10 bg-background overflow-hidden">
+        <div className="absolute inset-0 dark:bg-black" />
+        {/* Richer Red Radial Glows */}
+        <div className="absolute inset-0 dark:bg-[radial-gradient(circle_at_bottom_right,_var(--tw-gradient-from)_0%,_transparent_60%)] dark:from-red-600/20" />
+        <div className="absolute inset-0 dark:bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-from)_0%,_transparent_40%)] dark:from-red-900/10" />
+        <div className="absolute inset-0 dark:bg-[linear-gradient(to_bottom,_transparent_0%,_#450a0a_100%)] opacity-60" />
+      </div>
 
       {/* Content */}
       <div className="relative z-0">

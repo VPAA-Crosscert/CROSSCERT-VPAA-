@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Bell, Menu, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Bell, Menu, X, Calendar, Code, Info, ShieldCheck, Home } from 'lucide-react'
 
 export function Navigation() {
   const router = useRouter()
@@ -20,87 +21,134 @@ export function Navigation() {
 
   const logoSrc = resolvedTheme === 'dark' ? '/crosscert-typo-white.png' : '/crosscert-typo-black.png'
 
-  return (
-    <nav className="fixed top-8 left-1/2 transform -translate-x-1/2 z-50 w-[96vw] max-w-xl rounded-full border border-zinc-800/60 dark:border-zinc-200/20 bg-white dark:bg-zinc-900/80 backdrop-blur-md flex items-center justify-center pt-4 pb-4 px-4 shadow-none">
-      <div className="flex items-center justify-between w-full px-4 py-1 gap-2 sm:gap-4" style={{minHeight: 'unset', height: '2.2rem'}}>
-        {/* Logo */}
-        <button
-          className="flex items-center gap-2 cursor-pointer flex-shrink-0"
-          onClick={() => router.push('/')}
-          aria-label="CROSSCERT home"
-        >
-          {mounted && (
-            <Image
-              src={logoSrc}
-              alt="CROSSCERT"
-              width={200}
-              height={48}
-              priority
-              className="w-36 sm:w-48 h-auto object-contain"
-            />
-          )}
-        </button>
+  const menuItems: any[] = []
 
-        {/* Desktop Spacer */}
-        <div className="hidden md:flex flex-1" />
+  return (
+    <div className="fixed top-4 left-0 right-0 z-[100] flex justify-center px-4">
+      <nav className="relative w-full max-w-2xl bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-800/50 rounded-full py-2 px-3 sm:px-6 shadow-2xl shadow-black/5 flex items-center justify-between gap-4 transition-all duration-300 h-14">
+        {/* Logo Section */}
+        <div className="flex items-center">
+          <button
+            className="flex items-center gap-2 cursor-pointer transition-transform active:scale-95"
+            onClick={() => {
+              router.push('/')
+              setIsOpen(false)
+            }}
+            aria-label="CROSSCERT home"
+          >
+            {mounted && (
+              <Image
+                src={logoSrc}
+                alt="CROSSCERT"
+                width={160}
+                height={40}
+                priority
+                className="w-28 sm:w-36 h-auto object-contain"
+              />
+            )}
+          </button>
+        </div>
+
+        {/* Desktop Navigation Links */}
+        <div className="hidden md:flex items-center gap-1">
+          {menuItems.map((item) => (
+            <Button
+              key={item.name}
+              variant="ghost"
+              size="sm"
+              className="rounded-full h-9 px-4 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              onClick={() => router.push(item.path)}
+            >
+              {item.name}
+            </Button>
+          ))}
+        </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-1 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-2">
           <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hidden sm:inline-flex h-9 w-9"
-          >
-            <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-9"
-            onClick={() => router.push('/auth/signin')}
-          >
-            Sign In
-          </Button>
+
+          <div className="hidden sm:block">
+            <Button
+              variant="default"
+              size="sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-full h-9 px-5 shadow-lg shadow-primary/20"
+              onClick={() => router.push('/auth/signin')}
+            >
+              SIGN IN
+            </Button>
+          </div>
 
           {/* Mobile Menu Toggle */}
           <button
-            className="md:hidden p-2 rounded-md hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+            className="md:hidden p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all active:scale-90"
             onClick={() => setIsOpen(!isOpen)}
             aria-label="Toggle menu"
           >
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
-      </div>
+      </nav>
+
       {/* Mobile Menu Content */}
-      {isOpen && (
-        <div className="md:hidden absolute left-1/2 top-[calc(100%+0.5rem)] transform -translate-x-1/2 w-[95vw] max-w-3xl bg-white dark:bg-zinc-900 shadow-2xl border border-border rounded-3xl animate-fade-in-down z-50">
-          <div className="flex flex-col gap-2 px-4 py-4">
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3"
-              onClick={() => {
-                router.push('/auth/signin')
-                setIsOpen(false)
-              }}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[55] md:hidden"
+            />
+
+            {/* Menu Panel */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", duration: 0.4, bounce: 0.3 }}
+              className="absolute top-20 left-4 right-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl p-4 z-[60] md:hidden"
             >
-              <Bell className="w-5 h-5" />
-              Notifications
-            </Button>
-            <Button
-              variant="default"
-              className="w-full justify-start gap-3 bg-primary hover:bg-primary/90 text-primary-foreground"
-              onClick={() => {
-                router.push('/auth/signin')
-                setIsOpen(false)
-              }}
-            >
-              Sign In
-            </Button>
-          </div>
-        </div>
-      )}
-    </nav>
+              <div className="flex flex-col gap-2">
+                <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">Navigation</div>
+                {menuItems.map((item) => (
+                  <button
+                    key={item.name}
+                    className="flex items-center gap-4 w-full p-3 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
+                    onClick={() => {
+                      router.push(item.path)
+                      setIsOpen(false)
+                    }}
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm">
+                      <item.icon className="w-5 h-5" />
+                    </div>
+                    <span className="font-bold text-sm tracking-tight">{item.name}</span>
+                  </button>
+                ))}
+
+                <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-2" />
+
+                <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">Account</div>
+                <button
+                  className="flex items-center gap-4 w-full p-3 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xl shadow-primary/20"
+                  onClick={() => {
+                    router.push('/auth/signin')
+                    setIsOpen(false)
+                  }}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <span className="font-bold text-sm tracking-tight">Sign In</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
