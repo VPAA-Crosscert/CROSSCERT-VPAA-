@@ -211,13 +211,13 @@ export function LandingHero() {
       <div className="mx-auto max-w-7xl relative">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {/* Right - Logo/Visual (Top on mobile, Right on desktop) */}
-          <div className="flex items-center justify-center order-first lg:order-last relative z-60 -mb-64 lg:mb-0 w-[calc(100%+2rem)] -mx-4 lg:w-full lg:mx-0">
+          <div className="flex items-center justify-center order-first lg:order-last relative z-[80] -mb-64 lg:mb-0 w-[calc(100%+2rem)] -mx-4 lg:w-full lg:mx-0 pointer-events-none">
             <div
               ref={logoRef}
               onMouseEnter={() => setHovered(true)}
               onMouseMove={handleMouseMove}
               onMouseLeave={resetTilt}
-              className="relative w-full aspect-square max-w-none sm:max-w-md flex items-center justify-center"
+              className="relative w-full aspect-square max-w-none sm:max-w-md flex items-center justify-center pointer-events-auto"
             >
               {/* Animated color-cycling glow behind the logo */}
               <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 sm:w-80 sm:h-80 rounded-full blur-3xl opacity-80 glow-cycle" />
