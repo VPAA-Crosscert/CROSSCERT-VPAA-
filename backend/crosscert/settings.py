@@ -174,7 +174,7 @@ REST_FRAMEWORK = {
 }
 
 # CORS Configuration
-FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', os.getenv('FRONTEND_URL', 'http://localhost:3000'))
+FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', os.getenv('FRONTEND_URL', 'http://localhost:3000')).rstrip('/')
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
