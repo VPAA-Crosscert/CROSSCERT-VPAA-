@@ -4,7 +4,8 @@
  */
 
 // Base API URL - can be configured via environment variable
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = rawApiUrl.startsWith('http') ? rawApiUrl : `https://${rawApiUrl}`
 
 /**
  * API Route paths using dashes (kebab-case)
